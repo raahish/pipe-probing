@@ -873,6 +873,7 @@ body {
   border-radius: var(--radius) !important;
   overflow: hidden !important;
   display: block !important;
+  height: 510px !important;
 }
 
 /* Recording Interface Container - Clean Design */
@@ -912,16 +913,29 @@ body {
   padding: var(--spacing-md);
 }
 
-/* Play Button - Center Stage */
+/* Play Button - Hidden by Default, Show Only After Recording */
 [id^="pipePlay-"] {
-  position: relative !important;
-  display: flex !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  display: none !important;
   align-items: center !important;
   justify-content: center !important;
   background: none !important;
   border: none !important;
   cursor: pointer !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Show play button only in playback state */
+[id^="pipeMenu-"].playback-state [id^="pipePlay-"] {
+  display: flex !important;
+}
+
+/* Hide record button in playback state */
+[id^="pipeMenu-"].playback-state [id^="pipeRec-"] {
+  display: none !important;
 }
 
 [id^="pipePlay-"] svg {
@@ -937,10 +951,13 @@ body {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
 }
 
+[id^="pipePlay-"]:hover {
+  transform: translate(-50%, -50%) scale(1.05) !important;
+}
+
 [id^="pipePlay-"]:hover svg {
   background: hsl(var(--primary)) !important;
   fill: hsl(var(--primary-foreground)) !important;
-  transform: scale(1.1) !important;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
 }
 

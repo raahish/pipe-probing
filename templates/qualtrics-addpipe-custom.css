@@ -479,7 +479,7 @@ body {
 .pipeTimer,
 .pipeTimer-custom {
   background: hsl(var(--card));
-  color: hsl(var(--foreground));
+  color: rgb(51, 68, 85);
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);

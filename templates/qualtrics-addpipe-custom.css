@@ -872,22 +872,24 @@ body {
 [id^="pipeVideoInput-"] {
   border-radius: var(--radius) !important;
   overflow: hidden !important;
+  display: block !important;
 }
 
 /* Recording Interface Container - Clean Design */
 [id^="pipeMenu-"] {
-  background: hsl(var(--card)) !important;
-  border-radius: var(--radius) !important;
-  border: 1px solid hsl(var(--border)) !important;
+  background: rgba(0, 0, 0, 0.2) !important;
   padding: 0 !important;
-  min-height: 12rem !important;
-  height: 12rem !important;
+  min-height: 6rem !important;
+  height: 6rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  position: relative !important;
+  position: absolute !important;
+  bottom: 0 !important;
   overflow: hidden !important;
   box-shadow: var(--shadow-md) !important;
+  z-index: 1000 !important;
+
 }
 
 /* Recording Interface Layout States */
@@ -946,6 +948,8 @@ body {
 [id^="pipeVrec-"],
 [id^="pipeRec-"] {
   height: auto !important;
+  position: relative !important;
+  display: inline-block !important;
 }
 
 [id^="pipeVrec-"] {

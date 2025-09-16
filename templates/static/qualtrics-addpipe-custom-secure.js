@@ -311,7 +311,7 @@ function modalClose() {
 function startRecordingClicked() {
   retake();
   jQuery('#pipeMenu-' + questionName).append(
-    '<div class="pipeTimer-custom" style="left: 121px; color: rgb(51, 68, 85);">00:00</div>'
+    '<div class="pipeTimer-custom">00:00</div>'
   );
   jQuery('.pipeTimer-custom').show();
   jQuery('#time-span').remove();

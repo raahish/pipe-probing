@@ -512,12 +512,7 @@ body {
   margin: 0 !important;
   border-radius: 50% !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
   cursor: pointer !important;
-  display: flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
@@ -880,8 +875,8 @@ body {
 [id^="pipeMenu-"] {
   background: rgba(0, 0, 0, 0.2) !important;
   padding: 0 !important;
-  min-height: 6rem !important;
-  height: 6rem !important;
+  min-height: 5rem !important;
+  height: 5rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;

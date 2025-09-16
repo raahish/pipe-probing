@@ -330,30 +330,7 @@ function getCamAccess() {
         jQuery.modal.close();
         jQuery('#recordInstruction').modal();
         loadPipe(questionName, pipeParams, deepGramConfiguration);
-        var sheet = document.createElement('style');
-        sheet.innerHTML =
-          '#pipeMenu-' +
-          questionName +
-          '{height:170px!important;background-color:#f6f3e6!important;display:flex;justify-content:center;align-items:center;width: 100% !important;}#pipeVrec-' +
-          questionName +
-          ',#' +
-          questionName +
-          '{height:auto!important}#pipeRec-' +
-          questionName +
-          '{text-align:center}#pipeClickPowered-' +
-          questionName +
-          '{display:none!important}#pipePlay-' +
-          questionName +
-          ' svg{fill:#F56A6A;border:7px solid #fff;border-radius:50%;padding:10px}#pipePlay-' +
-          questionName +
-          '{position:absolute;bottom:39px;display:none;right: 5%;}#pipeSwitchCam-' +
-          questionName +
-          '{display:none!important}#pipeSmallVideo-' +
-          questionName +
-          '{display:none!important}#pipeVideoInput-' +
-          questionName +
-          '{border-radius: 8px !important}.retake-button{border: 1px solid #fff; bottom: 68px; left: 43px; background: #12988A6E; width: 46px; height: 46px; border-radius: 50%; position: absolute;}.pipeTimer{display:none !important}';
-        document.body.appendChild(sheet);
+        // Clean CSS-only styling - remove conflicting inline styles
       })
       .catch((err) => {
         console.log('u got an error:' + err);
@@ -371,30 +348,7 @@ function getCamAccess() {
     jQuery.modal.close();
     jQuery('#recordInstruction').modal();
     loadPipe(questionName, pipeParams, deepGramConfiguration);
-    var sheet = document.createElement('style');
-    sheet.innerHTML =
-      '#pipeMenu-' +
-      questionName +
-      '{height:170px!important;background-color:#f6f3e6!important;display:flex;justify-content:center;align-items:center;width: 100% !important;}#pipeVrec-' +
-      questionName +
-      ',#' +
-      questionName +
-      '{height:auto!important}#pipeRec-' +
-      questionName +
-      '{text-align:center}#pipeClickPowered-' +
-      questionName +
-      '{display:none!important}#pipePlay-' +
-      questionName +
-      ' svg{fill:#F56A6A;border:7px solid #fff;border-radius:50%;padding:10px}#pipePlay-' +
-      questionName +
-      '{position:absolute;bottom:39px;display:none;right: 5%;}#pipeSwitchCam-' +
-      questionName +
-      '{display:none!important}#pipeSmallVideo-' +
-      questionName +
-      '{display:none!important}#pipeVideoInput-' +
-      questionName +
-      '{border-radius: 8px !important}.retake-button{border: 1px solid #fff; bottom: 68px; left: 43px; background: #12988A6E; width: 46px; height: 46px; border-radius: 50%; position: absolute;}.pipeTimer{display:none !important}';
-    document.body.appendChild(sheet);
+    // Clean CSS-only styling - remove conflicting inline styles
   }
 }
 
@@ -505,6 +459,9 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     jQuery('#next-button-modal').remove();
     jQuery('.retake-button').remove();
     jQuery('#record-title').append('Perfect! Video Recorded Successfully');
+    
+    // Set playback state for clean UI
+    jQuery('#pipeMenu-' + questionName).removeClass('recording-state').addClass('playback-state');
     jQuery('#pipeMenu-' + questionName).append(
       '<button class="retake-button" onClick="retake()" title="Record again"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg></button>'
     );

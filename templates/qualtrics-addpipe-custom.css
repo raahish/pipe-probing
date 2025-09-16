@@ -334,6 +334,11 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+/* Ensure all modal buttons have full width */
+.modal .btn {
+  width: 100%;
+}
+
 .next-button {
   /* Inherit btn, btn-primary styles */
   display: inline-flex;
@@ -417,10 +422,9 @@ body {
 
 .record-description ol li {
   counter-increment: step-counter;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-md);
+  display: block;
   padding: var(--spacing-lg);
+  padding-left: calc(var(--spacing-lg) + 2rem + var(--spacing-md));
   border-radius: var(--radius);
   background-color: hsl(var(--muted) / 0.3);
   margin-bottom: var(--spacing-md);
@@ -428,6 +432,7 @@ body {
   text-align: left;
   border: 1px solid hsl(var(--border) / 0.3);
   transition: all 0.2s ease;
+  line-height: 1.5;
 }
 
 .record-description ol li::before {
@@ -442,8 +447,9 @@ body {
   justify-content: center;
   font-size: 0.875rem;
   font-weight: 700;
-  flex-shrink: 0;
-  margin-top: 0;
+  position: absolute;
+  left: var(--spacing-lg);
+  top: var(--spacing-lg);
   box-shadow: var(--shadow-sm);
 }
 
@@ -726,14 +732,13 @@ body {
   
   .record-description ol li {
     padding: var(--spacing-md);
-    flex-direction: row;
-    gap: var(--spacing-md);
+    padding-left: calc(var(--spacing-md) + 2rem + var(--spacing-sm));
     text-align: left;
   }
   
   .record-description ol li::before {
-    align-self: flex-start;
-    margin-top: 0.125rem;
+    left: var(--spacing-md);
+    top: var(--spacing-md);
   }
 }
 

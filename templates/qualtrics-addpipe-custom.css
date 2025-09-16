@@ -508,10 +508,14 @@ body {
 [id^="pipeRec-"] {
   background: none !important;
   border: none !important;
-  padding: var(--spacing-lg) !important;
+  padding: 0 !important;
+  margin: 0 !important;
   border-radius: 50% !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  position: relative !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
   cursor: pointer !important;
   display: flex !important;
   align-items: center !important;
@@ -519,7 +523,7 @@ body {
 }
 
 [id^="pipeRec-"]:hover {
-  transform: scale(1.05) !important;
+  transform: translate(-50%, -50%) scale(1.05) !important;
   box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3) !important;
 }
 
@@ -532,24 +536,12 @@ body {
 /* Record Button Circle Styling */
 [id^="pipeRec-"] svg circle[fill="red"] {
   fill: hsl(var(--destructive)) !important;
-  animation: record-pulse 2s ease-in-out infinite !important;
 }
 
 [id^="pipeRec-"] svg circle[stroke="black"] {
   stroke: hsl(var(--foreground)) !important;
   stroke-width: 4 !important;
   stroke-opacity: 0.2 !important;
-}
-
-@keyframes record-pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 0.8;
-  }
 }
 
 /* Recording State Indicator */
@@ -564,13 +556,7 @@ body {
   border-radius: var(--radius);
   font-size: 0.75rem;
   font-weight: 600;
-  animation: blink 1.5s ease-in-out infinite;
   z-index: 10;
-}
-
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0.5; }
 }
 
 /* Control Buttons - Professional Design */

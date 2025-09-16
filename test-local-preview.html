@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Recorder Component - Local Preview</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="templates/qualtrics-addpipe-custom.css">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 2rem;
+            background: #f8fafc;
+            margin: 0;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .test-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .test-state-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .test-state-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .test-state-btn:hover {
+            background: #f3f4f6;
+        }
+        .test-state-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+        .component-preview {
+            border: 2px dashed #d1d5db;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .test-notes {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #eff6ff;
+            border-radius: 6px;
+            border-left: 4px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🎥 Video Recorder Component Preview</h1>
+            <p>Test the different states of your video recording interface</p>
+        </div>
+
+        <div class="test-state-controls">
+            <button class="test-state-btn active" onclick="showInitialState()">Initial State</button>
+            <button class="test-state-btn" onclick="showRecordingState()">Recording State</button>
+            <button class="test-state-btn" onclick="showPlaybackState()">Playback State</button>
+        </div>
+
+        <div class="component-preview">
+            <!-- Initial State: Ready to record -->
+            <div id="initial-state" class="test-state">
+                <div id="VQ1" class="video-recorder-container">
+                    <div id="pipeMenu-VQ1" style="height: 12rem; display: flex; align-items: center; justify-content: center; background: hsl(var(--card)); border-radius: var(--radius); border: 1px solid hsl(var(--border)); position: relative;">
+                        <div id="pipeRec-VQ1" class="pipeBtn" title="Click to start recording" tabindex="0">
+                            <svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                                <circle cx="50" cy="50" r="30" fill="red"></circle>
+                                <circle cx="50" cy="50" r="40" stroke="black" stroke-width="8" fill="none"></circle>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recording State: Currently recording -->
+            <div id="recording-state" class="test-state" style="display: none;">
+                <div id="VQ1-recording" class="video-recorder-container">
+                    <div id="pipeMenu-VQ1-recording" class="recording-state" style="height: 12rem; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, hsl(var(--card)), hsl(var(--muted) / 0.3)); border-radius: var(--radius); border: 1px solid hsl(var(--border)); position: relative;">
+                        <div id="pipeRec-VQ1-recording" class="pipeBtn" title="Recording..." tabindex="0">
+                            <svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                                <circle cx="50" cy="50" r="30" fill="red"></circle>
+                                <circle cx="50" cy="50" r="40" stroke="black" stroke-width="8" fill="none"></circle>
+                            </svg>
+                        </div>
+                        <div class="pipeTimer-custom" style="position: absolute; top: 1rem; right: 1rem;">00:15</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playback State: Recording completed -->
+            <div id="playback-state" class="test-state" style="display: none;">
+                <div id="VQ1-playback" class="video-recorder-container">
+                    <div id="pipeMenu-VQ1-playback" class="playback-state" style="height: 12rem; display: flex; align-items: center; justify-content: center; background: hsl(var(--card)); border-radius: var(--radius); border: 1px solid hsl(var(--border)); position: relative;">
+                        <div id="pipePlay-VQ1-playback" class="pipeBtn" title="Play recording" tabindex="0">
+                            <svg enable-background="new 0 0 512 512" height="30" viewBox="0 0 512 512" width="30" xmlns="http://www.w3.org/2000/svg">
+                                <path d="m405.2 232.9-278.4-165.7c-3.4-2-6.9-3.2-10.9-3.2-10.9 0-19.8 9-19.8 20h-.1v344h.1c0 11 8.9 20 19.8 20 4.1 0 7.5-1.4 11.2-3.4l278.1-165.5c6.6-5.5 10.8-13.8 10.8-23.1s-4.2-17.5-10.8-23.1z"></path>
+                            </svg>
+                        </div>
+                        
+                        <button class="retake-button" title="Record again">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                                <path d="M21 3v5h-5"/>
+                                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                                <path d="M3 21v-5h5"/>
+                            </svg>
+                        </button>
+                        
+                        <button class="play-custom-btn" title="Preview recording">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5,3 19,12 5,21"/>
+                            </svg>
+                            <span>32s</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-notes">
+            <h3>🧪 Test Instructions:</h3>
+            <ul>
+                <li><strong>Initial State:</strong> Shows the record button centered and ready</li>
+                <li><strong>Recording State:</strong> Shows recording button with timer and "REC" indicator</li>
+                <li><strong>Playback State:</strong> Shows play button with retake/preview controls</li>
+                <li>Test hover effects on all interactive elements</li>
+                <li>Check responsive behavior by resizing the window</li>
+                <li>Verify all buttons are properly centered and aligned</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function showInitialState() {
+            hideAllStates();
+            document.getElementById('initial-state').style.display = 'block';
+            setActiveButton(0);
+        }
+
+        function showRecordingState() {
+            hideAllStates();
+            document.getElementById('recording-state').style.display = 'block';
+            setActiveButton(1);
+        }
+
+        function showPlaybackState() {
+            hideAllStates();
+            document.getElementById('playback-state').style.display = 'block';
+            setActiveButton(2);
+        }
+
+        function hideAllStates() {
+            const states = document.querySelectorAll('.test-state');
+            states.forEach(state => state.style.display = 'none');
+        }
+
+        function setActiveButton(index) {
+            const buttons = document.querySelectorAll('.test-state-btn');
+            buttons.forEach((btn, i) => {
+                if (i === index) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Add click handlers for testing
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click effects for testing
+            document.querySelectorAll('[id^="pipeRec-"], [id^="pipePlay-"], .retake-button, .play-custom-btn').forEach(el => {
+                el.addEventListener('click', function() {
+                    console.log('Clicked:', this.id || this.className);
+                    // Add visual feedback
+                    this.style.transform = this.style.transform.includes('scale') ? 
+                        this.style.transform.replace(/scale\([^)]*\)/, 'scale(0.95)') : 
+                        (this.style.transform || '') + ' scale(0.95)';
+                    
+                    setTimeout(() => {
+                        this.style.transform = this.style.transform.replace(' scale(0.95)', '').replace('scale(0.95)', '');
+                    }, 150);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

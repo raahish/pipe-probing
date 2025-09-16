@@ -9,9 +9,9 @@
 }
 
 .question-title {
-  font-size: 1.875rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  color: hsl(var(--foreground));
+  color: black;
   margin-bottom: var(--spacing-md);
   font-family: var(--font-heading);
   line-height: 1.2;
@@ -475,23 +475,24 @@ body {
   background-color: hsl(var(--card));
 }
 
-/* Timer Styles */
+/* Timer Styles - Clean Design */
 .pipeTimer,
 .pipeTimer-custom {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
-  color: hsl(var(--primary-foreground));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   padding: var(--spacing-sm) var(--spacing-md);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  position: absolute;
-  top: var(--spacing-md);
-  right: var(--spacing-md);
-  z-index: 10;
+  position: absolute !important;
+  top: var(--spacing-md) !important;
+  right: var(--spacing-md) !important;
+  z-index: 10 !important;
   backdrop-filter: blur(8px);
-  animation: pulse 2s ease-in-out infinite;
+  letter-spacing: 0.05em;
 }
 
 @keyframes pulse {
@@ -503,36 +504,41 @@ body {
   }
 }
 
-/* Recording Controls */
-.pipeBtn {
+/* Recording Button - Clean Design */
+[id^="pipeRec-"] {
   background: none !important;
   border: none !important;
-  padding: var(--spacing-md) !important;
+  padding: var(--spacing-lg) !important;
   border-radius: 50% !important;
-  transition: all 0.3s ease !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   position: relative !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.pipeBtn:hover {
+[id^="pipeRec-"]:hover {
   transform: scale(1.05) !important;
-  box-shadow: var(--shadow-lg) !important;
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3) !important;
 }
 
-.pipeBtn svg {
-  width: 4rem !important;
-  height: 4rem !important;
-  filter: drop-shadow(var(--shadow-sm));
+[id^="pipeRec-"] svg {
+  width: 5rem !important;
+  height: 5rem !important;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1)) !important;
 }
 
-.pipeBtn svg circle:first-child {
-  animation: record-pulse 2s ease-in-out infinite;
-  stroke: hsl(var(--primary)) !important;
-  stroke-width: 2 !important;
-}
-
-.pipeBtn svg circle:nth-of-type(2) {
+/* Record Button Circle Styling */
+[id^="pipeRec-"] svg circle[fill="red"] {
   fill: hsl(var(--destructive)) !important;
-  stroke: hsl(var(--destructive)) !important;
+  animation: record-pulse 2s ease-in-out infinite !important;
+}
+
+[id^="pipeRec-"] svg circle[stroke="black"] {
+  stroke: hsl(var(--foreground)) !important;
+  stroke-width: 4 !important;
+  stroke-opacity: 0.2 !important;
 }
 
 @keyframes record-pulse {
@@ -541,43 +547,95 @@ body {
     opacity: 1;
   }
   50% {
-    transform: scale(1.1);
-    opacity: 0.7;
+    transform: scale(1.05);
+    opacity: 0.8;
   }
 }
 
-/* Control Buttons */
+/* Recording State Indicator */
+[id^="pipeMenu-"].recording-state::before {
+  content: "● REC";
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  background: hsl(var(--destructive));
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+  animation: blink 1.5s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.5; }
+}
+
+/* Control Buttons - Professional Design */
 .retake-button,
-.play-custom-btn,
-.back-to-camera {
+.play-custom-btn {
   background: hsl(var(--card)) !important;
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: 50% !important;
-  width: 3rem !important;
-  height: 3rem !important;
+  border-radius: var(--radius) !important;
+  padding: var(--spacing-md) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  transition: all 0.2s ease !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   cursor: pointer !important;
   box-shadow: var(--shadow-sm) !important;
   position: absolute !important;
+  color: hsl(var(--foreground)) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  gap: var(--spacing-xs) !important;
 }
 
 .retake-button:hover,
-.play-custom-btn:hover,
-.back-to-camera:hover {
-  background: hsl(var(--accent)) !important;
+.play-custom-btn:hover {
   transform: translateY(-2px) !important;
   box-shadow: var(--shadow-md) !important;
 }
 
-.retake-button img,
-.play-custom-btn img,
-.back-to-camera img {
-  width: 1.25rem !important;
-  height: 1.25rem !important;
-  filter: brightness(0) saturate(100%) invert(47%) sepia(5%) saturate(1202%) hue-rotate(204deg) brightness(94%) contrast(86%);
+/* Retake Button - Bottom Left */
+.retake-button {
+  bottom: var(--spacing-md) !important;
+  left: var(--spacing-md) !important;
+  color: hsl(var(--destructive)) !important;
+}
+
+.retake-button:hover {
+  background: hsl(var(--destructive) / 0.1) !important;
+  border-color: hsl(var(--destructive)) !important;
+}
+
+/* Preview Button - Bottom Right */
+.play-custom-btn {
+  bottom: var(--spacing-md) !important;
+  right: var(--spacing-md) !important;
+  flex-direction: column !important;
+  color: hsl(var(--primary)) !important;
+  min-width: 4rem !important;
+}
+
+.play-custom-btn:hover {
+  background: hsl(var(--primary) / 0.1) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+.play-custom-btn span {
+  font-size: 0.75rem !important;
+  opacity: 0.8 !important;
+  margin-top: 0.125rem !important;
+}
+
+.retake-button svg,
+.play-custom-btn svg {
+  width: 1rem !important;
+  height: 1rem !important;
+  stroke: currentColor !important;
 }
 
 /* Success/Error Modal */
@@ -740,6 +798,30 @@ body {
     left: var(--spacing-md);
     top: var(--spacing-md);
   }
+  
+  /* Mobile Recording Interface */
+  [id^="pipeMenu-"] {
+    min-height: 10rem !important;
+    height: 10rem !important;
+  }
+  
+  [id^="pipeRec-"] svg,
+  [id^="pipePlay-"] svg {
+    width: 4rem !important;
+    height: 4rem !important;
+  }
+  
+  .retake-button,
+  .play-custom-btn {
+    padding: var(--spacing-sm) !important;
+    bottom: var(--spacing-sm) !important;
+    left: var(--spacing-sm) !important;
+    right: var(--spacing-sm) !important;
+  }
+  
+  .play-custom-btn {
+    min-width: 3rem !important;
+  }
 }
 
 /* Focus management for accessibility */
@@ -773,13 +855,31 @@ body {
   }
 }
 
-/* Hide AddPipe branding and unwanted elements - Generic for any question */
+/* Hide ALL Ugly AddPipe Elements - Comprehensive Cleanup */
 .pipeMicContainer,
+.pipeCamContainer,
 [id^="pipeClickPowered-"],
 [id^="pipeSwitchCam-"],
 [id^="pipeSmallVideo-"],
-[id^="pipeDownload-"] {
+[id^="pipeDownload-"],
+[id^="pipeMicContainer-"],
+[id^="pipeCamContainer-"],
+[id^="pipeNotificationaudio-"],
+[id^="pipeNotificationvideo-"],
+[id^="pipeMicIcon-"],
+[id^="pipeCamIcon-"],
+[id^="pipeAudioMenuVisualizer-"],
+.pipeInputSettingsButton,
+.pipeChevronUp,
+.pipeWaveMenuWrapper,
+.pipeMenuWave,
+.pipeAudioMenuVisualizer {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
 }
 
 /* Ensure video input has proper styling - Generic for any question */
@@ -788,38 +888,72 @@ body {
   overflow: hidden !important;
 }
 
-/* Menu styling - Generic for any question */
+/* Recording Interface Container - Clean Design */
 [id^="pipeMenu-"] {
   background: hsl(var(--card)) !important;
   border-radius: var(--radius) !important;
   border: 1px solid hsl(var(--border)) !important;
-  padding: var(--spacing-md) !important;
+  padding: 0 !important;
   min-height: 12rem !important;
+  height: 12rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   position: relative !important;
-}
-
-/* Play button styling - Generic for any question */
-[id^="pipePlay-"] svg {
-  fill: hsl(var(--primary)) !important;
-  background: hsl(var(--card)) !important;
-  border: 2px solid hsl(var(--primary)) !important;
-  border-radius: 50% !important;
-  padding: var(--spacing-md) !important;
-  width: 4rem !important;
-  height: 4rem !important;
-  transition: all 0.2s ease !important;
-  cursor: pointer !important;
+  overflow: hidden !important;
   box-shadow: var(--shadow-md) !important;
 }
 
-[id^="pipePlay-"] svg:hover {
+/* Recording Interface Layout States */
+[id^="pipeMenu-"].recording-state {
+  background: linear-gradient(135deg, hsl(var(--card)), hsl(var(--muted) / 0.3)) !important;
+}
+
+[id^="pipeMenu-"].playback-state {
+  background: hsl(var(--card)) !important;
+}
+
+/* Control Panel for Recorded State */
+[id^="pipeMenu-"] .control-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-lg);
+  width: 100%;
+  height: 100%;
+  padding: var(--spacing-md);
+}
+
+/* Play Button - Center Stage */
+[id^="pipePlay-"] {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[id^="pipePlay-"] svg {
+  fill: hsl(var(--primary)) !important;
+  background: hsl(var(--card)) !important;
+  border: 3px solid hsl(var(--primary)) !important;
+  border-radius: 50% !important;
+  padding: var(--spacing-lg) !important;
+  width: 5rem !important;
+  height: 5rem !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+[id^="pipePlay-"]:hover svg {
   background: hsl(var(--primary)) !important;
   fill: hsl(var(--primary-foreground)) !important;
-  transform: scale(1.05) !important;
-  box-shadow: var(--shadow-lg) !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Additional AddPipe component styling - Generic for any question */
@@ -845,4 +979,9 @@ body {
 .pipeTimer,
 .pipeTimer-custom {
   z-index: 1001;
+}
+
+/* Ensure timer shows above pipeMenu but below modals */
+[id^="pipeMenu-"] .pipeTimer-custom {
+  z-index: 15 !important;
 }

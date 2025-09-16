@@ -1,14 +1,10 @@
 var isRecording = false;
-var detections_array = [];
-var objectValue = {};
 var global_transcript = '';
 var defaultThumbnail = 'https://d2kltgp8v5sml0.cloudfront.net/templates/svg/gallary.svg';
 var streamTime = '';
 var recorderObjectGlobal;
 var isBackTOcamera = false;
-var isSocketOpen = false;
 var intervalID;
-var gallaryCss = 'display: grid; right:7px;';
 var ws;
 var mediaRecorder;
 var stream;
@@ -42,8 +38,6 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
      */
     recorderObject.onReadyToRecord = async function (recorderId, recorderType) {
       jQuery('.pipeTimer').hide();
-      const videoEl = document.getElementById('pipeVideoInput-' + question_name);
-      videoEl.setAttribute('onplay', 'onPlay(this)');
     };
 
     /**
@@ -55,7 +49,6 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
         startRecordingClicked();
         jQuery('#NextButton-custom').hide();
         isRecording = true;
-        detections_array = [];
         global_transcript = '';
         const videoEl = document.getElementById('pipeVideoInput-' + question_name);
         mediaRecorder = new MediaRecorder(videoEl.srcObject, {
@@ -146,9 +139,8 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
       audioOnly,
       location
     ) {
-      const detections_list = detections_array;
       const transcript_array = global_transcript.split(' ');
-      validateVideo(recorderObject, detections_list, detections_array, transcript_array, location, streamName);
+      validateVideo(recorderObject, transcript_array, location, streamName);
     };
 
     /**
@@ -173,7 +165,6 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
         location,
         recorderObject
       );
-      const detections_list = detections_array;
       const transcript_array = global_transcript.split(' ');
       jQuery('#' + recorderId).attr('style', 'height:120px !important');
       jQuery('#NextButton-custom').show();
@@ -188,17 +179,6 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
   });
 };
 
-/**
- * Handles video play event and face detection.
- * @param {HTMLVideoElement} videoEl
- */
-async function onPlay(videoEl) {
-  const detections = await faceapi.detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions());
-  if (isRecording) {
-    detections_array.push(detections);
-  }
-  setTimeout(() => onPlay(videoEl), 3000);
-}
 
 /**
  * Handles retake logic and UI reset.
@@ -343,51 +323,6 @@ function startRecordingClicked() {
   jQuery('#time-span').remove();
 }
 
-/**
- * Requests camera and audio access (audio only).
- */
-function getCamAccess1() {
-  console.log('getCamAccess >>> Grant Acess');
-  navigator.mediaDevices
-    .getUserMedia({ audio: true })
-    .then((stream) => {
-      console.log('getCamAccess >>> Before Model close');
-      jQuery.modal.close();
-      console.log('358 getCamAccess ');
-      jQuery('#recordInstruction').modal();
-      console.log('360 getCamAccess ');
-      loadPipe(questionName, pipeParams, deepGramConfiguration);
-      console.log('361 getCamAccess ');
-      var sheet = document.createElement('style');
-      sheet.innerHTML =
-        '#pipeMenu-' +
-        questionName +
-        '{height:170px!important;background-color:#f6f3e6!important;display:flex;justify-content:center;align-items:center;width: 100% !important;}#pipeVrec-' +
-        questionName +
-        ',#' +
-        questionName +
-        '{height:auto!important}#pipeRec-' +
-        questionName +
-        '{text-align:center}#pipeClickPowered-' +
-        questionName +
-        '{display:none!important}#pipePlay-' +
-        questionName +
-        ' svg{fill:#F56A6A;border:7px solid #fff;border-radius:50%;padding:10px}#pipePlay-' +
-        questionName +
-        '{position:absolute;bottom:39px;display:none;right: 5%;}#pipeSwitchCam-' +
-        questionName +
-        '{display:none!important}#pipeSmallVideo-' +
-        questionName +
-        '{display:none!important}#pipeVideoInput-' +
-        questionName +
-        '{border-radius: 8px !important}.retake-button{border: 1px solid #fff; bottom: 68px; left: 43px; background: #12988A6E; width: 46px; height: 46px; border-radius: 50%; position: absolute;}.pipeTimer{display:none !important}';
-      document.body.appendChild(sheet);
-      console.log('366 getCamAccess ');
-    })
-    .catch((err) => {
-      console.log('u got an error:' + err);
-    });
-}
 
 /**
  * Requests camera and audio access (video and audio).
@@ -500,20 +435,6 @@ function handleAPiCallForDeviceError(IpAddress, errorMessage) {
     });
 }
 
-/**
- * Starts audio recording.
- */
-function startRecording() {
-  navigator.mediaDevices
-    .getUserMedia({ audio: true })
-    .then((stream) => {
-      jQuery.modal.close();
-      console.log('Start Recording');
-    })
-    .catch((err) => {
-      console.log('u got an error:' + err);
-    });
-}
 
 /**
  * Detects mobile operating system and sets mimetype.
@@ -535,22 +456,12 @@ function getMobileOperatingSystem() {
 /**
  * Validates the recorded video and updates the UI accordingly.
  * @param {object} recorderObject
- * @param {Array} detections_list
- * @param {Array} detections_array
  * @param {Array} transcript_array
  * @param {string} location
  * @param {string} streamName
  */
-function validateVideo(recorderObject, detections_list, detections_array, transcript_array, location, streamName) {
+function validateVideo(recorderObject, transcript_array, location, streamName) {
   console.log('ValidateVideo >>>> ', recorderObject);
-  const countDefined = (arr = []) => {
-    let filtered;
-    filtered = arr.filter((el) => {
-      return el !== undefined;
-    });
-    const { length } = filtered;
-    return length;
-  };
   var sucessModalDetails = '';
 
   jQuery('#record-title').empty();

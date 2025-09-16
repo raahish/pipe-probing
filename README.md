@@ -30,7 +30,6 @@ This project implements a custom video recorder within Qualtrics surveys using t
 - 📱 **Mobile Support**: Automatic format detection for iOS/Android
 - 💾 **Automatic Upload**: Videos uploaded to S3 with URL stored in Qualtrics
 - 🎨 **Custom UI/UX**: Modal-based workflow with branded styling
-- 👤 **Face Detection**: Framework for face detection (requires face-api.js)
 
 ## Architecture
 
@@ -158,7 +157,6 @@ pipe-probing/
    - User clicks record button
    - Timer starts counting
    - Audio streams to DeepGram for transcription
-   - Face detection runs every 3 seconds (if enabled)
 
 4. **Post-Recording**
    - Video validation checks minimum duration
@@ -179,7 +177,6 @@ pipe-probing/
 recorderObject.btRecordPressed = function(recorderId) {
     // Initialize WebSocket for transcription
     // Start MediaRecorder
-    // Begin face detection
 };
 
 // Recording stopped
@@ -244,20 +241,16 @@ recorderObject.onVideoUploadSuccess = function(...args) {
 
 ## Known Issues
 
-1. **Face Detection Not Working**
-   - face-api.js library is not included in HTML
-   - Code attempts to use `faceapi.detectSingleFace()` causing errors
-
-2. **Security Vulnerabilities**
+1. **Security Vulnerabilities**
    - API keys exposed in client-side code
    - No request validation or rate limiting
 
-3. **Code Quality**
+2. **Code Quality**
    - Global variables may cause conflicts
    - Inline CSS generation in JavaScript
    - Mixed concerns in single file
 
-4. **UI/UX**
+3. **UI/UX**
    - Some hardcoded styling values
    - Limited accessibility features
    - No internationalization support

@@ -199,11 +199,8 @@ function retake() {
   jQuery('.back-to-camera').remove();
   jQuery('#time-span').remove();
   jQuery('#pipeMenu-' + questionName).append(
-    '<button class="play-custom-btn"  id="time-span" onClick="playVideoCustom()" ><img src="' +
-	defaultThumbnail +
-      '"></button>'
+    '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">' + Math.round(streamTime) + 's</span></button>'
   );
-  jQuery('.play-custom-btn').append('<span>' + Math.round(streamTime) + ' Sec</span>');
   jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'display:none !important');
 }
 
@@ -218,11 +215,8 @@ function showGallary() {
   jQuery('.pipeTimer').show();
   if (isBackTOcamera) {
     jQuery('#pipeMenu-' + questionName).append(
-      '<button class="play-custom-btn"  id="time-span" onClick="playVideoCustom()" ><img src="' +
-	  defaultThumbnail +
-        '"></button>'
+      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">' + Math.round(streamTime) + 's</span></button>'
     );
-    jQuery('.play-custom-btn').append('<span>' + Math.round(streamTime) + ' Sec</span>');
     jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:0 !important');
   } else {
     jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:1 !important');
@@ -258,7 +252,7 @@ function playVideoEvent() {
   jQuery('#time-span').remove();
   jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:1 !important');
   jQuery('#pipeMenu-' + questionName).append(
-    '<button class="back-to-camera" onClick="backToCamera()"><img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/camera-with-bg.png"><span>Back to Camera</span></button>'
+    '<button class="back-to-camera" onClick="backToCamera()" title="Return to camera view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">Camera</span></button>'
   );
   jQuery('.pipeTimer').show();
   jQuery('#pipeRec-' + questionName).hide();
@@ -488,14 +482,15 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     jQuery('#SkinContent #Buttons').hide();
     jQuery('.retake-previous').remove();
 
-    jQuery('#record-title').append('Oops!');
+    jQuery('#record-title').append('Recording needs improvement');
     jQuery('#image-sucess').append(
-      ' <img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/validation_error.gif" style="margin-right: 5px;">'
+      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--destructive));"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
     );
-    jQuery('#result').append("<li style='font-size:15px;padding-left:5px;'>Your video didn't meet our criteria</li>");
+    jQuery('#result').addClass('error-feedback');
+    jQuery('#result').append("<li style='font-size:15px;padding-left:5px;'>Your video didn't meet our requirements</li>");
     jQuery('#result').append(sucessModalDetails);
     jQuery('#result').append(
-      '<button class="retake-text-btn" onClick="modalRetake()"><img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/Group+31.svg" data-image-state="ready">Retake</button>'
+      '<button class="btn btn-destructive" onClick="modalRetake()" style="margin-top: 1rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Try Again</button>'
     );
     jQuery('#error').modal({
       escapeClose: false,
@@ -509,27 +504,22 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     jQuery('#NextButton-custom').show();
     jQuery('#next-button-modal').remove();
     jQuery('.retake-button').remove();
-    jQuery('#record-title').append('Video Submitted!');
+    jQuery('#record-title').append('Perfect! Video Recorded Successfully');
     jQuery('#pipeMenu-' + questionName).append(
-      '<button class="retake-button" onClick="retake()"><img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/Group+33.svg"></button>'
+      '<button class="retake-button" onClick="retake()" title="Record again"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg></button>'
     );
     jQuery('#pipeMenu-' + questionName).append(
-      '<button class="play-custom-btn"  id="time-span" onClick="playVideoCustom()" ><img src="' +
-	  defaultThumbnail +
-        '"></button>'
+      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">' + Math.round(recorderObject.getStreamTime()) + 's</span></button>'
     );
-    jQuery('.play-custom-btn').append('<span>' + Math.round(recorderObject.getStreamTime()) + ' Sec</span>');
     jQuery('#image-sucess').append(
-      '<img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/Success_animation_confetti.gif">'
+      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--success));"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>'
     );
-    sucessModalDetails = 'Your feedback was recorded successfully! You can move on to our next question.';
+    sucessModalDetails = 'Your video response has been recorded successfully! You can now continue to the next question.';
+    jQuery('#result').addClass('success-feedback');
     jQuery('#result').append(sucessModalDetails);
     jQuery('.retake-previous').remove();
     jQuery('#error').append(
-      '<button class="retake-previous"  onClick="modalRetake()"><img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/Group+34.svg"><span>Retake <br>Previous question</span></button>'
-    );
-    jQuery('#error').append(
-      '<div id="next-button-modal"  class="textRight"><button class="next-button" onClick="nextQuestion()"> Next Question<img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/next.svg"></button> </div>'
+      '<div style="display: flex; gap: 0.5rem; margin-top: 1.5rem; justify-content: center;"><button class="btn btn-secondary" onClick="modalRetake()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Record Again</button><button class="btn btn-primary" onClick="nextQuestion()"><span>Continue</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg></button></div>'
     );
     jQuery('#error').modal({
       escapeClose: true,

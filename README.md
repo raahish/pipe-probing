@@ -82,12 +82,14 @@ This project implements a custom video recorder within Qualtrics surveys using t
 
 ### JavaScript Configuration (`qualtrics-question-js.js`)
 
-```javascript
-// Question identifier
-var questionName = "VQ1";
+**Important:** The styling is question-agnostic and works with any video question ID (VQ1, VQ2, VQ3, etc.). Simply change the `questionName` variable for different questions.
 
-// Qualtrics embedded data field name
-var videoURL = "VQ1_pipe_url";
+```javascript
+// Question identifier - Change this for different video questions
+var questionName = "VQ1"; // or "VQ2", "VQ3", etc.
+
+// Qualtrics embedded data field name - Match this to your question
+var videoURL = "VQ1_pipe_url"; // or "VQ2_pipe_url", "VQ3_pipe_url", etc.
 
 // AddPipe configuration
 var pipeParams = {
@@ -123,6 +125,27 @@ Update the S3 base URL in `qualtrics-addpipe-custom-secure.js`:
 ```javascript
 var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/your-bucket-name/';
 ```
+
+### Multiple Video Questions
+
+The UI styling is completely question-agnostic and reusable across multiple video questions in the same survey:
+
+**For VQ1:**
+- HTML: `<div id="VQ1" class="video-recorder-container"></div>`
+- JS: `var questionName = "VQ1";`
+- Embedded Data: `var videoURL = "VQ1_pipe_url";`
+
+**For VQ2:**
+- HTML: `<div id="VQ2" class="video-recorder-container"></div>`
+- JS: `var questionName = "VQ2";`
+- Embedded Data: `var videoURL = "VQ2_pipe_url";`
+
+**For VQ3:**
+- HTML: `<div id="VQ3" class="video-recorder-container"></div>`
+- JS: `var questionName = "VQ3";`
+- Embedded Data: `var videoURL = "VQ3_pipe_url";`
+
+The CSS uses attribute selectors (`[id^="VQ"]`, `[id^="pipeMenu-"]`, etc.) to automatically style any video question without modification.
 
 ## File Structure
 

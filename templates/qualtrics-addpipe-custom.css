@@ -442,8 +442,16 @@ body {
   color: hsl(var(--primary));
 }
 
-/* Video Recorder Container */
-#VQ1 {
+/* ===============================================
+   Video Recorder Container - Question Agnostic
+   ===============================================
+   This styling works with any video question ID:
+   - VQ1, VQ2, VQ3, etc.
+   - Uses CSS attribute selectors [id^="VQ"] to match any question
+   - Also targets .video-recorder-container class for flexibility
+   =============================================== */
+.video-recorder-container,
+[id^="VQ"] {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow-lg);
@@ -746,22 +754,23 @@ body {
   }
 }
 
-/* Hide AddPipe branding and unwanted elements */
+/* Hide AddPipe branding and unwanted elements - Generic for any question */
 .pipeMicContainer,
-#pipeClickPowered-VQ1,
-#pipeSwitchCam-VQ1,
-#pipeSmallVideo-VQ1 {
+[id^="pipeClickPowered-"],
+[id^="pipeSwitchCam-"],
+[id^="pipeSmallVideo-"],
+[id^="pipeDownload-"] {
   display: none !important;
 }
 
-/* Ensure video input has proper styling */
-#pipeVideoInput-VQ1 {
+/* Ensure video input has proper styling - Generic for any question */
+[id^="pipeVideoInput-"] {
   border-radius: var(--radius) !important;
   overflow: hidden !important;
 }
 
-/* Menu styling */
-#pipeMenu-VQ1 {
+/* Menu styling - Generic for any question */
+[id^="pipeMenu-"] {
   background: hsl(var(--card)) !important;
   border-radius: var(--radius) !important;
   border: 1px solid hsl(var(--border)) !important;
@@ -773,8 +782,8 @@ body {
   position: relative !important;
 }
 
-/* Play button styling */
-#pipePlay-VQ1 svg {
+/* Play button styling - Generic for any question */
+[id^="pipePlay-"] svg {
   fill: hsl(var(--primary)) !important;
   background: hsl(var(--card)) !important;
   border: 2px solid hsl(var(--primary)) !important;
@@ -787,11 +796,22 @@ body {
   box-shadow: var(--shadow-md) !important;
 }
 
-#pipePlay-VQ1 svg:hover {
+[id^="pipePlay-"] svg:hover {
   background: hsl(var(--primary)) !important;
   fill: hsl(var(--primary-foreground)) !important;
   transform: scale(1.05) !important;
   box-shadow: var(--shadow-lg) !important;
+}
+
+/* Additional AddPipe component styling - Generic for any question */
+[id^="pipeVrec-"],
+[id^="pipeRec-"] {
+  height: auto !important;
+}
+
+[id^="pipeVrec-"] {
+  background: hsl(var(--card)) !important;
+  border-radius: var(--radius) !important;
 }
 
 /* Ensure proper z-index stacking */

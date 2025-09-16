@@ -1,5 +1,9 @@
-VQ1: Update question text here
-<br>
+<!-- Video Response Question -->
+<div class="video-response-container">
+  <h2 class="question-title">Please record your video response</h2>
+  <p class="question-description">Take your time to provide a thoughtful response. You'll be guided through the process step by step.</p>
+</div>
+
 <!-- Pipe Video Recorder Code -->
 <link rel="stylesheet" href="https://cdn.addpipe.com/2.0/pipe.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
@@ -8,50 +12,77 @@ VQ1: Update question text here
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
 <script type="text/javascript" src="https://cdn.addpipe.com/2.0/pipe.js"></script>
 <script type="text/javascript" src="templates/static/qualtrics-addpipe-custom-secure.js"></script>
-<br>
-<div id="VQ1"></div>
 
-<div id="permission" class="modal" data-backdrop="static" data-keyboard="false"  style="display: none">
-  <div class="record-answer">
-    <img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/selfie.gif" />
-  </div>
-  <div class="record-title">Let's Record Your Answer.</div>
-  <div class="record-description">
-    Please allow access to your <span>camera &#128247</span>; and <span>microphone &#127908</span>; so we can see
-    that beautiful face &#128525; .
-  </div>
-  <div>
-    <button class="record-button" onclick="getCamAccess()">Grant Access</button>
+<div id="VQ1" class="video-recorder-container"></div>
+
+<div id="permission" class="modal" data-backdrop="static" data-keyboard="false" style="display: none" role="dialog" aria-labelledby="permission-title" aria-describedby="permission-description">
+  <div class="modal-content">
+    <div class="record-answer">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--primary));">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v6m0 6v6"/>
+        <path d="m15.14 8.86 4.24-4.24"/>
+        <path d="m4.86 4.86 4.24 4.24"/>
+        <path d="m4.86 19.14 4.24-4.24"/>
+        <path d="m15.14 15.14 4.24 4.24"/>
+      </svg>
+    </div>
+    <h3 id="permission-title" class="record-title">Ready to Record?</h3>
+    <p id="permission-description" class="record-description">
+      We need access to your <span>camera</span> and <span>microphone</span> to capture your video response. Your privacy is important to us.
+    </p>
+    <button class="record-button" onclick="getCamAccess()" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12V6a6 6 0 0 1 12 0v6"/>
+        <rect x="3" y="12" width="18" height="8" rx="2"/>
+      </svg>
+      Grant Permissions
+    </button>
   </div>
 </div>
 
-<div class="modal" id="recordInstruction">
+<div class="modal" id="recordInstruction" role="dialog" aria-labelledby="instruction-title" aria-describedby="instruction-description">
+  <div class="modal-content">
     <div class="image-rec">
-    <img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/Record.gif">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--primary));">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="10,8 16,12 10,16"/>
+      </svg>
     </div>
-    <div class="record-title">
-    How to Record!
-    </div>
-    <div class="record-description">
-    <ol>
-
-    <li>Record a <span>video between 30 seconds and 2 minutes long</span> </li>
-    <li>Make sure your face is <span>visible</span></li>
-    <li>Ensure we can <span>hear you</span> speak</li>
-    </ol>
+    <h3 id="instruction-title" class="record-title">Recording Guidelines</h3>
+    <div id="instruction-description" class="record-description">
+      <ol>
+        <li>Record a <span>video between 30 seconds and 2 minutes long</span></li>
+        <li>Make sure your <span>face is clearly visible</span></li>
+        <li>Ensure we can <span>hear you speak clearly</span></li>
+      </ol>
     </div>
     <div class="textRight">
-    <button onClick="modalClose()" class="next-button"><img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/next.svg"></button>
+      <button onClick="modalClose()" class="btn btn-primary" type="button">
+        <span>Got it</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9,18 15,12 9,6"/>
+        </svg>
+      </button>
     </div>
-    </div>
-
-    <div class="modal" id="error">
-        <div class="image-rec" id="image-sucess"></div>
-        <div class="record-title" id="record-title"></div>
-        <div class="record-description">
-        <ul id="result" class="feedback"></ul>
-        </div>
+  </div>
 </div>
 
+<div class="modal" id="error" role="dialog" aria-labelledby="result-title" aria-describedby="result-description">
+  <div class="modal-content">
+    <div class="image-rec" id="image-sucess"></div>
+    <h3 id="result-title" class="record-title"></h3>
+    <div id="result-description" class="record-description">
+      <ul id="result" class="feedback"></ul>
+    </div>
+  </div>
+</div>
 
-<div class="NextButton-Custom" id="NextButton-custom"><button class="next-button" onClick="nextQuestion()" > Next Question <img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/next.svg"></button> </div>
+<div class="NextButton-Custom" id="NextButton-custom">
+  <button class="next-button" onClick="nextQuestion()" type="button">
+    <span>Next Question</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9,18 15,12 9,6"/>
+    </svg>
+  </button>
+</div>

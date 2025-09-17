@@ -554,7 +554,6 @@ body {
 }
 
 /* Control Buttons - Professional Design */
-.retake-button,
 .play-custom-btn {
   background: hsl(var(--card)) !important;
   border: 1px solid hsl(var(--border)) !important;
@@ -570,29 +569,19 @@ body {
   color: hsl(var(--foreground)) !important;
   font-size: 0.875rem !important;
   font-weight: 500 !important;
-  gap: var(--spacing-xs) !important;
 }
 
-.retake-button:hover,
 .play-custom-btn:hover {
   transform: translateY(-2px) !important;
   box-shadow: var(--shadow-md) !important;
 }
 
-/* Retake Button - Bottom Left */
-.retake-button {
-  bottom: var(--spacing-md) !important;
-  left: var(--spacing-md) !important;
-  color: hsl(var(--destructive)) !important;
-}
-
-.retake-button:hover {
-  background: hsl(var(--destructive) / 0.1) !important;
-  border-color: hsl(var(--destructive)) !important;
-}
+/* Retake button removed - simplified layout with only Record (center) + Play (right) */
 
 /* Preview Button - Bottom Right */
 .play-custom-btn {
+  bottom: var(--spacing-md) !important;
+  right: var(--spacing-md) !important;
   color: hsl(var(--primary)) !important;
   min-width: 4rem !important;
 }
@@ -608,7 +597,6 @@ body {
   margin-top: 0.125rem !important;
 }
 
-.retake-button svg,
 .play-custom-btn svg {
   width: 1rem !important;
   height: 1rem !important;

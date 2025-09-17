@@ -207,12 +207,12 @@ function retake() {
   // Show record button in center (primary action)
   jQuery('#pipeRec-' + questionName).show();
   
-  // Hide the main play button (it will be replaced by side control)
+  // Hide the main play button (it will be replaced by right-side control)
   jQuery('#pipePlay-' + questionName).attr('style', 'display: none;');
   
-  // Add play button as side control (not center) for existing video
+  // Add play button on the right for existing video (simplified layout: Record center + Play right)
   jQuery('#pipeMenu-' + questionName).append(
-    '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">' + Math.round(streamTime) + 's</span></button>'
+    '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
   );
 }
 
@@ -227,7 +227,7 @@ function showGallary() {
   jQuery('.pipeTimer').show();
   if (isBackTOcamera) {
     jQuery('#pipeMenu-' + questionName).append(
-      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">' + Math.round(streamTime) + 's</span></button>'
+      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
     );
     jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:0 !important');
   } else {
@@ -473,11 +473,13 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     jQuery('.retake-button').remove();
     jQuery('#record-title').append('Perfect! Video Recorded Successfully');
     
-    // Set playback state for clean UI
+    // Set playback state for clean UI - simplified layout: Record center + Play right
     jQuery('#pipeMenu-' + questionName).removeClass('recording-state').addClass('playback-state');
-    jQuery('#pipeMenu-' + questionName).append(
-      '<button class="retake-button" onClick="retake()" title="Record again"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg></button>'
-    );
+    
+    // Hide record button in playback state (will be shown again after retake)
+    jQuery('#pipeRec-' + questionName).hide();
+    
+    // Only add play button on the right for playback
     jQuery('#pipeMenu-' + questionName).append(
       '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg></button>'
     );

@@ -191,17 +191,29 @@ function retake() {
   } catch (err) {}
   skipQuestionValidation();
   jQuery('#SkinContent #Buttons').hide();
+  
+  // Clean up existing buttons and state
   jQuery('.retake-button').remove();
+  jQuery('.play-custom-btn').remove();
   jQuery('.pipeTimer').hide();
   jQuery('.pipeTimer-custom').hide();
-  jQuery('#pipeRec-' + questionName).show();
-  jQuery('#pipePlay-' + questionName).attr('style', 'display: none;');
   jQuery('.back-to-camera').remove();
   jQuery('#time-span').remove();
+  
+  // Reset to initial state with existing video available
+  // Remove playback state class to return to initial-like state
+  jQuery('#pipeMenu-' + questionName).removeClass('playback-state recording-state');
+  
+  // Show record button in center (primary action)
+  jQuery('#pipeRec-' + questionName).show();
+  
+  // Hide the main play button (it will be replaced by side control)
+  jQuery('#pipePlay-' + questionName).attr('style', 'display: none;');
+  
+  // Add play button as side control (not center) for existing video
   jQuery('#pipeMenu-' + questionName).append(
-    '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">' + Math.round(streamTime) + 's</span></button>'
+    '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">' + Math.round(streamTime) + 's</span></button>'
   );
-  jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'display:none !important');
 }
 
 /**
@@ -277,6 +289,7 @@ function backToCamera() {
  * Handles modal retake event.
  */
 function modalRetake() {
+  console.log('Modal Retake - resetting to record state with existing video');
   jQuery.modal.close();
   retake();
 }

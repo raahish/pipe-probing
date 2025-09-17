@@ -289,9 +289,9 @@ function backToCamera() {
  * Handles modal retake event.
  */
 function modalRetake() {
-  console.log('Modal Retake - resetting to record state with existing video');
+  console.log('Modal Retake - user clicked Record Again button');
   jQuery.modal.close();
-  retake();
+  retake(); // Sets up Record (center) + Play (right) layout
 }
 
 /**
@@ -497,6 +497,11 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
       escapeClose: true,
       clickClose: true,
       showClose: true,
+      // Ensure modal close triggers the same layout as "Record Again"
+      onClose: function() {
+        // Set up the same layout as modalRetake: Record (center) + Play (right)
+        retake();
+      }
     });
   }
 }

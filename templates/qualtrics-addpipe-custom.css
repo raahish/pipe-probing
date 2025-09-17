@@ -876,13 +876,13 @@ body {
 
 }
 
-/* Recording Interface Layout States */
+/* Recording Interface Layout States - Consistent Background */
 [id^="pipeMenu-"].recording-state {
-  background: linear-gradient(135deg, hsl(var(--card)), hsl(var(--muted) / 0.3)) !important;
+  background: rgba(0, 0, 0, 0.2) !important;
 }
 
 [id^="pipeMenu-"].playback-state {
-  background: hsl(var(--card)) !important;
+  background: rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Control Panel for Recorded State */

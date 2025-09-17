@@ -74,6 +74,7 @@
             <button class="test-state-btn active" onclick="showInitialState()">Initial State</button>
             <button class="test-state-btn" onclick="showRecordingState()">Recording State</button>
             <button class="test-state-btn" onclick="showPlaybackState()">Playback State</button>
+            <button class="test-state-btn" onclick="showRetakeState()">After Retake</button>
         </div>
 
         <div class="component-preview">
@@ -140,6 +141,29 @@
                     </div>
                 </div>
             </div>
+
+            <!-- After Retake State: Ready to record again with existing video available -->
+            <div id="retake-state" class="test-state" style="display: none;">
+                <div id="VQ1-retake" class="video-recorder-container">
+                    <div id="pipeMenu-VQ1-retake" style="height: 12rem; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.2); border-radius: var(--radius); border: 1px solid hsl(var(--border)); position: relative;">
+                        <!-- Record button in center (primary action) -->
+                        <div id="pipeRec-VQ1-retake" class="pipeBtn" title="Record new video" tabindex="0">
+                            <svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                                <circle cx="50" cy="50" r="30" fill="red"></circle>
+                                <circle cx="50" cy="50" r="40" stroke="black" stroke-width="8" fill="none"></circle>
+                            </svg>
+                        </div>
+                        
+                        <!-- Play button for existing video (side control) -->
+                        <button class="play-custom-btn" title="Preview existing recording">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="5,3 19,12 5,21"/>
+                            </svg>
+                            <span>32s</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="test-notes">
@@ -172,6 +196,12 @@
             hideAllStates();
             document.getElementById('playback-state').style.display = 'block';
             setActiveButton(2);
+        }
+
+        function showRetakeState() {
+            hideAllStates();
+            document.getElementById('retake-state').style.display = 'block';
+            setActiveButton(3);
         }
 
         function hideAllStates() {

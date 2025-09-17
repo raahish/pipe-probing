@@ -339,6 +339,19 @@ body {
   width: 100%;
 }
 
+/* Modal buttons container */
+.modal-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  justify-content: center;
+}
+
+.modal-buttons .btn {
+  width: auto;
+  min-width: 8rem;
+}
+
 .next-button {
   /* Inherit btn, btn-primary styles */
   display: inline-flex;
@@ -815,6 +828,7 @@ body {
 /* Hide ALL Ugly AddPipe Elements - Comprehensive Cleanup */
 .pipeMicContainer,
 .pipeCamContainer,
+.pipeAlertBox,
 [id^="pipeClickPowered-"],
 [id^="pipeSwitchCam-"],
 [id^="pipeSmallVideo-"],

@@ -10,6 +10,71 @@ var mediaRecorder;
 var stream;
 var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/';
 
+// UI State Management
+const UI_STATES = {
+  INITIAL: 'initial',
+  RECORDING: 'recording',
+  RECORDED: 'recorded',
+  READY_TO_RECORD: 'ready',
+  PLAYING: 'playing'
+};
+
+// Element Controller for clean UI management
+class ElementController {
+  constructor(questionName) {
+    this.questionName = questionName;
+    this.elements = {
+      recordButton: `#pipeRec-${questionName}`,
+      nativePlayButton: `#pipePlay-${questionName}`,
+      customPlayButton: '.play-custom-btn',
+      timer: '.pipeTimer-custom',
+      nativeTimer: '.pipeTimer',
+      backButton: '.back-to-camera',
+      menu: `#pipeMenu-${questionName}`
+    };
+  }
+
+  // Atomic operations - each does ONE thing clearly
+  forceHideElement(selector) {
+    jQuery(selector).attr('style', 'display: none !important; opacity: 0 !important;');
+  }
+  
+  showElement(selector) {
+    jQuery(selector).show().css('opacity', '1');
+  }
+  
+  hideElement(selector) {
+    jQuery(selector).hide();
+  }
+  
+  removeElement(selector) {
+    jQuery(selector).remove();
+  }
+  
+  // High-level state operations
+  setReadyToRecordState() {
+    console.log('ElementController: Setting ready-to-record state');
+    this.showElement(this.elements.recordButton);
+    this.forceHideElement(this.elements.nativePlayButton); // Aggressive hiding
+    this.removeElement(this.elements.customPlayButton);
+    this.removeElement(this.elements.backButton);
+    this.hideElement(this.elements.timer);
+    this.hideElement(this.elements.nativeTimer);
+    jQuery(this.elements.menu).removeClass('playback-state recording-state');
+  }
+  
+  setReadyToRecordWithVideoState() {
+    console.log('ElementController: Setting ready-to-record-with-video state');
+    this.setReadyToRecordState(); // Start clean
+    // Add custom play button for existing video
+    jQuery(this.elements.menu).append(
+      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
+    );
+  }
+}
+
+var elementController;
+
 /**
  * Skips question validation based on validationDetails.
  */
@@ -31,6 +96,9 @@ function skipQuestionValidation() {
 const loadPipe = async function (question_name, pipeParams, deepGramConfiguration) {
   skipQuestionValidation();
   console.log('questionName::', questionName);
+  
+  // Initialize element controller for clean UI management
+  elementController = new ElementController(question_name);
   jQuery('#pipeDownload-' + questionName).hide();
   PipeSDK.insert(question_name, pipeParams, function (recorderObject) {
     /**
@@ -184,7 +252,7 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
  * Handles retake logic and UI reset.
  */
 function retake() {
-  console.log('Retake---');
+  console.log('Retake--- (legacy function, delegating to new system)');
   jQuery('#pipeDownload-' + questionName).hide();
   try {
     this.recorderObjectGlobal.pause();
@@ -192,28 +260,25 @@ function retake() {
   skipQuestionValidation();
   jQuery('#SkinContent #Buttons').hide();
   
-  // Clean up existing buttons and state
-  jQuery('.retake-button').remove();
-  jQuery('.play-custom-btn').remove();
-  jQuery('.pipeTimer').hide();
-  jQuery('.pipeTimer-custom').hide();
-  jQuery('.back-to-camera').remove();
-  jQuery('#time-span').remove();
-  
-  // Reset to initial state with existing video available
-  // Remove playback state class to return to initial-like state
-  jQuery('#pipeMenu-' + questionName).removeClass('playback-state recording-state');
-  
-  // Show record button in center (primary action)
-  jQuery('#pipeRec-' + questionName).show();
-  
-  // Hide the main play button (it will be replaced by right-side control)
-  jQuery('#pipePlay-' + questionName).attr('style', 'display: none;');
-  
-  // Add play button on the right for existing video (simplified layout: Record center + Play right)
-  jQuery('#pipeMenu-' + questionName).append(
-    '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
-  );
+  // Delegate to the new element controller for consistent state management
+  if (elementController) {
+    elementController.setReadyToRecordWithVideoState();
+  } else {
+    console.warn('ElementController not initialized, falling back to legacy behavior');
+    // Fallback to old behavior if elementController not available
+    jQuery('.retake-button').remove();
+    jQuery('.play-custom-btn').remove();
+    jQuery('.pipeTimer').hide();
+    jQuery('.pipeTimer-custom').hide();
+    jQuery('.back-to-camera').remove();
+    jQuery('#time-span').remove();
+    jQuery('#pipeMenu-' + questionName).removeClass('playback-state recording-state');
+    jQuery('#pipeRec-' + questionName).show();
+    jQuery('#pipePlay-' + questionName).attr('style', 'display: none !important; opacity: 0 !important;');
+    jQuery('#pipeMenu-' + questionName).append(
+      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
+    );
+  }
 }
 
 /**
@@ -290,8 +355,10 @@ function backToCamera() {
  */
 function modalRetake() {
   console.log('Modal Retake - user clicked Record Again button');
+  jQuery('#modal-buttons').hide();
   jQuery.modal.close();
-  retake(); // Sets up Record (center) + Play (right) layout
+  // Use the new element controller for consistent state
+  elementController.setReadyToRecordWithVideoState();
 }
 
 /**
@@ -490,17 +557,19 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     jQuery('#result').addClass('success-feedback');
     jQuery('#result').append(sucessModalDetails);
     jQuery('.retake-previous').remove();
-    jQuery('#error').append(
-      '<div style="display: flex; gap: 0.5rem; margin-top: 1.5rem; justify-content: center;"><button class="btn btn-secondary" onClick="modalRetake()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Record Again</button><button class="btn btn-primary" onClick="nextQuestion()"><span>Continue</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg></button></div>'
-    );
+    
+    // Show the static modal buttons (no more dynamic injection!)
+    jQuery('#modal-buttons').show();
+    
     jQuery('#error').modal({
       escapeClose: true,
       clickClose: true,
       showClose: true,
       // Ensure modal close triggers the same layout as "Record Again"
       onClose: function() {
-        // Set up the same layout as modalRetake: Record (center) + Play (right)
-        retake();
+        // Hide modal buttons and set up consistent state
+        jQuery('#modal-buttons').hide();
+        elementController.setReadyToRecordWithVideoState();
       }
     });
   }

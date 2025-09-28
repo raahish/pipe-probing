@@ -489,8 +489,29 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
   
   // Initialize element controller for clean UI management
   elementController = new ElementController(question_name);
+  
+  // Initialize conversation components if probing is enabled
+  if (typeof questionConfig !== 'undefined' && questionConfig.probingAmount !== "None") {
+    console.log('🎯 Initializing conversational AI components');
+    
+    // Show question container
+    jQuery('.conversation-question-container').show();
+    
+    // Display initial question
+    jQuery('#dynamic-question-title').text(questionConfig.questionText);
+    jQuery('#dynamic-question-description').text('Click record when you\'re ready to begin.');
+  } else {
+    console.log('📝 Standard recording mode (no AI probing)');
+  }
+  
   jQuery('#pipeDownload-' + questionName).hide();
   PipeSDK.insert(question_name, pipeParams, function (recorderObject) {
+    // Initialize conversation manager and AI service after recorder is ready
+    if (typeof questionConfig !== 'undefined' && questionConfig.probingAmount !== "None") {
+      window.conversationManager = new ConversationManager(question_name, recorderObject, questionConfig);
+      window.aiService = new AIService(OPENAI_API_KEY, OPENAI_MODEL);
+      console.log('🤖 Conversation components initialized with recorder object');
+    }
     /**
      * Handler for when recorder is ready to record.
      */

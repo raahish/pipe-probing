@@ -901,6 +901,32 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
       audioOnly,
       location
     ) {
+      console.log('💾 onSaveOk triggered');
+      
+      // Build video URL
+      const videoUrl = `${S3_BASE_URL}${streamName}.mp4`;
+      
+      // Handle conversation metadata
+      if (window.conversationManager && window.conversationManager.segments.length > 0) {
+        const metadata = window.conversationManager.getMetadata(videoUrl);
+        
+        // Output metadata to console
+        console.log('\n=== 📊 CONVERSATION METADATA ===');
+        console.log(JSON.stringify(metadata, null, 2));
+        console.log('=================================\n');
+        
+        // Store metadata in sessionStorage for recovery
+        sessionStorage.setItem('conversation_metadata_' + questionName, JSON.stringify(metadata));
+        
+        // Update Qualtrics embedded data with metadata
+        if (typeof Qualtrics !== 'undefined') {
+          Qualtrics.SurveyEngine.setEmbeddedData('conversation_metadata', JSON.stringify(metadata));
+          Qualtrics.SurveyEngine.setEmbeddedData('conversation_segments', metadata.segments.length);
+          Qualtrics.SurveyEngine.setEmbeddedData('conversation_duration', Math.round(metadata.totalDuration));
+        }
+      }
+      
+      // Continue with validation
       const transcript_array = global_transcript.split(' ');
       validateVideo(recorderObject, transcript_array, location, streamName);
     };

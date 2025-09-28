@@ -908,23 +908,20 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           
           // Try multiple authentication methods for browser compatibility
           
-          // Method 1: Protocol-based auth (original DeepGram method)
-          try {
-            ws = new WebSocket("wss://api.deepgram.com/v1/listen", ['token', deepGramConfiguration.token]);
-            console.log('📡 Using protocol-based authentication');
-          } catch (protocolError) {
-            console.warn('⚠️ Protocol auth failed, trying URL method:', protocolError);
-            
-            // Method 2: Token in URL (fallback for some browsers)
-            try {
-              const urlWithToken = `wss://api.deepgram.com/v1/listen?token=${deepGramConfiguration.token}`;
-              ws = new WebSocket(urlWithToken);
-              console.log('📡 Using URL-based authentication');
-            } catch (urlError) {
-              console.error('❌ Both auth methods failed:', urlError);
-              ws = null;
-            }
+          // The protocol method is failing - let's try URL-based auth directly
+          console.log('🔑 API Key length:', deepGramConfiguration.token.length);
+          console.log('🔑 API Key starts with:', deepGramConfiguration.token.substring(0, 8) + '...');
+          
+          // Validate API key format
+          if (deepGramConfiguration.token.length < 32) {
+            console.error('❌ API key seems too short. DeepGram keys are typically 32+ characters');
           }
+          
+          // Try URL-based authentication (more reliable for browsers)
+          const urlWithToken = `wss://api.deepgram.com/v1/listen?token=${deepGramConfiguration.token}`;
+          console.log('📡 Attempting URL-based authentication');
+          console.log('🔗 Full URL (token hidden):', urlWithToken.replace(deepGramConfiguration.token, 'TOKEN_HIDDEN'));
+          ws = new WebSocket(urlWithToken);
         } else {
           console.warn('⚠️ DeepGram token not configured - transcription disabled');
           console.log('💡 Add your DeepGram API key to enable real-time transcription');

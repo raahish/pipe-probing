@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DeepGram API Key Test</title>
+</head>
+<body>
+    <h1>DeepGram API Key Test</h1>
+    <button onclick="testAPIKey()">Test API Key</button>
+    <div id="results"></div>
+
+    <script>
+        const API_KEY = "1189b2a8085fcccbf10862e04038fc6ae660f610"; // Your API key
+
+        async function testAPIKey() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing API key...</p>';
+
+            try {
+                // Test 1: Check if API key works with REST API
+                console.log('🧪 Testing DeepGram REST API...');
+                
+                const response = await fetch('https://api.deepgram.com/v1/projects', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Token ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('📊 REST API Response Status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ REST API Success:', data);
+                    results.innerHTML += '<p>✅ REST API: SUCCESS - API key is valid!</p>';
+                    
+                    // Test 2: Try WebSocket connection
+                    testWebSocket();
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ REST API Error:', response.status, errorText);
+                    results.innerHTML += `<p>❌ REST API: FAILED (${response.status}) - ${errorText}</p>`;
+                }
+
+            } catch (error) {
+                console.error('❌ Network Error:', error);
+                results.innerHTML += `<p>❌ Network Error: ${error.message}</p>`;
+            }
+        }
+
+        function testWebSocket() {
+            const results = document.getElementById('results');
+            
+            console.log('🧪 Testing DeepGram WebSocket...');
+            
+            // Test WebSocket connection
+            const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?token=${API_KEY}`);
+            
+            ws.onopen = () => {
+                console.log('✅ WebSocket: Connected successfully!');
+                results.innerHTML += '<p>✅ WebSocket: SUCCESS - Connection established!</p>';
+                ws.close();
+            };
+            
+            ws.onerror = (error) => {
+                console.error('❌ WebSocket Error:', error);
+                results.innerHTML += '<p>❌ WebSocket: FAILED - Connection error</p>';
+            };
+            
+            ws.onclose = (event) => {
+                console.log('🔌 WebSocket closed:', event.code, event.reason);
+                if (event.code !== 1000) {
+                    results.innerHTML += `<p>⚠️ WebSocket closed unexpectedly: Code ${event.code}</p>`;
+                }
+            };
+        }
+    </script>
+</body>
+</html>

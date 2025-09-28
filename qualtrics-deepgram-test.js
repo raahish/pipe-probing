@@ -26,17 +26,17 @@ Qualtrics.SurveyEngine.addOnload(function() {
     let permissionsGranted = false;
     let isRecording = false;
     
-    // Simple logging function - console only to avoid UI conflicts
+    // Simple logging function - using basic string concatenation for compatibility
     function log(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        const logMessage = `[${timestamp}] ${message}`;
+        var timestamp = new Date().toLocaleTimeString();
+        var logMessage = '[' + timestamp + '] ' + message;
         console.log(logMessage);
     }
     
     // Separate function for transcript-only entries (cleaner UI)
     function logTranscriptOnly(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        console.log(`[${timestamp}] ${message}`);
+        var timestamp = new Date().toLocaleTimeString();
+        console.log('[' + timestamp + '] ' + message);
     }
     
     // Test the log function immediately
@@ -114,7 +114,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
         if (!transcriptDiv) return;
         
         // Remove previous interim result for this turn (like working test)
-        const existingInterim = document.getElementById(`interim-${count}`);
+        const existingInterim = document.getElementById('interim-' + count);
         if (existingInterim) {
             existingInterim.remove();
         }
@@ -122,23 +122,21 @@ Qualtrics.SurveyEngine.addOnload(function() {
         // Create new entry element
         const entry = document.createElement('div');
         entry.className = 'transcript-entry ' + (isFinal ? 'final' : 'interim');
-        entry.style.cssText = `
-            margin: 5px 0; 
-            padding: 8px; 
-            border-left: 3px solid ${isFinal ? '#007bff' : '#6c757d'}; 
-            background-color: ${isFinal ? '#e7f3ff' : '#f0f0f0'};
-            font-family: monospace;
-            font-size: 12px;
-        `;
+        entry.style.cssText = 
+            'margin: 5px 0; ' +
+            'padding: 8px; ' +
+            'border-left: 3px solid ' + (isFinal ? '#007bff' : '#6c757d') + '; ' +
+            'background-color: ' + (isFinal ? '#e7f3ff' : '#f0f0f0') + ';' +
+            'font-family: monospace;' +
+            'font-size: 12px;';
         
         if (!isFinal) {
-            entry.id = `interim-${count}`;
+            entry.id = 'interim-' + count;
         }
         
-        entry.innerHTML = `
-            <strong>${isFinal ? 'Final' : 'Interim'} #${count}:</strong> ${transcript}
-            <small style="float: right; color: #666;">${new Date().toLocaleTimeString()}</small>
-        `;
+        entry.innerHTML = 
+            '<strong>' + (isFinal ? 'Final' : 'Interim') + ' #' + count + ':</strong> ' + transcript +
+            '<small style="float: right; color: #666;">' + new Date().toLocaleTimeString() + '</small>';
         
         transcriptDiv.appendChild(entry);
         transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
@@ -254,7 +252,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
             };
             
             ws.onclose = (event) => {
-                log(`🔌 WebSocket closed: ${event.code} ${event.reason}`);
+                log('🔌 WebSocket closed: ' + event.code + ' ' + event.reason);
                 updateStatus('Disconnected', 'disconnected');
                 cleanup();
             };
@@ -337,7 +335,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
         log('🎵 Supported audio formats:');
         testTypes.forEach(type => {
             const supported = MediaRecorder.isTypeSupported(type);
-            log(`   ${supported ? '✅' : '❌'} ${type}`);
+            log('   ' + (supported ? '✅' : '❌') + ' ' + type);
         });
     }
 });

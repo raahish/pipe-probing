@@ -564,7 +564,7 @@ async function pauseForAIProcessing() {
   
   try {
     // Get AI response
-    const aiResponse = await window.aiService.getFollowUpQuestion(window.conversationManager);
+    const aiResponse = await safeAICall(window.conversationManager);
     
     if (aiResponse.error) {
       console.error('❌ AI error, ending conversation:', aiResponse.error);
@@ -706,6 +706,52 @@ function cleanupConversation() {
   // Clear timers
   if (window.intervalID) {
     clearInterval(window.intervalID);
+  }
+}
+
+// Error handling for conversation
+function handleConversationError(error, context) {
+  console.error(`❌ Conversation error in ${context}:`, error);
+  
+  // Log to conversation metadata
+  if (window.conversationManager) {
+    window.conversationManager.metadata.errors.push({
+      context: context,
+      error: error.message || error,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Show user-friendly error
+  const errorMessages = {
+    'ai_processing': 'AI service is temporarily unavailable. Completing your recording...',
+    'websocket': 'Transcription service interrupted. Your video is still being recorded.',
+    'recording': 'Recording error occurred. Please try again.',
+    'validation': 'Unable to validate recording. Please try again.'
+  };
+  
+  const message = errorMessages[context] || 'An error occurred. Completing your recording...';
+  
+  // Update UI
+  jQuery('#dynamic-question-description').text(message);
+  
+  // Force end conversation if critical error
+  if (context === 'ai_processing' || context === 'recording') {
+    setTimeout(async () => {
+      if (window.conversationManager && window.conversationManager.conversationActive) {
+        await window.conversationManager.endConversation();
+      }
+    }, 2000);
+  }
+}
+
+// Wrap AI calls with error handling
+async function safeAICall(conversationManager) {
+  try {
+    return await window.aiService.getFollowUpQuestion(conversationManager);
+  } catch (error) {
+    handleConversationError(error, 'ai_processing');
+    return { hasMoreQuestions: false, error: error.message };
   }
 }
 

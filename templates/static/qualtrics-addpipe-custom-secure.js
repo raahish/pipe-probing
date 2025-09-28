@@ -588,6 +588,102 @@ async function pauseForAIProcessing() {
   }
 }
 
+// UI Helper Functions for Conversational AI
+function showAIProcessingUI() {
+  console.log('🤔 Showing AI processing UI');
+  
+  // Add AI processing overlay
+  const overlay = jQuery(`
+    <div class="ai-processing-overlay">
+      <div class="ai-thinking-content">
+        <div class="ai-thinking-spinner"></div>
+        <h3>AI is thinking...</h3>
+        <p>Analyzing your response and preparing a follow-up question</p>
+      </div>
+    </div>
+  `);
+  
+  jQuery('#pipeMenu-' + questionName).append(overlay);
+  
+  // Update state
+  jQuery('#pipeMenu-' + questionName).addClass('ai-processing-state');
+  
+  // Update question description
+  jQuery('#dynamic-question-description').text('Please wait while AI processes your response...');
+}
+
+function hideAIProcessingUI() {
+  console.log('✨ Hiding AI processing UI');
+  
+  // Remove overlay
+  jQuery('.ai-processing-overlay').fadeOut(300, function() {
+    jQuery(this).remove();
+  });
+  
+  // Update state
+  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state');
+}
+
+function showNextQuestion(question) {
+  console.log('❓ Showing next question:', question);
+  
+  // Hide AI processing UI
+  hideAIProcessingUI();
+  
+  // Update question display with fade effect
+  jQuery('#dynamic-question-title').fadeOut(200, function() {
+    jQuery(this).text(question).fadeIn(200);
+  });
+  
+  jQuery('#dynamic-question-description').text('Click record when ready to respond.');
+  
+  // Ensure record button is visible and enabled
+  jQuery('#pipeRec-' + questionName).show().prop('disabled', false);
+}
+
+function updateTimerDisplay() {
+  if (!window.conversationManager || !window.conversationManager.conversationStartTime) return;
+  
+  // Don't update if AI is processing
+  if (window.conversationManager.isProcessingAI) return;
+  
+  const elapsed = (performance.now() - window.conversationManager.conversationStartTime) / 1000;
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = Math.floor(elapsed % 60);
+  
+  jQuery('.pipeTimer-custom').text(
+    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  );
+}
+
+// Modified startRecordingClicked to work with conversation
+function startRecordingClicked() {
+  console.log('🎙️ Recording started');
+  
+  // Only do retake cleanup if not in conversation
+  if (!window.isConversationActive) {
+    retake();
+  }
+  
+  // Add timer if not exists
+  if (jQuery('.pipeTimer-custom').length === 0) {
+    jQuery('#pipeMenu-' + questionName).append('<div class="pipeTimer-custom">00:00</div>');
+  }
+  
+  jQuery('.pipeTimer-custom').show();
+  jQuery('#time-span').remove();
+  
+  // Use conversation-aware timer
+  if (window.conversationManager) {
+    window.intervalID = setInterval(updateTimerDisplay, 1000);
+  } else {
+    // Fallback to original timer
+    window.intervalID = setInterval(function() {
+      getTime(recorderObjectGlobal);
+    }, 100);
+  }
+}
+
 var elementController;
 
 /**

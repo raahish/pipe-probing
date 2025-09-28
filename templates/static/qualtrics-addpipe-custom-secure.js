@@ -85,6 +85,170 @@ class ElementController {
   }
 }
 
+// Conversation Manager for AI-driven interviews
+class ConversationManager {
+  constructor(questionName, recorderObject, config) {
+    this.questionName = questionName;
+    this.recorderObject = recorderObject;
+    this.config = config;
+    this.segments = [];
+    this.conversationThread = [];
+    this.currentProbeCount = 0;
+    this.maxProbes = window.maxProbesByLevel[config.probingAmount] || 0;
+    this.conversationStartTime = null;
+    this.currentSegmentStartTime = null;
+    this.isProcessingAI = false;
+    this.conversationActive = false;
+    this.conversationId = `${questionName}_${Date.now()}`;
+    this.accumulatedTranscript = "";
+    this.currentAIQuestion = config.questionText;
+    this.timerPausedAt = null;
+  }
+
+  startConversation() {
+    this.conversationActive = true;
+    this.conversationStartTime = performance.now();
+    this.currentSegmentStartTime = 0;
+    
+    // Add initial question to thread
+    this.conversationThread.push({
+      role: "assistant",
+      content: this.config.questionText
+    });
+    
+    // Display initial question in UI
+    this.displayQuestion(this.config.questionText);
+    
+    console.log('🎬 Conversation started:', this.conversationId);
+  }
+
+  getCurrentSegmentTranscript() {
+    // Return the transcript since the last segment ended
+    const fullTranscript = window.global_transcript || '';
+    const accumulatedLength = this.accumulatedTranscript.length;
+    return fullTranscript.substring(accumulatedLength).trim();
+  }
+
+  markSegmentEnd() {
+    const now = performance.now();
+    const segmentEnd = (now - this.conversationStartTime) / 1000;
+    const segmentTranscript = this.getCurrentSegmentTranscript();
+    
+    // Update accumulated transcript
+    this.accumulatedTranscript = window.global_transcript || '';
+    
+    const segment = {
+      segmentId: this.segments.length + 1,
+      aiQuestion: this.currentAIQuestion,
+      startTime: this.currentSegmentStartTime,
+      endTime: segmentEnd,
+      duration: segmentEnd - this.currentSegmentStartTime,
+      transcript: segmentTranscript,
+      type: "user_response"
+    };
+    
+    this.segments.push(segment);
+    this.conversationThread.push({
+      role: "user",
+      content: segmentTranscript
+    });
+    
+    console.log(`📝 Segment ${segment.segmentId} recorded:`, segment);
+    return segment;
+  }
+
+  markAIProcessingStart() {
+    this.isProcessingAI = true;
+    const now = performance.now();
+    const processingStartTime = (now - this.conversationStartTime) / 1000;
+    
+    // Pause timer display
+    this.timerPausedAt = jQuery('.pipeTimer-custom').text();
+    
+    return processingStartTime;
+  }
+
+  markAIProcessingEnd(nextQuestion) {
+    this.isProcessingAI = false;
+    const now = performance.now();
+    this.currentSegmentStartTime = (now - this.conversationStartTime) / 1000;
+    
+    if (nextQuestion && nextQuestion !== "DONE") {
+      this.currentAIQuestion = nextQuestion;
+      this.conversationThread.push({
+        role: "assistant",
+        content: nextQuestion
+      });
+      this.currentProbeCount++;
+    }
+  }
+
+  shouldContinueProbing() {
+    if (this.config.probingAmount === "None") return false;
+    return this.currentProbeCount < this.maxProbes;
+  }
+
+  async endConversation() {
+    this.conversationActive = false;
+    window.shouldActuallyStop = true;
+    
+    console.log('🏁 Ending conversation, triggering real stop');
+    
+    // Show completion UI
+    this.showConversationComplete();
+    
+    // Now actually stop the recording
+    this.recorderObject.stop();
+  }
+
+  showConversationComplete() {
+    jQuery('#dynamic-question-title').text('Interview Complete!');
+    jQuery('#dynamic-question-description').text('Thank you for your thoughtful responses. Finalizing your recording...');
+  }
+
+  displayQuestion(question) {
+    jQuery('#dynamic-question-title').text(question);
+    jQuery('#dynamic-question-description').text('Click record when ready to respond.');
+  }
+
+  getMetadata(fullVideoUrl) {
+    const now = performance.now();
+    const totalDuration = (now - this.conversationStartTime) / 1000;
+    
+    return {
+      conversationId: this.conversationId,
+      responseId: Qualtrics.SurveyEngine.getEmbeddedData('ResponseID') || 'preview',
+      questionConfig: this.config,
+      totalDuration: totalDuration,
+      recordingStartTime: new Date(Date.now() - (now - this.conversationStartTime)).toISOString(),
+      recordingEndTime: new Date().toISOString(),
+      fullVideoUrl: fullVideoUrl,
+      segments: this.segments,
+      aiProcessingGaps: this.calculateProcessingGaps(),
+      totalProbes: this.currentProbeCount,
+      completionReason: this.currentProbeCount >= this.maxProbes ? "max_probes_reached" : "ai_satisfied",
+      accumulatedTranscript: this.accumulatedTranscript,
+      conversationThread: this.conversationThread,
+      errors: []
+    };
+  }
+
+  calculateProcessingGaps() {
+    const gaps = [];
+    for (let i = 0; i < this.segments.length - 1; i++) {
+      gaps.push({
+        gapId: i + 1,
+        afterSegment: this.segments[i].segmentId,
+        startTime: this.segments[i].endTime,
+        endTime: this.segments[i + 1].startTime,
+        duration: this.segments[i + 1].startTime - this.segments[i].endTime,
+        type: "ai_processing"
+      });
+    }
+    return gaps;
+  }
+}
+
 var elementController;
 
 /**

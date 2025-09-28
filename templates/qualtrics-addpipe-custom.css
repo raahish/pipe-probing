@@ -210,7 +210,7 @@ body {
 .btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+justify-content: center;
   white-space: nowrap;
   border-radius: var(--radius);
   font-size: 0.875rem;
@@ -429,7 +429,7 @@ body {
 .record-description ol {
   text-align: left;
   margin: var(--spacing-lg) 0;
-  list-style: none;
+list-style: none;
   counter-reset: step-counter;
 }
 
@@ -452,9 +452,9 @@ body {
   content: counter(step-counter);
   background-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
+width: 2rem;
+height: 2rem;
+border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -623,9 +623,9 @@ body {
 }
 
 .feedback {
-  list-style: none;
+list-style: none;
   margin: var(--spacing-lg) 0;
-  text-align: left;
+text-align: left;
 }
 
 .feedback li {

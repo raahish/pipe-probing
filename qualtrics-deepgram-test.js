@@ -332,7 +332,7 @@ Qualtrics.SurveyEngine.addOnload(function() {
     log('🔒 Protocol: ' + window.location.protocol);
     log('🏠 Origin: ' + window.location.origin);
     log('🎤 MediaDevices available: ' + !!navigator.mediaDevices);
-    log('🔊 getUserMedia available: ' + !!navigator.mediaDevices?.getUserMedia);
+    log('🔊 getUserMedia available: ' + !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
     log('🌐 WebSocket available: ' + !!window.WebSocket);
     log('🎙️ MediaRecorder available: ' + !!window.MediaRecorder);
     

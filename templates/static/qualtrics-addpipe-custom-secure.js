@@ -197,8 +197,12 @@ class ConversationManager {
     // Show completion UI
     this.showConversationComplete();
     
-    // Now actually stop the recording
-    this.recorderObject.stop();
+    // Trigger the actual stop using the correct method
+    if (this.recorderObject && this.recorderObject.btStopRecordingPressed) {
+      this.recorderObject.btStopRecordingPressed();
+    } else {
+      console.error('❌ Recorder stop method not available');
+    }
   }
 
   showConversationComplete() {
@@ -898,61 +902,77 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           mimeType: mimetype, // Use the same mimetype as video recording
         });
         
-        // Create DeepGram WebSocket connection
-        // Using token in URL for browser compatibility
-        const deepgramUrl = `wss://api.deepgram.com/v1/listen?token=${deepGramConfiguration.token}&encoding=webm&sample_rate=48000&channels=1&interim_results=true`;
-        console.log('🔗 Connecting to DeepGram:', deepgramUrl.replace(deepGramConfiguration.token, 'TOKEN_HIDDEN'));
-        ws = new WebSocket(deepgramUrl);
+        // Create DeepGram WebSocket connection (if token is configured)
+        if (deepGramConfiguration.token && deepGramConfiguration.token !== 'YOUR_DEEPGRAM_API_KEY_HERE') {
+          const deepgramUrl = `wss://api.deepgram.com/v1/listen?token=${deepGramConfiguration.token}&encoding=webm&sample_rate=48000&channels=1&interim_results=true`;
+          console.log('🔗 Connecting to DeepGram:', deepgramUrl.replace(deepGramConfiguration.token, 'TOKEN_HIDDEN'));
+          ws = new WebSocket(deepgramUrl);
+        } else {
+          console.warn('⚠️ DeepGram token not configured - transcription disabled');
+          console.log('💡 Add your DeepGram API key to enable real-time transcription');
+        }
         
-        ws.onopen = () => {
-          console.log('🎤 DeepGram WebSocket connected');
-          
-          // Start MediaRecorder when WebSocket is ready
+        if (ws) {
+          ws.onopen = () => {
+            console.log('🎤 DeepGram WebSocket connected');
+            
+            // Start MediaRecorder when WebSocket is ready
+            const timeslice = 1000;
+            mediaRecorder.start(timeslice);
+            
+            mediaRecorder.addEventListener('dataavailable', (event) => {
+              if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+                console.log('📤 Sending audio chunk to DeepGram:', event.data.size, 'bytes');
+                ws.send(event.data);
+              }
+            });
+            
+            mediaRecorder.onstop = () => {
+              console.log('🛑 MediaRecorder stopped');
+            };
+          };
+        } else {
+          // Start MediaRecorder without DeepGram
           const timeslice = 1000;
           mediaRecorder.start(timeslice);
           
-          mediaRecorder.addEventListener('dataavailable', (event) => {
-            if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-              console.log('📤 Sending audio chunk to DeepGram:', event.data.size, 'bytes');
-              ws.send(event.data);
-            }
-          });
-          
           mediaRecorder.onstop = () => {
-            console.log('🛑 MediaRecorder stopped');
+            console.log('🛑 MediaRecorder stopped (no transcription)');
           };
-        };
+        }
         
-        ws.onmessage = (msg) => {
-          try {
-            const data = JSON.parse(msg.data);
-            console.log('📥 DeepGram response:', data);
-            
-            if (data.channel && data.channel.alternatives && data.channel.alternatives[0]) {
-              const transcript = data.channel.alternatives[0].transcript;
-              if (transcript && data.is_final) {
-                console.log('✅ Final transcript:', transcript);
-                global_transcript += transcript + ' ';
-              } else if (transcript) {
-                console.log('⏳ Interim transcript:', transcript);
+        if (ws) {
+          ws.onmessage = (msg) => {
+            try {
+              const data = JSON.parse(msg.data);
+              console.log('📥 DeepGram response:', data);
+              
+              if (data.channel && data.channel.alternatives && data.channel.alternatives[0]) {
+                const transcript = data.channel.alternatives[0].transcript;
+                if (transcript && data.is_final) {
+                  console.log('✅ Final transcript:', transcript);
+                  global_transcript += transcript + ' ';
+                } else if (transcript) {
+                  console.log('⏳ Interim transcript:', transcript);
+                }
               }
+            } catch (error) {
+              console.error('❌ Error parsing DeepGram response:', error, msg.data);
             }
-          } catch (error) {
-            console.error('❌ Error parsing DeepGram response:', error, msg.data);
-          }
-        };
-        
-        ws.onerror = (error) => {
-          console.error('❌ DeepGram WebSocket error:', error);
-          console.log('🔍 Check your DeepGram token and connection');
-        };
-        
-        ws.onclose = (event) => {
-          console.log('🔌 DeepGram WebSocket closed:', event.code, event.reason);
-          if (event.code !== 1000) {
-            console.error('❌ WebSocket closed unexpectedly. Code:', event.code, 'Reason:', event.reason);
-          }
-        };
+          };
+          
+          ws.onerror = (error) => {
+            console.error('❌ DeepGram WebSocket error:', error);
+            console.log('🔍 Check your DeepGram token and connection');
+          };
+          
+          ws.onclose = (event) => {
+            console.log('🔌 DeepGram WebSocket closed:', event.code, event.reason);
+            if (event.code !== 1000) {
+              console.error('❌ WebSocket closed unexpectedly. Code:', event.code, 'Reason:', event.reason);
+            }
+          };
+        }
         
       } catch (err) {
         console.log(err.message);

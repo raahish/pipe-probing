@@ -31,7 +31,7 @@ if (Q_CHL == "preview"){
 
 var deepGramConfiguration = {
     endPoint: "wss://api.deepgram.com/v1/listen",
-    token: "dbffe55a2712f7c1e02e48baf4a5df791ba6e533",
+    token: "YOUR_DEEPGRAM_API_KEY_HERE", // Replace with your actual DeepGram API key
 };
 
 // Question configuration for AI probing

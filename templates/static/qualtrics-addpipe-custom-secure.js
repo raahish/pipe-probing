@@ -1049,9 +1049,20 @@ function backToCamera() {
  */
 function modalRetake() {
   console.log('Modal Retake - user clicked Record Again button');
+  
+  // Prevent retake during conversation
+  if (window.isConversationActive) {
+    console.warn('⚠️ Cannot retake during active conversation');
+    return;
+  }
+  
+  // Hide modal buttons before closing
   jQuery('#modal-buttons').hide();
+  
+  // Close the modal
   jQuery.modal.close();
-  // Use the new element controller for consistent state
+  
+  // Use element controller to set proper state
   elementController.setReadyToRecordWithVideoState();
 }
 
@@ -1076,7 +1087,16 @@ function playBackPauseEvent(recorderId, recorderObject) {
  * Closes the modal.
  */
 function modalClose() {
+  console.log('Modal close >>>');
+  
+  // Prevent modal actions during conversation
+  if (window.isConversationActive) {
+    console.warn('⚠️ Cannot close modal during active conversation');
+    return;
+  }
+  
   jQuery.modal.close();
+  loadPipe(questionName, pipeParams, deepGramConfiguration);
 }
 
 /**

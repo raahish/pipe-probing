@@ -532,6 +532,62 @@ function toggleFakeStopButton(show) {
   }
 }
 
+// Pause recording for AI processing
+async function pauseForAIProcessing() {
+  console.log('⏸️ Pausing for AI processing');
+  
+  // Mark segment end
+  const segment = window.conversationManager.markSegmentEnd();
+  
+  // Close transcription WebSocket
+  if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+    window.ws.close();
+  }
+  
+  // Clear recording interval
+  if (window.intervalID) {
+    clearInterval(window.intervalID);
+  }
+  
+  // Update UI state
+  showAIProcessingUI();
+  
+  // Mark AI processing start
+  window.conversationManager.markAIProcessingStart();
+  
+  // Check if we should continue
+  if (!window.conversationManager.shouldContinueProbing()) {
+    console.log('📊 Max probes reached, ending conversation');
+    await window.conversationManager.endConversation();
+    return;
+  }
+  
+  try {
+    // Get AI response
+    const aiResponse = await window.aiService.getFollowUpQuestion(window.conversationManager);
+    
+    if (aiResponse.error) {
+      console.error('❌ AI error, ending conversation:', aiResponse.error);
+      await window.conversationManager.endConversation();
+      return;
+    }
+    
+    if (!aiResponse.hasMoreQuestions) {
+      console.log('✅ AI satisfied with responses, ending conversation');
+      await window.conversationManager.endConversation();
+      return;
+    }
+    
+    // Mark AI processing end and show next question
+    window.conversationManager.markAIProcessingEnd(aiResponse.question);
+    showNextQuestion(aiResponse.question);
+    
+  } catch (error) {
+    console.error('❌ Error in AI processing:', error);
+    await window.conversationManager.endConversation();
+  }
+}
+
 var elementController;
 
 /**

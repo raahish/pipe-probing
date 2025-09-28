@@ -558,10 +558,22 @@ async function pauseForAIProcessing() {
     window.ws.close();
   }
   
+  // Stop MediaRecorder
+  if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
+    window.mediaRecorder.stop();
+  }
+  
   // Clear recording interval
   if (window.intervalID) {
     clearInterval(window.intervalID);
   }
+  
+  // Reset recording state
+  window.isRecording = false;
+  
+  // Hide fake stop button and reset its state
+  toggleFakeStopButton(false);
+  window.fakeStopButtonActive = false;
   
   // Update UI state
   showAIProcessingUI();
@@ -594,6 +606,11 @@ async function pauseForAIProcessing() {
     
     // Mark AI processing end and show next question
     window.conversationManager.markAIProcessingEnd(aiResponse.question);
+    
+    // Prepare for next segment
+    prepareForNextSegment();
+    
+    // Show the next question
     showNextQuestion(aiResponse.question);
     
   } catch (error) {
@@ -651,23 +668,53 @@ function showNextQuestion(question) {
   
   jQuery('#dynamic-question-description').text('Click record when ready to respond.');
   
-  // Ensure record button is visible and enabled
-  jQuery('#pipeRec-' + questionName).show().prop('disabled', false);
+  // CRITICAL: Reset AddPipe button state to record mode
+  // This is necessary because AddPipe changes the button to stop mode during recording
+  // and doesn't automatically reset it
+  if (window.recorderObjectGlobal) {
+    // Force the recorder to think we're ready to record again
+    // without actually stopping the underlying video recording
+    try {
+      // Reset UI to record state
+      jQuery('#pipeRec-' + questionName).removeClass('pipeRecStop').addClass('pipeRecRec');
+      jQuery('#pipeRec-' + questionName + ' svg').remove();
+      jQuery('#pipeRec-' + questionName).html(
+        '<svg viewBox="0 0 24 24" width="24" height="24">' +
+        '<circle cx="12" cy="12" r="10" fill="currentColor"/>' +
+        '</svg>'
+      );
+      
+      // Show the record button
+      jQuery('#pipeRec-' + questionName).show().prop('disabled', false);
+      
+      // Reset menu state
+      jQuery('#pipeMenu-' + questionName).removeClass('recording-state').addClass('ready-state');
+      
+      console.log('✅ Reset AddPipe button to record mode');
+    } catch (e) {
+      console.error('❌ Error resetting button state:', e);
+    }
+  }
 }
 
 function updateTimerDisplay() {
   if (!window.conversationManager || !window.conversationManager.conversationStartTime) return;
   
   // Don't update if AI is processing
-  if (window.conversationManager.isProcessingAI) return;
+  if (window.conversationManager.isProcessingAI) {
+    // Keep showing the paused time
+    if (window.conversationManager.timerPausedAt) {
+      jQuery('.pipeTimer-custom').text(window.conversationManager.timerPausedAt);
+    }
+    return;
+  }
   
   const elapsed = (performance.now() - window.conversationManager.conversationStartTime) / 1000;
   const minutes = Math.floor(elapsed / 60);
   const seconds = Math.floor(elapsed % 60);
   
-  jQuery('.pipeTimer-custom').text(
-    (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds
-  );
+  const timeString = (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+  jQuery('.pipeTimer-custom').text(timeString);
 }
 
 // Modified startRecordingClicked to work with conversation
@@ -698,6 +745,41 @@ function startRecordingClicked() {
   }
 }
 
+// Start recording UI for conversation segments (without triggering AddPipe record)
+function startRecordingUIForSegment() {
+  console.log('🎬 Starting UI for new segment');
+  
+  // Update UI to recording state
+  jQuery('#pipeMenu-' + questionName).removeClass('ready-state').addClass('recording-state');
+  
+  // Change button appearance to stop
+  jQuery('#pipeRec-' + questionName).removeClass('pipeRecRec').addClass('pipeRecStop');
+  jQuery('#pipeRec-' + questionName + ' svg').remove();
+  jQuery('#pipeRec-' + questionName).html(
+    '<svg viewBox="0 0 24 24" width="24" height="24">' +
+    '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>' +
+    '</svg>'
+  );
+  
+  // Show timer
+  jQuery('.pipeTimer-custom').show();
+  
+  // Resume timer
+  window.intervalID = setInterval(updateTimerDisplay, 1000);
+  
+  // Mark as recording
+  window.isRecording = true;
+  
+  // Re-enable fake stop button
+  if (!window.fakeStopButtonActive) {
+    toggleFakeStopButton(true);
+    window.fakeStopButtonActive = true;
+  }
+  
+  // Start new transcription session
+  startTranscriptionForSegment();
+}
+
 // Clean up conversation state
 function cleanupConversation() {
   console.log('🧹 Cleaning up conversation state');
@@ -710,17 +792,39 @@ function cleanupConversation() {
   // Remove fake stop button
   jQuery('#fake-stop-' + questionName).remove();
   
-  // Remove event listeners
+  // Remove ALL conversation event listeners
   jQuery(document).off('click.conversation');
+  jQuery('#fake-stop-' + questionName).off('click');
   
   // Reset UI
-  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state conversation-active');
+  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state conversation-active recording-state');
   toggleFakeStopButton(false);
   
   // Clear timers
   if (window.intervalID) {
     clearInterval(window.intervalID);
+    window.intervalID = null;
   }
+  
+  // Close any open WebSocket
+  if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+    window.ws.close();
+  }
+  
+  // Stop any active MediaRecorder
+  if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
+    window.mediaRecorder.stop();
+  }
+  
+  // Reset references
+  window.ws = null;
+  window.mediaRecorder = null;
+  
+  // Clear conversation manager references
+  window.conversationManager = null;
+  window.aiService = null;
+  
+  console.log('✅ Conversation cleanup complete');
 }
 
 // Error handling for conversation
@@ -766,6 +870,136 @@ async function safeAICall(conversationManager) {
   } catch (error) {
     handleConversationError(error, 'ai_processing');
     return { hasMoreQuestions: false, error: error.message };
+  }
+}
+
+// Prepare recorder for next segment without stopping the video
+function prepareForNextSegment() {
+  console.log('🔄 Preparing for next recording segment');
+  
+  // Reset recording flags
+  window.isRecording = false;
+  
+  // Clear any existing intervals
+  if (window.intervalID) {
+    clearInterval(window.intervalID);
+    window.intervalID = null;
+  }
+  
+  // Reset WebSocket and MediaRecorder references
+  window.ws = null;
+  window.mediaRecorder = null;
+  
+  // Ensure timer display shows paused time
+  if (window.conversationManager && window.conversationManager.timerPausedAt) {
+    jQuery('.pipeTimer-custom').text(window.conversationManager.timerPausedAt);
+  }
+  
+  console.log('✅ Ready for next segment');
+}
+
+// Start transcription for a new conversation segment
+function startTranscriptionForSegment() {
+  console.log('🎤 Starting transcription for new segment');
+  
+  // Get the video element and stream
+  const videoEl = document.getElementById('pipeVideoInput-' + questionName);
+  getMobileOperatingSystem();
+  
+  if (videoEl.srcObject !== undefined) {
+    stream = videoEl.srcObject;
+  } else if (videoEl.mozSrcObject !== undefined) {
+    stream = videoEl.mozSrcObject;
+  } else if (videoEl.src !== undefined) {
+    stream = videoEl.src;
+  } else {
+    console.log('❌ Could not get stream from video element');
+    return;
+  }
+  
+  // Create MediaRecorder for audio transcription
+  const audioStream = new MediaStream(stream.getAudioTracks());
+  window.mediaRecorder = new MediaRecorder(audioStream, {
+    mimeType: 'audio/webm;codecs=opus',
+  });
+  
+  // Create DeepGram WebSocket connection
+  if (deepGramConfiguration.token && deepGramConfiguration.token !== 'YOUR_DEEPGRAM_API_KEY_HERE') {
+    console.log('🔗 Reconnecting to DeepGram for segment...');
+    
+    try {
+      window.ws = new WebSocket(
+        'wss://api.deepgram.com/v1/listen?model=nova-3&language=en-US&smart_format=true&interim_results=true', 
+        ['token', deepGramConfiguration.token]
+      );
+      console.log('✅ DeepGram WebSocket created for segment');
+    } catch (error) {
+      console.error('❌ Failed to create DeepGram WebSocket:', error);
+      window.ws = null;
+    }
+  }
+  
+  if (window.ws) {
+    window.ws.onopen = () => {
+      console.log('🎤 DeepGram WebSocket connected for segment');
+      
+      const timeslice = 1000;
+      
+      window.mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0 && window.ws && window.ws.readyState === WebSocket.OPEN) {
+          console.log('📤 Sending audio chunk to DeepGram:', event.data.size, 'bytes');
+          window.ws.send(event.data);
+        }
+      });
+      
+      window.mediaRecorder.addEventListener('stop', () => {
+        console.log('🎙️ MediaRecorder stopped for segment');
+      });
+      
+      window.mediaRecorder.addEventListener('error', (event) => {
+        console.log('❌ MediaRecorder error:', event.error);
+      });
+      
+      window.mediaRecorder.start(timeslice);
+    };
+    
+    window.ws.onmessage = (msg) => {
+      try {
+        const data = JSON.parse(msg.data);
+        
+        if (data.type === 'Results') {
+          const transcript = data.channel.alternatives[0].transcript;
+          if (transcript) {
+            if (data.is_final) {
+              console.log('✅ Final transcript:', transcript);
+              global_transcript += transcript + ' ';
+            } else {
+              console.log('⏳ Interim transcript:', transcript);
+            }
+          }
+        } else if (data.type === 'Metadata') {
+          console.log('📊 DeepGram Metadata:', data);
+        }
+      } catch (error) {
+        console.error('❌ Error parsing DeepGram response:', error, msg.data);
+      }
+    };
+    
+    window.ws.onerror = (error) => {
+      console.error('❌ DeepGram WebSocket error:', error);
+    };
+    
+    window.ws.onclose = (event) => {
+      console.log('🔌 DeepGram WebSocket closed for segment:', event.code, event.reason);
+    };
+  } else {
+    // Start MediaRecorder without DeepGram
+    const timeslice = 1000;
+    window.mediaRecorder.start(timeslice);
+    
+    window.mediaRecorder.onstop = () => {
+      console.log('🛑 MediaRecorder stopped (no transcription)');
+    };
   }
 }
 
@@ -854,28 +1088,43 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
       try {
         console.log('▶️ Record button pressed');
         
-        // Handle conversation initialization
-        if (window.conversationManager && !window.isConversationActive) {
-          console.log('🎬 Starting conversation');
-          window.conversationManager.startConversation();
-          window.isConversationActive = true;
+        // Check if this is a conversation segment restart
+        if (window.conversationManager && window.isConversationActive && window.conversationManager.segments.length > 0) {
+          console.log('🔄 Starting new conversation segment');
           
-          // Don't initialize fake stop button here - wait until recording actually starts
-          
-          // If no probing, mark for actual stop
-          if (questionConfig.probingAmount === "None") {
-            window.shouldActuallyStop = true;
+          // Resume timer from paused state
+          if (window.conversationManager.timerPausedAt) {
+            console.log('⏱️ Resuming timer from:', window.conversationManager.timerPausedAt);
           }
-        }
-        
-        // Standard recording setup
-        startRecordingClicked();
-        jQuery('#NextButton-custom').hide();
-        // Don't set isRecording here - wait for actual recording to start
-        
-        // Don't reset global transcript during conversation
-        if (!window.isConversationActive) {
-          global_transcript = '';
+          
+          // Don't call the native btRecordPressed - we're already recording
+          // Instead, just set up the UI and transcription
+          startRecordingUIForSegment();
+          
+        } else {
+          // First recording - handle conversation initialization
+          if (window.conversationManager && !window.isConversationActive) {
+            console.log('🎬 Starting conversation');
+            window.conversationManager.startConversation();
+            window.isConversationActive = true;
+            
+            // Don't initialize fake stop button here - wait until recording actually starts
+            
+            // If no probing, mark for actual stop
+            if (questionConfig.probingAmount === "None") {
+              window.shouldActuallyStop = true;
+            }
+          }
+          
+          // Standard recording setup
+          startRecordingClicked();
+          jQuery('#NextButton-custom').hide();
+          // Don't set isRecording here - wait for actual recording to start
+          
+          // Don't reset global transcript during conversation
+          if (!window.isConversationActive) {
+            global_transcript = '';
+          }
         }
         
         // Existing WebSocket setup code...

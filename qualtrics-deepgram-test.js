@@ -113,20 +113,40 @@ Qualtrics.SurveyEngine.addOnload(function() {
         }
     }
     
-    // Add transcript entry to UI (separate from logs)
+    // Add transcript entry to UI - matching working test implementation
     function addTranscriptEntry(transcript, isFinal, count) {
-        const timestamp = new Date().toLocaleTimeString();
-        
-        // Log to console with detailed info
-        logTranscriptOnly(`${isFinal ? '✅ FINAL TRANSCRIPT' : '⏳ INTERIM TRANSCRIPT'} #${count}: "${transcript}"`);
-        
-        // Add to UI in a cleaner format
         const transcriptDiv = document.getElementById('dg-transcript');
-        if (transcriptDiv && isFinal) { // Only show final transcripts in UI to avoid clutter
-            const entry = `[${timestamp}] FINAL #${count}: "${transcript}"\n`;
-            transcriptDiv.textContent += entry;
-            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+        if (!transcriptDiv) return;
+        
+        // Remove previous interim result for this turn (like working test)
+        const existingInterim = document.getElementById(`interim-${count}`);
+        if (existingInterim) {
+            existingInterim.remove();
         }
+        
+        // Create new entry element
+        const entry = document.createElement('div');
+        entry.className = 'transcript-entry ' + (isFinal ? 'final' : 'interim');
+        entry.style.cssText = `
+            margin: 5px 0; 
+            padding: 8px; 
+            border-left: 3px solid ${isFinal ? '#007bff' : '#6c757d'}; 
+            background-color: ${isFinal ? '#e7f3ff' : '#f0f0f0'};
+            font-family: monospace;
+            font-size: 12px;
+        `;
+        
+        if (!isFinal) {
+            entry.id = `interim-${count}`;
+        }
+        
+        entry.innerHTML = `
+            <strong>${isFinal ? 'Final' : 'Interim'} #${count}:</strong> ${transcript}
+            <small style="float: right; color: #666;">${new Date().toLocaleTimeString()}</small>
+        `;
+        
+        transcriptDiv.appendChild(entry);
+        transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
     }
     
     // Start transcription - using exact working implementation
@@ -210,65 +230,36 @@ Qualtrics.SurveyEngine.addOnload(function() {
             };
             
             ws.onmessage = (event) => {
-                log('📨 Received WebSocket message');
-                
                 try {
                     const data = JSON.parse(event.data);
-                    log('📋 Message type: ' + data.type);
                     
                     if (data.type === 'Results') {
-                        log('🎯 Processing Results message...');
-                        
-                        if (data.channel && data.channel.alternatives && data.channel.alternatives[0]) {
-                            const transcript = data.channel.alternatives[0].transcript;
-                            const confidence = data.channel.alternatives[0].confidence;
+                        const transcript = data.channel.alternatives[0].transcript;
+                        if (transcript) {
+                            transcriptCount++;
+                            addTranscriptEntry(transcript, data.is_final, transcriptCount);
                             
-                            if (transcript && transcript.trim()) {
-                                transcriptCount++;
-                                log(`📝 Transcript found: "${transcript}" (confidence: ${confidence})`);
-                                addTranscriptEntry(transcript, data.is_final, transcriptCount);
+                            if (data.is_final) {
+                                log(`✅ Final: "${transcript}"`);
                             } else {
-                                log('📝 Empty transcript received');
+                                log(`⏳ Interim: "${transcript}"`);
                             }
-                        } else {
-                            log('⚠️ Results message missing expected structure');
-                            log('📊 Raw data: ' + JSON.stringify(data, null, 2));
                         }
                     } else if (data.type === 'Metadata') {
-                        log('📊 Received DeepGram metadata');
-                        log('📊 Metadata: ' + JSON.stringify(data, null, 2));
-                    } else if (data.type === 'UtteranceEnd') {
-                        log('🔚 Utterance ended');
-                    } else if (data.type === 'SpeechStarted') {
-                        log('🗣️ Speech started detected');
-                    } else {
-                        log('❓ Unknown message type: ' + data.type);
-                        log('📊 Full message: ' + JSON.stringify(data, null, 2));
+                        log('📊 Received metadata');
                     }
                 } catch (error) {
-                    log('❌ Error parsing DeepGram response: ' + error.message);
-                    log('📊 Raw message: ' + event.data);
+                    log('❌ Error parsing response: ' + error.message);
                 }
             };
             
             ws.onerror = (error) => {
-                log('❌ DeepGram WebSocket error in Qualtrics: ' + error);
-                log('🔍 This indicates WebSocket connections may be blocked in Qualtrics environment');
+                log('❌ WebSocket error: ' + error);
                 updateStatus('Connection error', 'error');
             };
             
             ws.onclose = (event) => {
-                log(`🔌 DeepGram WebSocket closed: Code ${event.code} - ${event.reason || 'No reason provided'}`);
-                
-                // Specific error code analysis
-                if (event.code === 1006) {
-                    log('⚠️ Code 1006: Abnormal closure - likely blocked by Qualtrics CSP or network restrictions');
-                } else if (event.code === 1002) {
-                    log('⚠️ Code 1002: Protocol error - authentication may have failed');
-                } else if (event.code === 1000) {
-                    log('✅ Code 1000: Normal closure');
-                }
-                
+                log(`🔌 WebSocket closed: ${event.code} ${event.reason}`);
                 updateStatus('Disconnected', 'disconnected');
                 cleanup();
             };
@@ -326,10 +317,10 @@ Qualtrics.SurveyEngine.addOnload(function() {
     function clearResults() {
         const transcriptDiv = document.getElementById('dg-transcript');
         if (transcriptDiv) {
-            transcriptDiv.textContent = 'Click "Start Recording" to begin WebSocket test...\n';
+            transcriptDiv.innerHTML = 'Click "Start Recording" to begin WebSocket test...';
         }
         transcriptCount = 0;
-        log('🧹 Results and logs cleared');
+        log('🧹 Results cleared');
     }
     
     // Initialize the test UI

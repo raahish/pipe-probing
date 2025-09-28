@@ -684,6 +684,31 @@ function startRecordingClicked() {
   }
 }
 
+// Clean up conversation state
+function cleanupConversation() {
+  console.log('🧹 Cleaning up conversation state');
+  
+  // Reset global flags
+  window.isConversationActive = false;
+  window.shouldActuallyStop = false;
+  window.fakeStopButtonActive = false;
+  
+  // Remove fake stop button
+  jQuery('#fake-stop-' + questionName).remove();
+  
+  // Remove event listeners
+  jQuery(document).off('click.conversation');
+  
+  // Reset UI
+  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state conversation-active');
+  toggleFakeStopButton(false);
+  
+  // Clear timers
+  if (window.intervalID) {
+    clearInterval(window.intervalID);
+  }
+}
+
 var elementController;
 
 /**
@@ -944,6 +969,12 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
     ) {
       var args = Array.prototype.slice.call(arguments);
       console.log('onVideoUploadSuccess(' + args.join(', ') + ')');
+      
+      // Clean up conversation if active
+      if (window.conversationManager) {
+        cleanupConversation();
+      }
+      
       console.log(
         'setEmbeddedDataToQuestion >>>>>> >>>>> >>>>onVideoUploadSuccess',
         recorderId,

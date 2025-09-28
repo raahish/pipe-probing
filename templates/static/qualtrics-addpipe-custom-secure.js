@@ -463,6 +463,75 @@ Remember: Respond with JSON only, no additional text.`;
   }
 }
 
+// Fake Stop Button Management
+function initializeFakeStopButton() {
+  console.log('🔴 Initializing fake stop button system');
+  
+  // Store reference to original Pipe stop handler
+  if (window.recorderObjectGlobal && window.recorderObjectGlobal.btStopRecordingPressed) {
+    window.originalStopHandler = window.recorderObjectGlobal.btStopRecordingPressed;
+  }
+  
+  // Create fake stop button
+  const fakeStopBtn = jQuery(`
+    <button class="fake-stop-button" id="fake-stop-${questionName}" style="display: none;">
+      <svg viewBox="0 0 24 24">
+        <rect x="6" y="6" width="12" height="12" fill="currentColor"/>
+      </svg>
+    </button>
+  `);
+  
+  // Add to pipe menu
+  jQuery('#pipeMenu-' + questionName).append(fakeStopBtn);
+  
+  // Handle fake stop click
+  fakeStopBtn.on('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.conversationManager && window.conversationManager.conversationActive) {
+      console.log('🛑 Fake stop clicked - pausing for AI');
+      pauseForAIProcessing();
+    }
+  });
+  
+  // Override native record button clicks during conversation
+  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
+    if (window.conversationManager && window.conversationManager.conversationActive && window.isRecording) {
+      console.log('🚫 Intercepting native stop button click');
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Trigger fake stop instead
+      jQuery('#fake-stop-' + questionName).click();
+      return false;
+    }
+  });
+}
+
+// Function to show/hide fake stop button
+function toggleFakeStopButton(show) {
+  const fakeBtn = jQuery('#fake-stop-' + questionName);
+  const nativeBtn = jQuery('#pipeRec-' + questionName);
+  
+  if (show) {
+    // Hide native, show fake
+    nativeBtn.css({
+      'opacity': '0',
+      'pointer-events': 'none'
+    });
+    fakeBtn.show();
+  } else {
+    // Show native, hide fake
+    nativeBtn.css({
+      'opacity': '1',
+      'pointer-events': 'auto'
+    });
+    fakeBtn.hide();
+  }
+}
+
 var elementController;
 
 /**

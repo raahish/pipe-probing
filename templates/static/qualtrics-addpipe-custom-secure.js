@@ -1294,7 +1294,19 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     jQuery('#NextButton-custom').show();
     jQuery('#next-button-modal').remove();
     jQuery('.retake-button').remove();
-    jQuery('#record-title').append('Perfect! Video Recorded Successfully');
+    // Check if this was a conversation
+    if (window.conversationManager && window.conversationManager.segments.length > 0) {
+      jQuery('#record-title').append('Interview Completed Successfully!');
+      
+      const totalQuestions = window.conversationManager.segments.length;
+      const totalMinutes = Math.floor(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime / 60);
+      const totalSeconds = Math.round(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime % 60);
+      
+      sucessModalDetails = `Great job! You answered ${totalQuestions} question${totalQuestions > 1 ? 's' : ''} in ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}. Thank you for your thoughtful responses!`;
+    } else {
+      jQuery('#record-title').append('Perfect! Video Recorded Successfully');
+      sucessModalDetails = 'Your video response has been recorded successfully! You can now continue to the next question.';
+    }
     
     // Set playback state for clean UI - simplified layout: Record center + Play right
     jQuery('#pipeMenu-' + questionName).removeClass('recording-state').addClass('playback-state');
@@ -1309,7 +1321,6 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     jQuery('#image-sucess').append(
       '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--success));"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>'
     );
-    sucessModalDetails = 'Your video response has been recorded successfully! You can now continue to the next question.';
     jQuery('#result').addClass('success-feedback');
     jQuery('#result').append(sucessModalDetails);
     jQuery('.retake-previous').remove();

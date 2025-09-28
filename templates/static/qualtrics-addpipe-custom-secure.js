@@ -36,13 +36,13 @@ class ElementController {
   constructor(questionName) {
     this.questionName = questionName;
     this.elements = {
-      recordButton: `#pipeRec-${questionName}`,
-      nativePlayButton: `#pipePlay-${questionName}`,
+      recordButton: '#pipeRec-' + questionName,
+      nativePlayButton: '#pipePlay-' + questionName,
       customPlayButton: '.play-custom-btn',
       timer: '.pipeTimer-custom',
       nativeTimer: '.pipeTimer',
       backButton: '.back-to-camera',
-      menu: `#pipeMenu-${questionName}`
+      menu: '#pipeMenu-' + questionName
     };
   }
 
@@ -99,7 +99,7 @@ class ConversationManager {
     this.currentSegmentStartTime = null;
     this.isProcessingAI = false;
     this.conversationActive = false;
-    this.conversationId = `${questionName}_${Date.now()}`;
+    this.conversationId = questionName + '_' + Date.now();
     this.accumulatedTranscript = "";
     this.currentAIQuestion = config.questionText;
     this.timerPausedAt = null;
@@ -153,7 +153,7 @@ class ConversationManager {
       content: segmentTranscript
     });
     
-    console.log(`📝 Segment ${segment.segmentId} recorded:`, segment);
+    console.log('📝 Segment ' + segment.segmentId + ' recorded:', segment);
     return segment;
   }
 
@@ -268,7 +268,7 @@ class AIService {
     // Retry logic for API calls
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        console.log(`🤖 AI Service: Attempt ${attempt}/${this.maxRetries}`);
+        console.log('🤖 AI Service: Attempt ' + attempt + '/' + this.maxRetries);
         
         const systemPrompt = this.buildSystemPrompt(conversationManager.config, conversationManager.currentProbeCount);
         
@@ -276,7 +276,7 @@ class AIService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
+            'Authorization': 'Bearer ' + this.apiKey
           },
           body: JSON.stringify({
             model: this.model,
@@ -292,7 +292,7 @@ class AIService {
 
         if (!response.ok) {
           const errorData = await response.text();
-          throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+          throw new Error('OpenAI API error: ' + response.status + ' - ' + errorData);
         }
 
         const data = await response.json();
@@ -305,12 +305,12 @@ class AIService {
         return aiResponse;
         
       } catch (error) {
-        console.error(`❌ AI Service Error (attempt ${attempt}):`, error);
+        console.error('❌ AI Service Error (attempt ' + attempt + '):', error);
         lastError = error;
         
         // If not the last attempt, wait before retrying
         if (attempt < this.maxRetries) {
-          console.log(`⏳ Retrying in ${this.retryDelay}ms...`);
+          console.log('⏳ Retrying in ' + this.retryDelay + 'ms...');
           await new Promise(resolve => setTimeout(resolve, this.retryDelay));
         }
       }
@@ -403,37 +403,31 @@ class AIService {
     const maxQuestions = window.maxProbesByLevel[questionConfig.probingAmount] || 0;
     const remainingQuestions = maxQuestions - currentProbeCount;
     
-    return `${systemPromptBase}
-
-Original Question: "${questionConfig.questionText}"
-Probing Instructions: "${questionConfig.probingInstructions}"
-Questions asked so far: ${currentProbeCount}
-Maximum questions allowed: ${maxQuestions}
-Remaining questions: ${remainingQuestions}
-
-RESPONSE FORMAT: You must respond with valid JSON only. Use one of these formats:
-
-1. To ask a follow-up question:
-{
-  "hasMoreQuestions": true,
-  "question": "Your specific follow-up question here",
-  "reasoning": "Brief explanation of why this question is needed"
-}
-
-2. To end the interview:
-{
-  "isDone": true,
-  "reasoning": "Explanation of why the interview is complete"
-}
-
-DECISION CRITERIA:
-- If the user has thoroughly answered the original question AND satisfied the probing instructions → End interview
-- If you've reached the maximum number of questions (${maxQuestions}) → End interview  
-- If more information is needed AND questions remain → Ask follow-up
-- Be conversational and reference specific things the user said
-- Focus on the probing instructions: "${questionConfig.probingInstructions}"
-
-Remember: Respond with JSON only, no additional text.`;
+    return systemPromptBase + '\n\n' +
+      'Original Question: "' + questionConfig.questionText + '"\n' +
+      'Probing Instructions: "' + questionConfig.probingInstructions + '"\n' +
+      'Questions asked so far: ' + currentProbeCount + '\n' +
+      'Maximum questions allowed: ' + maxQuestions + '\n' +
+      'Remaining questions: ' + remainingQuestions + '\n\n' +
+      'RESPONSE FORMAT: You must respond with valid JSON only. Use one of these formats:\n\n' +
+      '1. To ask a follow-up question:\n' +
+      '{\n' +
+      '  "hasMoreQuestions": true,\n' +
+      '  "question": "Your specific follow-up question here",\n' +
+      '  "reasoning": "Brief explanation of why this question is needed"\n' +
+      '}\n\n' +
+      '2. To end the interview:\n' +
+      '{\n' +
+      '  "isDone": true,\n' +
+      '  "reasoning": "Explanation of why the interview is complete"\n' +
+      '}\n\n' +
+      'DECISION CRITERIA:\n' +
+      '- If the user has thoroughly answered the original question AND satisfied the probing instructions → End interview\n' +
+      '- If you\'ve reached the maximum number of questions (' + maxQuestions + ') → End interview\n' +
+      '- If more information is needed AND questions remain → Ask follow-up\n' +
+      '- Be conversational and reference specific things the user said\n' +
+      '- Focus on the probing instructions: "' + questionConfig.probingInstructions + '"\n\n' +
+      'Remember: Respond with JSON only, no additional text.';
   }
 
   // Utility method to validate API key
@@ -450,12 +444,12 @@ Remember: Respond with JSON only, no additional text.`;
     try {
       const response = await fetch('https://api.openai.com/v1/models', {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`
+          'Authorization': 'Bearer ' + this.apiKey
         }
       });
       
       if (!response.ok) {
-        throw new Error(`API test failed: ${response.status}`);
+        throw new Error('API test failed: ' + response.status);
       }
       
       console.log('✅ OpenAI API connection successful');
@@ -477,13 +471,13 @@ function initializeFakeStopButton() {
   }
   
   // Create fake stop button
-  const fakeStopBtn = jQuery(`
-    <button class="fake-stop-button" id="fake-stop-${questionName}" style="display: none;">
-      <svg viewBox="0 0 24 24">
-        <rect x="6" y="6" width="12" height="12" fill="currentColor"/>
-      </svg>
-    </button>
-  `);
+  const fakeStopBtn = jQuery(
+    '<button class="fake-stop-button" id="fake-stop-' + questionName + '" style="display: none;">' +
+      '<svg viewBox="0 0 24 24">' +
+        '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>' +
+      '</svg>' +
+    '</button>'
+  );
   
   // Add to pipe menu
   jQuery('#pipeMenu-' + questionName).append(fakeStopBtn);
@@ -613,15 +607,15 @@ function showAIProcessingUI() {
   console.log('🤔 Showing AI processing UI');
   
   // Add AI processing overlay
-  const overlay = jQuery(`
-    <div class="ai-processing-overlay">
-      <div class="ai-thinking-content">
-        <div class="ai-thinking-spinner"></div>
-        <h3>AI is thinking...</h3>
-        <p>Analyzing your response and preparing a follow-up question</p>
-      </div>
-    </div>
-  `);
+  const overlay = jQuery(
+    '<div class="ai-processing-overlay">' +
+      '<div class="ai-thinking-content">' +
+        '<div class="ai-thinking-spinner"></div>' +
+        '<h3>AI is thinking...</h3>' +
+        '<p>Analyzing your response and preparing a follow-up question</p>' +
+      '</div>' +
+    '</div>'
+  );
   
   jQuery('#pipeMenu-' + questionName).append(overlay);
   
@@ -672,7 +666,7 @@ function updateTimerDisplay() {
   const seconds = Math.floor(elapsed % 60);
   
   jQuery('.pipeTimer-custom').text(
-    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+    (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds
   );
 }
 
@@ -731,7 +725,7 @@ function cleanupConversation() {
 
 // Error handling for conversation
 function handleConversationError(error, context) {
-  console.error(`❌ Conversation error in ${context}:`, error);
+  console.error('❌ Conversation error in ' + context + ':', error);
   
   // Log to conversation metadata
   if (window.conversationManager) {
@@ -1067,7 +1061,7 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
       console.log('💾 onSaveOk triggered');
       
       // Build video URL
-      const videoUrl = `${S3_BASE_URL}${streamName}.mp4`;
+      const videoUrl = S3_BASE_URL + streamName + '.mp4';
       
       // Handle conversation metadata
       if (window.conversationManager && window.conversationManager.segments.length > 0) {
@@ -1459,7 +1453,7 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
     });
   } else {
     console.log('streamName::', streamName);
-    const URL = `${S3_BASE_URL}${streamName}.mp4`;
+    const URL = S3_BASE_URL + streamName + '.mp4';
     updateEmbeddedData(URL);
     jQuery('#NextButton-custom').show();
     jQuery('#next-button-modal').remove();
@@ -1472,7 +1466,7 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
       const totalMinutes = Math.floor(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime / 60);
       const totalSeconds = Math.round(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime % 60);
       
-      sucessModalDetails = `Great job! You answered ${totalQuestions} question${totalQuestions > 1 ? 's' : ''} in ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}. Thank you for your thoughtful responses!`;
+      sucessModalDetails = 'Great job! You answered ' + totalQuestions + ' question' + (totalQuestions > 1 ? 's' : '') + ' in ' + totalMinutes + ':' + (totalSeconds < 10 ? '0' : '') + totalSeconds + '. Thank you for your thoughtful responses!';
     } else {
       jQuery('#record-title').append('Perfect! Video Recorded Successfully');
       sucessModalDetails = 'Your video response has been recorded successfully! You can now continue to the next question.';

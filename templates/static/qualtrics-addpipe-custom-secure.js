@@ -1184,6 +1184,22 @@ function getMobileOperatingSystem() {
  */
 function validateVideo(recorderObject, transcript_array, location, streamName) {
   console.log('ValidateVideo >>>> ', recorderObject);
+  
+  // Skip validation during active conversation
+  if (window.conversationManager && window.isConversationActive && !window.shouldActuallyStop) {
+    console.log('⏭️ Skipping validation - conversation in progress');
+    return;
+  }
+  
+  // Check conversation minimum duration if applicable
+  if (window.conversationManager && window.conversationManager.segments.length > 0) {
+    const totalDuration = window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime;
+    if (totalDuration < validationDetails.min_streamtime) {
+      console.warn('⚠️ Conversation shorter than minimum duration');
+      // Continue with validation to show error
+    }
+  }
+  
   var sucessModalDetails = '';
 
   jQuery('#record-title').empty();

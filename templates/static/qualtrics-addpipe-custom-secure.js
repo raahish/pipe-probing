@@ -495,9 +495,15 @@ function initializeFakeStopButton() {
     }
   });
   
-  // Override native record button clicks during conversation
+  // Override native stop button clicks during conversation
   jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
-    if (window.conversationManager && window.conversationManager.conversationActive && window.isRecording) {
+    // Only intercept if we're actually recording (not just starting)
+    if (window.conversationManager && 
+        window.conversationManager.conversationActive && 
+        window.isRecording && 
+        window.recorderObjectGlobal &&
+        window.recorderObjectGlobal.getState && 
+        window.recorderObjectGlobal.getState() === 'recording') {
       console.log('🚫 Intercepting native stop button click');
       e.preventDefault();
       e.stopPropagation();
@@ -535,6 +541,16 @@ function toggleFakeStopButton(show) {
 // Pause recording for AI processing
 async function pauseForAIProcessing() {
   console.log('⏸️ Pausing for AI processing');
+  
+  // Check if we have a meaningful recording (at least 1 second)
+  const currentDuration = window.conversationManager.segments.length === 0 ? 
+    (performance.now() - window.conversationManager.conversationStartTime) / 1000 :
+    (performance.now() - window.conversationManager.conversationStartTime) / 1000 - window.conversationManager.currentSegmentStartTime;
+    
+  if (currentDuration < 1) {
+    console.warn('⚠️ Recording too short, ignoring pause request');
+    return;
+  }
   
   // Mark segment end
   const segment = window.conversationManager.markSegmentEnd();
@@ -660,8 +676,8 @@ function updateTimerDisplay() {
 function startRecordingClicked() {
   console.log('🎙️ Recording started');
   
-  // Only do retake cleanup if not in conversation
-  if (!window.isConversationActive) {
+  // Only do retake cleanup if not in conversation or if we have segments (not first recording)
+  if (!window.isConversationActive || (window.conversationManager && window.conversationManager.segments.length > 0)) {
     retake();
   }
   
@@ -674,7 +690,7 @@ function startRecordingClicked() {
   jQuery('#time-span').remove();
   
   // Use conversation-aware timer
-  if (window.conversationManager) {
+  if (window.conversationManager && window.isConversationActive) {
     window.intervalID = setInterval(updateTimerDisplay, 1000);
   } else {
     // Fallback to original timer
@@ -783,21 +799,26 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
   elementController = new ElementController(question_name);
   
   // Initialize conversation components if probing is enabled
-  if (typeof questionConfig !== 'undefined' && questionConfig.probingAmount !== "None") {
+  if (typeof questionConfig !== 'undefined') {
     console.log('🎯 Initializing conversational AI components');
     
-    // Show question container
+    // Always show question container and display the question
     jQuery('.conversation-question-container').show();
-    
-    // Display initial question
     jQuery('#dynamic-question-title').text(questionConfig.questionText);
     jQuery('#dynamic-question-description').text('Click record when you\'re ready to begin.');
+    
+    if (questionConfig.probingAmount === "None") {
+      console.log('📝 No AI probing configured - single response only');
+    }
   } else {
-    console.log('📝 Standard recording mode (no AI probing)');
+    console.log('📝 Standard recording mode (no question config)');
   }
   
   jQuery('#pipeDownload-' + questionName).hide();
-  PipeSDK.insert(question_name, pipeParams, function (recorderObject) {
+    PipeSDK.insert(question_name, pipeParams, function (recorderObject) {
+    // Store global reference
+    window.recorderObjectGlobal = recorderObject;
+    
     // Initialize conversation manager and AI service after recorder is ready
     if (typeof questionConfig !== 'undefined' && questionConfig.probingAmount !== "None") {
       window.conversationManager = new ConversationManager(question_name, recorderObject, questionConfig);
@@ -809,6 +830,23 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
      */
     recorderObject.onReadyToRecord = async function (recorderId, recorderType) {
       jQuery('.pipeTimer').hide();
+    };
+    
+    /**
+     * Handler for when recording actually starts
+     */
+    recorderObject.onRecordingStarted = function (recorderId) {
+      console.log('🔴 Recording actually started');
+      
+      // Set recording flag
+      window.isRecording = true;
+      
+      // Now initialize fake stop button for conversation
+      if (window.conversationManager && window.isConversationActive && !window.fakeStopButtonActive) {
+        initializeFakeStopButton();
+        toggleFakeStopButton(true);
+        window.fakeStopButtonActive = true;
+      }
     };
 
     /**
@@ -824,8 +862,7 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           window.conversationManager.startConversation();
           window.isConversationActive = true;
           
-          // Initialize fake stop button system
-          initializeFakeStopButton();
+          // Don't initialize fake stop button here - wait until recording actually starts
           
           // If no probing, mark for actual stop
           if (questionConfig.probingAmount === "None") {
@@ -833,15 +870,10 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           }
         }
         
-        // Show fake stop button during recording
-        if (window.conversationManager && window.isConversationActive) {
-          toggleFakeStopButton(true);
-        }
-        
         // Standard recording setup
         startRecordingClicked();
         jQuery('#NextButton-custom').hide();
-        isRecording = true;
+        // Don't set isRecording here - wait for actual recording to start
         
         // Don't reset global transcript during conversation
         if (!window.isConversationActive) {
@@ -865,21 +897,27 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           mimeType: mimetype,
         });
         
-        ws = new WebSocket(deepGramConfiguration.endPoint, ['token', deepGramConfiguration.token]);
+        // Create WebSocket with proper authorization
+        const deepgramUrl = `${deepGramConfiguration.endPoint}?encoding=webm&sample_rate=48000&channels=1`;
+        ws = new WebSocket(deepgramUrl, ['token', deepGramConfiguration.token]);
+        
         ws.onopen = () => {
           console.log('🎤 WebSocket opened');
-          mediaRecorder.onstop = () => {
-            console.log('onstop fired');
-          };
+          
+          // Start MediaRecorder with the WebSocket is open
           const timeslice = 1000;
           mediaRecorder.start(timeslice);
           
           mediaRecorder.addEventListener('dataavailable', (event) => {
-            if (event.data.size > 0 && ws.readyState == 1) {
+            if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
               console.log('Sent audio chunk: ', event.data);
               ws.send(event.data);
             }
           });
+          
+          mediaRecorder.onstop = () => {
+            console.log('MediaRecorder stopped');
+          };
         };
         
         ws.onmessage = (msg) => {
@@ -1199,7 +1237,8 @@ function modalClose() {
   }
   
   jQuery.modal.close();
-  loadPipe(questionName, pipeParams, deepGramConfiguration);
+  // Don't reinitialize pipe - it's already loaded
+  // loadPipe(questionName, pipeParams, deepGramConfiguration);
 }
 
 /**

@@ -889,8 +889,8 @@ text-align: left;
 
 /* Control Panel for Recorded State */
 [id^="pipeMenu-"] .control-panel {
-  display: flex;
-  align-items: center;
+display: flex;
+align-items: center;
   justify-content: center;
   gap: var(--spacing-lg);
   width: 100%;
@@ -1038,7 +1038,7 @@ text-align: left;
   background: hsl(var(--destructive));
   border: none;
   border-radius: 8px;
-  cursor: pointer;
+cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1209,7 +1209,7 @@ text-align: left;
 
 .conversation-loading::after {
   content: '';
-  position: absolute;
+position: absolute;
   top: 0;
   left: 0;
   right: 0;

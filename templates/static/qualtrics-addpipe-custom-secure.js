@@ -249,6 +249,220 @@ class ConversationManager {
   }
 }
 
+// AI Service for OpenAI integration
+class AIService {
+  constructor(apiKey, model) {
+    this.apiKey = apiKey;
+    this.model = model || 'gpt-4';
+    this.maxRetries = 2;
+    this.retryDelay = 1000; // 1 second
+  }
+
+  async getFollowUpQuestion(conversationManager) {
+    let lastError = null;
+    
+    // Retry logic for API calls
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        console.log(`🤖 AI Service: Attempt ${attempt}/${this.maxRetries}`);
+        
+        const systemPrompt = this.buildSystemPrompt(conversationManager.config, conversationManager.currentProbeCount);
+        
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...conversationManager.conversationThread
+            ],
+            temperature: 0.7,
+            max_tokens: 200,
+            response_format: { type: "json_object" }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
+        }
+
+        const data = await response.json();
+        const aiResponseText = data.choices[0].message.content;
+        
+        // Parse the response
+        const aiResponse = this.parseAIResponse(aiResponseText);
+        
+        console.log('🤖 AI Response:', aiResponse);
+        return aiResponse;
+        
+      } catch (error) {
+        console.error(`❌ AI Service Error (attempt ${attempt}):`, error);
+        lastError = error;
+        
+        // If not the last attempt, wait before retrying
+        if (attempt < this.maxRetries) {
+          console.log(`⏳ Retrying in ${this.retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+        }
+      }
+    }
+    
+    // All attempts failed
+    console.error('❌ All AI Service attempts failed:', lastError);
+    return { 
+      hasMoreQuestions: false, 
+      error: lastError.message,
+      shouldContinue: false 
+    };
+  }
+
+  parseAIResponse(responseText) {
+    try {
+      // Try to parse as JSON first
+      const parsed = JSON.parse(responseText);
+      
+      // Handle different response formats
+      if (parsed.isDone === true || parsed.done === true) {
+        return {
+          hasMoreQuestions: false,
+          question: null,
+          reasoning: parsed.reasoning || "Interview complete",
+          shouldContinue: false
+        };
+      }
+      
+      if (parsed.hasMoreQuestions === true && parsed.question) {
+        return {
+          hasMoreQuestions: true,
+          question: parsed.question.trim(),
+          reasoning: parsed.reasoning || null,
+          shouldContinue: true
+        };
+      }
+      
+      // Fallback: if we have a question field, use it
+      if (parsed.question) {
+        return {
+          hasMoreQuestions: true,
+          question: parsed.question.trim(),
+          reasoning: parsed.reasoning || null,
+          shouldContinue: true
+        };
+      }
+      
+    } catch (jsonError) {
+      console.warn('⚠️ Failed to parse AI response as JSON:', jsonError);
+      
+      // Fallback: treat as plain text question
+      const cleanText = responseText.trim();
+      if (cleanText.length > 0 && !this.isCompletionResponse(cleanText)) {
+        return {
+          hasMoreQuestions: true,
+          question: cleanText,
+          reasoning: "Parsed as plain text",
+          shouldContinue: true
+        };
+      }
+    }
+    
+    // Default: no more questions
+    return {
+      hasMoreQuestions: false,
+      question: null,
+      reasoning: "Could not parse response",
+      shouldContinue: false
+    };
+  }
+
+  isCompletionResponse(text) {
+    const lowerText = text.toLowerCase();
+    const completionKeywords = [
+      'no more questions',
+      'interview complete',
+      'sufficient information',
+      'thoroughly answered',
+      'done',
+      'finished',
+      'complete'
+    ];
+    
+    return completionKeywords.some(keyword => lowerText.includes(keyword));
+  }
+
+  buildSystemPrompt(questionConfig, currentProbeCount) {
+    const systemPromptBase = window.probingSystemPrompts[questionConfig.probingAmount] || '';
+    const maxQuestions = window.maxProbesByLevel[questionConfig.probingAmount] || 0;
+    const remainingQuestions = maxQuestions - currentProbeCount;
+    
+    return `${systemPromptBase}
+
+Original Question: "${questionConfig.questionText}"
+Probing Instructions: "${questionConfig.probingInstructions}"
+Questions asked so far: ${currentProbeCount}
+Maximum questions allowed: ${maxQuestions}
+Remaining questions: ${remainingQuestions}
+
+RESPONSE FORMAT: You must respond with valid JSON only. Use one of these formats:
+
+1. To ask a follow-up question:
+{
+  "hasMoreQuestions": true,
+  "question": "Your specific follow-up question here",
+  "reasoning": "Brief explanation of why this question is needed"
+}
+
+2. To end the interview:
+{
+  "isDone": true,
+  "reasoning": "Explanation of why the interview is complete"
+}
+
+DECISION CRITERIA:
+- If the user has thoroughly answered the original question AND satisfied the probing instructions → End interview
+- If you've reached the maximum number of questions (${maxQuestions}) → End interview  
+- If more information is needed AND questions remain → Ask follow-up
+- Be conversational and reference specific things the user said
+- Focus on the probing instructions: "${questionConfig.probingInstructions}"
+
+Remember: Respond with JSON only, no additional text.`;
+  }
+
+  // Utility method to validate API key
+  isConfigured() {
+    return this.apiKey && this.apiKey !== 'sk-...' && this.apiKey.startsWith('sk-');
+  }
+
+  // Method to test API connectivity
+  async testConnection() {
+    if (!this.isConfigured()) {
+      throw new Error('OpenAI API key not configured');
+    }
+    
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API test failed: ${response.status}`);
+      }
+      
+      console.log('✅ OpenAI API connection successful');
+      return true;
+    } catch (error) {
+      console.error('❌ OpenAI API connection failed:', error);
+      throw error;
+    }
+  }
+}
+
 var elementController;
 
 /**

@@ -1,32 +1,68 @@
 # Conversational AI Recording System - Implementation Plan
 
 ## Overview
-This document provides a detailed, chronologically ordered implementation plan for the conversational AI recording system. Each task is granular and builds upon previous tasks.
+This document provides a detailed, chronologically ordered implementation plan for the conversational AI recording system using a "fake stop" strategy for continuous recording. Each task is granular and builds upon previous tasks.
 
-## Phase 1: Configuration Setup (Tasks 1-5)
+## Key Strategy: Fake Stop Button
+Instead of actually stopping the Pipe recording between segments, we'll override the stop button to only pause for AI processing while keeping the recording active. The recording only truly stops when the conversation is complete.
 
-### Task 1: Update Question Configuration Structure
+## Phase 1: Core Infrastructure Setup (Tasks 1-6)
+
+### Task 1: Add Global Variables for Conversation State
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 5 minutes
+**Priority:** Critical - Must be done first
+
+Add after line 11 (after `var S3_BASE_URL`):
+```javascript
+// Conversation state variables
+var isConversationActive = false;
+var shouldActuallyStop = false;
+var conversationManager = null;
+var aiService = null;
+var accumulatedTranscript = ""; // Full conversation transcript
+var currentSegmentTranscript = ""; // Current segment only
+var fakeStopButtonActive = false;
+var originalStopHandler = null;
+var conversationStartTime = null;
+var segmentStartTime = null;
+```
+
+### Task 2: Update Question Configuration Structure
 **File:** `qualtrics-question-js.js`
 **Time:** 15 minutes
+**Dependencies:** Task 1
 
-Add question configuration object after line 22:
+Add after line 35 (after `deepGramConfiguration`):
+
 ```javascript
 // Question configuration for AI probing
 var questionConfig = {
   questionText: "What are your current nutritional goals you're trying to achieve? Why?",
-  probingInstructions: "Make sure to understand what motivates them to choose their goals.",
+  probingInstructions: "Make sure to understand what motivates them to choose their goals. Explore both the practical and emotional reasons behind their choices.",
   probingAmount: "Moderate" // Options: "None", "Moderate", "Deep"
 };
 
 // OpenAI Configuration (temporary client-side)
 var OPENAI_API_KEY = "sk-..."; // Replace with actual key
-var OPENAI_MODEL = "gpt-4o";
+var OPENAI_MODEL = "gpt-4"; // Using gpt-4 for better JSON responses
 
-// Probing level instructions
-var probingLevelInstructions = {
-  "None": "",
-  "Moderate": "Ask 2-3 clarifying questions to better understand the participant's response. Focus on key points that need elaboration.",
-  "Deep": "Conduct thorough probing with 4-5 follow-up questions. Explore underlying motivations, contexts, and nuances in the participant's responses."
+// System prompts for each probing level
+var probingSystemPrompts = {
+  "None": "You should not ask any follow-up questions.",
+  "Moderate": `You are an expert qualitative researcher. Ask 1-3 thoughtful follow-up questions to better understand the participant's response. 
+  Focus on:
+  - Clarifying vague statements
+  - Exploring key motivations
+  - Understanding context
+  Stop when you have sufficient depth or reach 3 questions total.`,
+  "Deep": `You are an expert qualitative researcher conducting an in-depth interview. Ask 3-5 probing follow-up questions to thoroughly explore the participant's response.
+  Focus on:
+  - Uncovering underlying motivations and emotions
+  - Exploring contradictions or interesting points
+  - Getting specific examples and stories
+  - Understanding the full context and implications
+  Continue until you have comprehensive understanding or reach 5 questions total.`
 };
 
 // Probing limits
@@ -37,72 +73,103 @@ var maxProbesByLevel = {
 };
 ```
 
-### Task 2: Create Conversation Manager Class
+### Task 3: Create Conversation Manager Class
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 30 minutes
+**Time:** 45 minutes
+**Dependencies:** Tasks 1-2
 
-Add after line 76 (after ElementController):
+Add after line 76 (after ElementController class closing brace):
 ```javascript
 // Conversation Manager for AI-driven interviews
 class ConversationManager {
-  constructor(questionConfig) {
-    this.questionConfig = questionConfig;
+  constructor(questionName, recorderObject, config) {
+    this.questionName = questionName;
+    this.recorderObject = recorderObject;
+    this.config = config;
     this.segments = [];
     this.conversationThread = [];
     this.currentProbeCount = 0;
-    this.maxProbes = maxProbesByLevel[questionConfig.probingAmount] || 5;
+    this.maxProbes = window.maxProbesByLevel[config.probingAmount] || 0;
     this.conversationStartTime = null;
     this.currentSegmentStartTime = null;
     this.isProcessingAI = false;
+    this.conversationActive = false;
     this.conversationId = `${questionName}_${Date.now()}`;
+    this.accumulatedTranscript = "";
+    this.currentAIQuestion = config.questionText;
+    this.timerPausedAt = null;
   }
 
   startConversation() {
-    this.conversationStartTime = Date.now();
+    this.conversationActive = true;
+    this.conversationStartTime = performance.now();
     this.currentSegmentStartTime = 0;
+    
     // Add initial question to thread
     this.conversationThread.push({
       role: "assistant",
-      content: this.questionConfig.questionText
+      content: this.config.questionText
     });
+    
+    // Display initial question in UI
+    this.displayQuestion(this.config.questionText);
+    
+    console.log('🎬 Conversation started:', this.conversationId);
   }
 
-  markSegmentEnd(transcript) {
-    const now = Date.now();
+  getCurrentSegmentTranscript() {
+    // Return the transcript since the last segment ended
+    const fullTranscript = window.global_transcript || '';
+    const accumulatedLength = this.accumulatedTranscript.length;
+    return fullTranscript.substring(accumulatedLength).trim();
+  }
+
+  markSegmentEnd() {
+    const now = performance.now();
     const segmentEnd = (now - this.conversationStartTime) / 1000;
+    const segmentTranscript = this.getCurrentSegmentTranscript();
+    
+    // Update accumulated transcript
+    this.accumulatedTranscript = window.global_transcript || '';
     
     const segment = {
       segmentId: this.segments.length + 1,
-      aiQuestion: this.conversationThread[this.conversationThread.length - 1].content,
+      aiQuestion: this.currentAIQuestion,
       startTime: this.currentSegmentStartTime,
       endTime: segmentEnd,
       duration: segmentEnd - this.currentSegmentStartTime,
-      transcript: transcript,
+      transcript: segmentTranscript,
       type: "user_response"
     };
     
     this.segments.push(segment);
     this.conversationThread.push({
       role: "user",
-      content: transcript
+      content: segmentTranscript
     });
     
-    console.log(`Segment ${segment.segmentId} recorded:`, segment);
+    console.log(`📝 Segment ${segment.segmentId} recorded:`, segment);
     return segment;
   }
 
   markAIProcessingStart() {
     this.isProcessingAI = true;
-    const now = Date.now();
-    return (now - this.conversationStartTime) / 1000;
+    const now = performance.now();
+    const processingStartTime = (now - this.conversationStartTime) / 1000;
+    
+    // Pause timer display
+    this.timerPausedAt = jQuery('.pipeTimer-custom').text();
+    
+    return processingStartTime;
   }
 
   markAIProcessingEnd(nextQuestion) {
     this.isProcessingAI = false;
-    const now = Date.now();
+    const now = performance.now();
     this.currentSegmentStartTime = (now - this.conversationStartTime) / 1000;
     
-    if (nextQuestion && nextQuestion !== "N/A") {
+    if (nextQuestion && nextQuestion !== "DONE") {
+      this.currentAIQuestion = nextQuestion;
       this.conversationThread.push({
         role: "assistant",
         content: nextQuestion
@@ -111,26 +178,52 @@ class ConversationManager {
     }
   }
 
+  displayQuestion(question) {
+    jQuery('#dynamic-question-title').text(question);
+    jQuery('#dynamic-question-description').text('Click record when ready to respond.');
+  }
+
   shouldContinueProbing() {
+    if (this.config.probingAmount === "None") return false;
     return this.currentProbeCount < this.maxProbes;
   }
 
+  async endConversation() {
+    this.conversationActive = false;
+    window.shouldActuallyStop = true;
+    
+    console.log('🏁 Ending conversation, triggering real stop');
+    
+    // Show completion UI
+    this.showConversationComplete();
+    
+    // Now actually stop the recording
+    this.recorderObject.stop();
+  }
+
+  showConversationComplete() {
+    jQuery('#dynamic-question-title').text('Interview Complete!');
+    jQuery('#dynamic-question-description').text('Thank you for your thoughtful responses. Finalizing your recording...');
+  }
+
   getMetadata(fullVideoUrl) {
-    const now = Date.now();
+    const now = performance.now();
     const totalDuration = (now - this.conversationStartTime) / 1000;
     
     return {
       conversationId: this.conversationId,
       responseId: Qualtrics.SurveyEngine.getEmbeddedData('ResponseID') || 'preview',
-      questionConfig: this.questionConfig,
+      questionConfig: this.config,
       totalDuration: totalDuration,
-      recordingStartTime: this.conversationStartTime,
-      recordingEndTime: now,
+      recordingStartTime: new Date(Date.now() - (now - this.conversationStartTime)).toISOString(),
+      recordingEndTime: new Date().toISOString(),
       fullVideoUrl: fullVideoUrl,
       segments: this.segments,
       aiProcessingGaps: this.calculateProcessingGaps(),
       totalProbes: this.currentProbeCount,
       completionReason: this.currentProbeCount >= this.maxProbes ? "max_probes_reached" : "ai_satisfied",
+      accumulatedTranscript: this.accumulatedTranscript,
+      conversationThread: this.conversationThread,
       errors: []
     };
   }
@@ -139,6 +232,8 @@ class ConversationManager {
     const gaps = [];
     for (let i = 0; i < this.segments.length - 1; i++) {
       gaps.push({
+        gapId: i + 1,
+        afterSegment: this.segments[i].segmentId,
         startTime: this.segments[i].endTime,
         endTime: this.segments[i + 1].startTime,
         duration: this.segments[i + 1].startTime - this.segments[i].endTime,
@@ -148,26 +243,15 @@ class ConversationManager {
     return gaps;
   }
 }
-
-var conversationManager;
 ```
 
-### Task 3: Add Global Variables for Conversation State
+### Task 4: Create AI Service Class
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 5 minutes
+**Time:** 30 minutes
+**Dependencies:** Tasks 1-3
 
-Add after line 11:
-```javascript
-var isConversationActive = false;
-var shouldActuallyStop = false;
-var aiProcessingTimer = null;
-```
+Add immediately after ConversationManager class:
 
-### Task 4: Create AI Service Module
-**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 20 minutes
-
-Add after ConversationManager class:
 ```javascript
 // AI Service for OpenAI integration
 class AIService {
@@ -176,9 +260,9 @@ class AIService {
     this.model = model;
   }
 
-  async getFollowUpQuestion(conversationThread, questionConfig) {
+  async getFollowUpQuestion(conversationManager) {
     try {
-      const systemPrompt = this.buildSystemPrompt(questionConfig);
+      const systemPrompt = this.buildSystemPrompt(conversationManager.config, conversationManager.segments.length);
       
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -190,118 +274,456 @@ class AIService {
           model: this.model,
           messages: [
             { role: "system", content: systemPrompt },
-            ...conversationThread
+            ...conversationManager.conversationThread
           ],
           temperature: 0.7,
-          max_tokens: 150,
-          response_format: { type: "json_object" }
+          max_tokens: 200
         })
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
+        const errorData = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
       }
 
       const data = await response.json();
-      const aiResponse = JSON.parse(data.choices[0].message.content);
+      const aiResponseText = data.choices[0].message.content;
       
-      console.log('AI Response:', aiResponse);
+      // Parse the response
+      const aiResponse = this.parseAIResponse(aiResponseText);
+      
+      console.log('🤖 AI Response:', aiResponse);
       return aiResponse;
       
     } catch (error) {
-      console.error('AI Service Error:', error);
-      return { isDone: true, error: error.message };
+      console.error('❌ AI Service Error:', error);
+      return { hasMoreQuestions: false, error: error.message };
     }
   }
 
-  buildSystemPrompt(questionConfig) {
-    const probingInstructions = probingLevelInstructions[questionConfig.probingAmount] || "";
+  parseAIResponse(responseText) {
+    // Check if response indicates completion
+    const lowerResponse = responseText.toLowerCase();
     
-    return `You are an expert qualitative researcher conducting an interview.
+    if (lowerResponse.includes('"hasmoreques') || lowerResponse.includes('"done"') || lowerResponse.includes('"isdone"')) {
+      try {
+        const parsed = JSON.parse(responseText);
+        return {
+          hasMoreQuestions: !parsed.isDone && !parsed.done && parsed.hasMoreQuestions !== false,
+          question: parsed.nextQuestion || parsed.question || null,
+          reasoning: parsed.reasoning || null
+        };
+      } catch (e) {
+        // Fall through to text parsing
+      }
+    }
+    
+    // Otherwise, treat the response as the next question
+    return {
+      hasMoreQuestions: true,
+      question: responseText.trim(),
+      reasoning: null
+    };
+  }
+
+  buildSystemPrompt(questionConfig, currentSegmentCount) {
+    const systemPromptBase = window.probingSystemPrompts[questionConfig.probingAmount] || '';
+    const maxQuestions = window.maxProbesByLevel[questionConfig.probingAmount] || 0;
+    const remainingQuestions = maxQuestions - currentSegmentCount;
+    
+    return `${systemPromptBase}
 
 Original Question: ${questionConfig.questionText}
 Probing Instructions: ${questionConfig.probingInstructions}
-Probing Level: ${questionConfig.probingAmount} - ${probingInstructions}
+Questions asked so far: ${currentSegmentCount}
+Remaining questions allowed: ${remainingQuestions}
 
-Based on the conversation, generate a follow-up question or return {"isDone": true} if:
-- The original question is thoroughly answered
-- Probing instructions are satisfied
-- Maximum probes reached
+Based on the conversation:
+1. If the user has thoroughly answered the original question AND satisfied the probing instructions, respond with: {"isDone": true}
+2. If more information is needed AND you haven't reached the question limit, respond with: {"hasMoreQuestions": true, "question": "Your specific follow-up question here", "reasoning": "Brief explanation"}
+3. If you've reached the maximum number of questions (${maxQuestions} total), respond with: {"isDone": true}
 
-Respond ONLY in JSON format:
-{"nextQuestion": "Your follow-up question here", "isDone": false}
-OR
-{"isDone": true}`;
+IMPORTANT: Be conversational and natural in your follow-up questions. Reference specific things the user said.`;
   }
 }
-
-var aiService;
 ```
 
-### Task 5: Update HTML to Show Dynamic Question
+### Task 5: Add CSS for Conversation States
+**File:** `templates/qualtrics-addpipe-custom.css`
+**Time:** 15 minutes
+**Dependencies:** None
+
+Add at the end of the file:
+
+```css
+/* Conversational AI States */
+.ai-processing-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.ai-thinking-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: var(--shadow-xl);
+}
+
+.ai-thinking-spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1rem;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Fake stop button styling */
+.fake-stop-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  background: hsl(var(--destructive));
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 50;
+}
+
+.fake-stop-button:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: var(--shadow-lg);
+}
+
+.fake-stop-button svg {
+  width: 24px;
+  height: 24px;
+  fill: white;
+}
+
+/* Hide native stop during conversation */
+.conversation-active [id^="pipeRec-"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Question display styling */
+#dynamic-question-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.5rem;
+}
+
+#dynamic-question-description {
+  font-size: 1rem;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 1.5rem;
+}
+```
+
+### Task 6: Update HTML Structure
 **File:** `qualtrics-question-html.html`
 **Time:** 10 minutes
+**Dependencies:** Task 5
 
-Replace lines 3-4:
+Insert after line 2 (after the initial div):
+
 ```html
-<h2 class="question-title" id="dynamic-question-title">Please record your video response</h2>
-<p class="question-description" id="dynamic-question-description">Take your time to provide a thoughtful response. You'll be guided through the process step by step.</p>
+<!-- Dynamic question display -->
+<div class="conversation-question-container" style="margin-bottom: 1.5rem; display: none;">
+  <h2 class="question-title" id="dynamic-question-title">Please record your video response</h2>
+  <p class="question-description" id="dynamic-question-description">Click record when you're ready to begin.</p>
+</div>
 ```
 
-## Phase 2: Recording Flow Modifications (Tasks 6-10)
+## Phase 2: Recording Flow Modifications (Tasks 7-15)
 
-### Task 6: Modify loadPipe Function
-**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 15 minutes
-
-Update loadPipe function (line 96) to initialize conversation components:
-```javascript
-const loadPipe = async function (question_name, pipeParams, deepGramConfiguration) {
-  skipQuestionValidation();
-  console.log('questionName::', questionName);
-  
-  // Initialize element controller for clean UI management
-  elementController = new ElementController(question_name);
-  
-  // Initialize conversation manager and AI service
-  conversationManager = new ConversationManager(questionConfig);
-  aiService = new AIService(OPENAI_API_KEY, OPENAI_MODEL);
-  
-  // Display initial question
-  jQuery('#dynamic-question-title').text(questionConfig.questionText);
-  jQuery('#dynamic-question-description').text('Click record when you\'re ready to begin.');
-  
-  jQuery('#pipeDownload-' + questionName).hide();
-  // ... rest of existing code
-```
-
-### Task 7: Modify Record Button Handler
+### Task 7: Initialize Conversation Components in loadPipe
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
 **Time:** 20 minutes
+**Dependencies:** Tasks 1-6
 
-Replace btRecordPressed handler (line 114):
+Modify the loadPipe function starting at line 96. Add after line 101 (after `elementController = new ElementController(question_name);`):
+
+```javascript
+  // Initialize conversation components if probing is enabled
+  if (typeof questionConfig !== 'undefined' && questionConfig.probingAmount !== "None") {
+    console.log('🎯 Initializing conversational AI components');
+    
+    // Show question container
+    jQuery('.conversation-question-container').show();
+    
+    // Initialize conversation manager
+    window.conversationManager = new ConversationManager(question_name, recorderObject, questionConfig);
+    
+    // Initialize AI service
+    window.aiService = new AIService(OPENAI_API_KEY, OPENAI_MODEL);
+    
+    // Display initial question
+    jQuery('#dynamic-question-title').text(questionConfig.questionText);
+    jQuery('#dynamic-question-description').text('Click record when you\'re ready to begin.');
+  } else {
+    console.log('📝 Standard recording mode (no AI probing)');
+  }
+```
+
+### Task 8: Create Fake Stop Button Override System
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 30 minutes
+**Dependencies:** Tasks 1-7
+**Critical:** This is the core of our strategy
+
+Add after the AIService class (around line 240):
+
+```javascript
+// Fake Stop Button Management
+function initializeFakeStopButton() {
+  console.log('🔴 Initializing fake stop button system');
+  
+  // Store reference to original Pipe stop handler
+  if (window.recorderObjectGlobal && window.recorderObjectGlobal.btStopRecordingPressed) {
+    window.originalStopHandler = window.recorderObjectGlobal.btStopRecordingPressed;
+  }
+  
+  // Create fake stop button
+  const fakeStopBtn = jQuery(`
+    <button class="fake-stop-button" id="fake-stop-${questionName}" style="display: none;">
+      <svg viewBox="0 0 24 24">
+        <rect x="6" y="6" width="12" height="12" fill="currentColor"/>
+      </svg>
+    </button>
+  `);
+  
+  // Add to pipe menu
+  jQuery('#pipeMenu-' + questionName).append(fakeStopBtn);
+  
+  // Handle fake stop click
+  fakeStopBtn.on('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.conversationManager && window.conversationManager.conversationActive) {
+      console.log('🛑 Fake stop clicked - pausing for AI');
+      pauseForAIProcessing();
+    }
+  });
+  
+  // Override native record button clicks during conversation
+  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
+    if (window.conversationManager && window.conversationManager.conversationActive && window.isRecording) {
+      console.log('🚫 Intercepting native stop button click');
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Trigger fake stop instead
+      jQuery('#fake-stop-' + questionName).click();
+      return false;
+    }
+  });
+}
+
+// Function to show/hide fake stop button
+function toggleFakeStopButton(show) {
+  const fakeBtn = jQuery('#fake-stop-' + questionName);
+  const nativeBtn = jQuery('#pipeRec-' + questionName);
+  
+  if (show) {
+    // Hide native, show fake
+    nativeBtn.css({
+      'opacity': '0',
+      'pointer-events': 'none'
+    });
+    fakeBtn.show();
+  } else {
+    // Show native, hide fake
+    nativeBtn.css({
+      'opacity': '1',
+      'pointer-events': 'auto'
+    });
+    fakeBtn.hide();
+  }
+}
+```
+
+### Task 9: Implement pauseForAIProcessing Function
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 25 minutes
+**Dependencies:** Task 8
+
+Add immediately after the fake stop button functions:
+
+```javascript
+// Pause recording for AI processing
+async function pauseForAIProcessing() {
+  console.log('⏸️ Pausing for AI processing');
+  
+  // Mark segment end
+  const segment = window.conversationManager.markSegmentEnd();
+  
+  // Close transcription WebSocket
+  if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+    window.ws.close();
+  }
+  
+  // Clear recording interval
+  if (window.intervalID) {
+    clearInterval(window.intervalID);
+  }
+  
+  // Update UI state
+  showAIProcessingUI();
+  
+  // Mark AI processing start
+  window.conversationManager.markAIProcessingStart();
+  
+  // Check if we should continue
+  if (!window.conversationManager.shouldContinueProbing()) {
+    console.log('📊 Max probes reached, ending conversation');
+    await window.conversationManager.endConversation();
+    return;
+  }
+  
+  try {
+    // Get AI response
+    const aiResponse = await window.aiService.getFollowUpQuestion(window.conversationManager);
+    
+    if (aiResponse.error) {
+      console.error('❌ AI error, ending conversation:', aiResponse.error);
+      await window.conversationManager.endConversation();
+      return;
+    }
+    
+    if (!aiResponse.hasMoreQuestions) {
+      console.log('✅ AI satisfied with responses, ending conversation');
+      await window.conversationManager.endConversation();
+      return;
+    }
+    
+    // Mark AI processing end and show next question
+    window.conversationManager.markAIProcessingEnd(aiResponse.question);
+    showNextQuestion(aiResponse.question);
+    
+  } catch (error) {
+    console.error('❌ Error in AI processing:', error);
+    await window.conversationManager.endConversation();
+  }
+}
+```
+
+### Task 10: Modify Record Button Handler
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 25 minutes
+**Dependencies:** Tasks 1-9
+
+Replace the entire btRecordPressed handler (starting at line 114):
 ```javascript
 recorderObject.btRecordPressed = function (recorderId) {
   try {
-    console.log('btRecordPressed >>> ');
+    console.log('▶️ Record button pressed');
     
-    // Initialize conversation on first record
-    if (!isConversationActive) {
-      conversationManager.startConversation();
-      isConversationActive = true;
+    // Handle conversation initialization
+    if (window.conversationManager && !window.isConversationActive) {
+      console.log('🎬 Starting conversation');
+      window.conversationManager.startConversation();
+      window.isConversationActive = true;
       
-      // Set up navigation warning
-      window.addEventListener('beforeunload', handleNavigationWarning);
+      // Initialize fake stop button system
+      initializeFakeStopButton();
+      
+      // If no probing, mark for actual stop
+      if (questionConfig.probingAmount === "None") {
+        window.shouldActuallyStop = true;
+      }
     }
     
+    // Show fake stop button during recording
+    if (window.conversationManager && window.isConversationActive) {
+      toggleFakeStopButton(true);
+    }
+    
+    // Standard recording setup
     startRecordingClicked();
     jQuery('#NextButton-custom').hide();
     isRecording = true;
     
-    // Reset transcript for this segment
-    global_transcript = '';
+    // Don't reset global transcript during conversation
+    if (!window.isConversationActive) {
+      global_transcript = '';
+    }
     
-    // ... rest of existing WebSocket code
+    // Existing WebSocket setup code...
+    const videoEl = document.getElementById('pipeVideoInput-' + question_name);
+    getMobileOperatingSystem();
+    if (videoEl.srcObject !== undefined) {
+      stream = videoEl.srcObject;
+    } else if (videoEl.mozSrcObject !== undefined) {
+      stream = videoEl.mozSrcObject;
+    } else if (videoEl.src !== undefined) {
+      stream = videoEl.src;
+    } else {
+      console.log('something went wrong');
+    }
+    
+    mediaRecorder = new MediaRecorder(stream, {
+      mimeType: mimetype,
+    });
+    
+    ws = new WebSocket(deepGramConfiguration.endPoint, ['token', deepGramConfiguration.token]);
+    ws.onopen = () => {
+      console.log('🎤 WebSocket opened');
+      mediaRecorder.onstop = () => {
+        console.log('onstop fired');
+      };
+      const timeslice = 1000;
+      mediaRecorder.start(timeslice);
+      
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0 && ws.readyState == 1) {
+          console.log('Sent audio chunk: ', event.data);
+          ws.send(event.data);
+        }
+      });
+    };
+    
+    ws.onmessage = (msg) => {
+      const { channel, is_final } = JSON.parse(msg.data);
+      const transcript = channel.alternatives[0].transcript;
+      if (transcript && is_final) {
+        console.log('transcript >>>', transcript);
+        global_transcript += transcript + ' ';
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    ws.onclose = () => {
+      console.log('🔌 WebSocket closed');
+    };
     
   } catch (err) {
     console.log(err.message);
@@ -309,147 +731,199 @@ recorderObject.btRecordPressed = function (recorderId) {
 };
 ```
 
-### Task 8: Modify Stop Button Handler
+### Task 11: Modify Stop Button Handler
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 30 minutes
+**Time:** 20 minutes
+**Dependencies:** Tasks 1-10
+**Critical:** This handles the real stop when needed
 
-Replace btStopRecordingPressed handler (line 169):
+Replace the btStopRecordingPressed handler (starting at line 169):
 ```javascript
-recorderObject.btStopRecordingPressed = async function (recorderId) {
-  clearInterval(intervalID);
+recorderObject.btStopRecordingPressed = function (recorderId) {
+  console.log('⏹️ Stop button pressed');
   
-  var args = Array.prototype.slice.call(arguments);
-  console.log('btStopRecordingPressed(' + args.join(', ') + ')');
+  // Clear recording timer
+  if (window.intervalID) {
+    clearInterval(window.intervalID);
+  }
   
-  // Close transcription WebSocket
+  // Close WebSocket
   isRecording = false;
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.close();
   }
   
-  // Check if this should be the final stop
-  if (shouldActuallyStop || questionConfig.probingAmount === "None") {
-    // Actually stop recording
-    console.log('Final stop - ending conversation');
+  // Hide fake stop button
+  if (window.conversationManager && window.isConversationActive) {
+    toggleFakeStopButton(false);
+  }
+  
+  // Check if this is the real stop
+  if (window.shouldActuallyStop || !window.conversationManager || !window.isConversationActive) {
+    console.log('🏁 Actual stop - recording complete');
     stoppedVideo();
-    isConversationActive = false;
-    window.removeEventListener('beforeunload', handleNavigationWarning);
+    window.isConversationActive = false;
+    
+    // Clean up event listeners
+    jQuery(document).off('click.conversation');
     return;
   }
   
-  // Otherwise, just pause for AI processing
-  console.log('Pausing for AI processing');
-  
-  // Mark segment end
-  const segment = conversationManager.markSegmentEnd(global_transcript);
-  const aiStartTime = conversationManager.markAIProcessingStart();
-  
-  // Update UI for AI processing
-  showAIProcessingUI();
-  
-  // Check if we should continue probing
-  if (!conversationManager.shouldContinueProbing()) {
-    console.log('Max probes reached, completing conversation');
-    shouldActuallyStop = true;
-    completeConversation();
-    return;
-  }
-  
-  // Get AI follow-up question
-  const aiResponse = await aiService.getFollowUpQuestion(
-    conversationManager.conversationThread,
-    questionConfig
-  );
-  
-  conversationManager.markAIProcessingEnd(aiResponse.nextQuestion);
-  
-  if (aiResponse.isDone || aiResponse.error) {
-    console.log('AI indicates completion or error:', aiResponse);
-    shouldActuallyStop = true;
-    completeConversation();
-  } else {
-    // Show next question and prepare for recording
-    showNextQuestion(aiResponse.nextQuestion);
-  }
+  // This shouldn't happen - fake stop should have intercepted
+  console.warn('⚠️ Unexpected stop during conversation');
 };
 ```
 
-### Task 9: Create UI Helper Functions
+### Task 12: Create UI Helper Functions
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 25 minutes
+**Time:** 30 minutes
+**Dependencies:** Tasks 1-11
 
-Add after AIService class:
+Add after the pauseForAIProcessing function (around line 350):
 ```javascript
-// UI Helper Functions
+// UI Helper Functions for Conversational AI
 function showAIProcessingUI() {
-  // Disable record button
-  jQuery('#pipeRec-' + questionName).prop('disabled', true);
+  console.log('🤔 Showing AI processing UI');
   
-  // Change button icon to ellipsis
-  const recordBtn = jQuery('#pipeRec-' + questionName);
-  recordBtn.find('svg').replaceWith(`
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="1"/>
-      <circle cx="19" cy="12" r="1"/>
-      <circle cx="5" cy="12" r="1"/>
-    </svg>
+  // Add AI processing overlay
+  const overlay = jQuery(`
+    <div class="ai-processing-overlay">
+      <div class="ai-thinking-content">
+        <div class="ai-thinking-spinner"></div>
+        <h3>AI is thinking...</h3>
+        <p>Analyzing your response and preparing a follow-up question</p>
+      </div>
+    </div>
   `);
   
-  // Pause timer display
-  const currentTime = jQuery('.pipeTimer-custom').text();
-  clearInterval(intervalID);
+  jQuery('#pipeMenu-' + questionName).append(overlay);
   
-  // Show AI thinking message
-  jQuery('#dynamic-question-description').text('AI is analyzing your response...');
+  // Update state
+  jQuery('#pipeMenu-' + questionName).addClass('ai-processing-state');
+  
+  // Update question description
+  jQuery('#dynamic-question-description').text('Please wait while AI processes your response...');
+}
+
+function hideAIProcessingUI() {
+  console.log('✨ Hiding AI processing UI');
+  
+  // Remove overlay
+  jQuery('.ai-processing-overlay').fadeOut(300, function() {
+    jQuery(this).remove();
+  });
+  
+  // Update state
+  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state');
 }
 
 function showNextQuestion(question) {
-  // Update question display
-  jQuery('#dynamic-question-title').text(question);
-  jQuery('#dynamic-question-description').text('Click record when ready to continue.');
+  console.log('❓ Showing next question:', question);
   
-  // Re-enable record button
-  jQuery('#pipeRec-' + questionName).prop('disabled', false);
+  // Hide AI processing UI
+  hideAIProcessingUI();
   
-  // Restore record icon
-  const recordBtn = jQuery('#pipeRec-' + questionName);
-  recordBtn.find('svg').replaceWith(`
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="12" r="10"/>
-    </svg>
-  `);
+  // Update question display with fade effect
+  jQuery('#dynamic-question-title').fadeOut(200, function() {
+    jQuery(this).text(question).fadeIn(200);
+  });
+  
+  jQuery('#dynamic-question-description').text('Click record when ready to respond.');
+  
+  // Ensure record button is visible and enabled
+  jQuery('#pipeRec-' + questionName).show().prop('disabled', false);
 }
 
-function completeConversation() {
-  // Show completion UI
-  showAIProcessingUI();
-  jQuery('#dynamic-question-description').text('Finalizing your interview...');
+function updateTimerDisplay() {
+  if (!window.conversationManager || !window.conversationManager.conversationStartTime) return;
   
-  // Trigger actual recording stop
-  setTimeout(() => {
-    recorderObject.stop();
-  }, 500);
+  // Don't update if AI is processing
+  if (window.conversationManager.isProcessingAI) return;
+  
+  const elapsed = (performance.now() - window.conversationManager.conversationStartTime) / 1000;
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = Math.floor(elapsed % 60);
+  
+  jQuery('.pipeTimer-custom').text(
+    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  );
 }
 
-function handleNavigationWarning(e) {
-  if (isConversationActive) {
-    e.preventDefault();
-    e.returnValue = 'Your interview is in progress. Are you sure you want to leave?';
-    return e.returnValue;
+// Modified startRecordingClicked to work with conversation
+function startRecordingClicked() {
+  console.log('🎙️ Recording started');
+  
+  // Only do retake cleanup if not in conversation
+  if (!window.isConversationActive) {
+    retake();
+  }
+  
+  // Add timer if not exists
+  if (jQuery('.pipeTimer-custom').length === 0) {
+    jQuery('#pipeMenu-' + questionName).append('<div class="pipeTimer-custom">00:00</div>');
+  }
+  
+  jQuery('.pipeTimer-custom').show();
+  jQuery('#time-span').remove();
+  
+  // Use conversation-aware timer
+  if (window.conversationManager) {
+    window.intervalID = setInterval(updateTimerDisplay, 1000);
+  } else {
+    // Fallback to original timer
+    window.intervalID = setInterval(function() {
+      getTime(recorderObjectGlobal);
+    }, 100);
   }
 }
 ```
 
-### Task 10: Update Timer Display Logic
+### Task 13: Modify Validation Logic for Conversations
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
 **Time:** 15 minutes
+**Dependencies:** Tasks 1-12
 
-Modify getTime function (around line 580):
+Modify the validateVideo function starting at line 491. Add at the beginning of the function:
+
+```javascript
+function validateVideo(recorderObject, transcript_array, location, streamName) {
+  console.log('ValidateVideo >>>> ', recorderObject);
+  
+  // Skip validation during active conversation
+  if (window.conversationManager && window.isConversationActive && !window.shouldActuallyStop) {
+    console.log('⏭️ Skipping validation - conversation in progress');
+    return;
+  }
+  
+  // Check conversation minimum duration if applicable
+  if (window.conversationManager && window.conversationManager.segments.length > 0) {
+    const totalDuration = window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime;
+    if (totalDuration < validationDetails.min_streamtime) {
+      console.warn('⚠️ Conversation shorter than minimum duration');
+      // Continue with validation to show error
+    }
+  }
+  
+  // Rest of existing validation code...
+```
+
+### Task 14: Update Timer Display Logic
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 10 minutes
+**Dependencies:** Tasks 1-13
+
+Replace the getTime function (around line 582):
+
 ```javascript
 function getTime(recorderObject) {
-  if (!recorderObject || conversationManager.isProcessingAI) {
-    return; // Don't update timer during AI processing
+  // Use conversation timer if active
+  if (window.conversationManager && window.isConversationActive) {
+    updateTimerDisplay();
+    return;
   }
+  
+  // Original timer logic for non-conversation recordings
+  if (!recorderObject) return;
   
   var totalSeconds = Math.round(recorderObject.getStreamTime());
   var minutes = Math.floor(totalSeconds / 60);
@@ -466,13 +940,59 @@ function getTime(recorderObject) {
 }
 ```
 
-## Phase 3: Metadata and Completion (Tasks 11-15)
-
-### Task 11: Modify onSaveOk Handler
+### Task 15: Handle modalClose and modalRetake for Conversations
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 15 minutes
+**Time:** 10 minutes
+**Dependencies:** Tasks 1-14
 
-Update onSaveOk to capture metadata (line 197):
+Update modalClose function (around line 387):
+
+```javascript
+function modalClose() {
+  console.log('Modal close >>>');
+  
+  // Prevent modal actions during conversation
+  if (window.isConversationActive) {
+    console.warn('⚠️ Cannot close modal during active conversation');
+    return;
+  }
+  
+  jQuery.modal.close();
+  loadPipe(questionName, pipeParams, deepGramConfiguration);
+}
+```
+
+And update modalRetake (around line 356):
+
+```javascript
+function modalRetake() {
+  console.log('Modal Retake - user clicked Record Again button');
+  
+  // Prevent retake during conversation
+  if (window.isConversationActive) {
+    console.warn('⚠️ Cannot retake during active conversation');
+    return;
+  }
+  
+  // Hide modal buttons before closing
+  jQuery('#modal-buttons').hide();
+  
+  // Close the modal
+  jQuery.modal.close();
+  
+  // Use element controller to set proper state
+  elementController.setReadyToRecordWithVideoState();
+}
+```
+
+## Phase 3: Metadata and Completion (Tasks 16-20)
+
+### Task 16: Modify onSaveOk Handler
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 20 minutes
+**Dependencies:** Tasks 1-15
+
+Replace the onSaveOk handler (starting at line 197):
 ```javascript
 recorderObject.onSaveOk = function (
   recorderId,
@@ -487,224 +1007,576 @@ recorderObject.onSaveOk = function (
   audioOnly,
   location
 ) {
-  // Only process metadata if conversation is complete
-  if (!shouldActuallyStop) {
-    return;
+  console.log('💾 onSaveOk triggered');
+  
+  // Build video URL
+  const videoUrl = `${S3_BASE_URL}${streamName}.mp4`;
+  
+  // Handle conversation metadata
+  if (window.conversationManager && window.conversationManager.segments.length > 0) {
+    const metadata = window.conversationManager.getMetadata(videoUrl);
+    
+    // Output metadata to console
+    console.log('\n=== 📊 CONVERSATION METADATA ===');
+    console.log(JSON.stringify(metadata, null, 2));
+    console.log('=================================\n');
+    
+    // Store metadata in sessionStorage for recovery
+    sessionStorage.setItem('conversation_metadata_' + questionName, JSON.stringify(metadata));
+    
+    // Update Qualtrics embedded data with metadata
+    if (typeof Qualtrics !== 'undefined') {
+      Qualtrics.SurveyEngine.setEmbeddedData('conversation_metadata', JSON.stringify(metadata));
+      Qualtrics.SurveyEngine.setEmbeddedData('conversation_segments', metadata.segments.length);
+      Qualtrics.SurveyEngine.setEmbeddedData('conversation_duration', Math.round(metadata.totalDuration));
+    }
   }
   
-  const videoUrl = `${S3_BASE_URL}${streamName}.mp4`;
-  const metadata = conversationManager.getMetadata(videoUrl);
-  
-  // Output metadata to console
-  console.log('=== CONVERSATION METADATA ===');
-  console.log(JSON.stringify(metadata, null, 2));
-  console.log('=============================');
-  
-  // Continue with existing validation
+  // Continue with validation
   const transcript_array = global_transcript.split(' ');
   validateVideo(recorderObject, transcript_array, location, streamName);
 };
 ```
 
-### Task 12: Update Success Modal for Conversation
-**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 10 minutes
-
-Modify validateVideo success case (around line 541):
-```javascript
-jQuery('#record-title').append('Interview Completed Successfully!');
-
-// Add conversation summary
-const totalQuestions = conversationManager.segments.length;
-const totalDuration = Math.round(conversationManager.segments[conversationManager.segments.length - 1].endTime);
-sucessModalDetails = `Your interview included ${totalQuestions} responses over ${totalDuration} seconds. Thank you for your thoughtful answers!`;
-```
-
-### Task 13: Handle "None" Probing Level
-**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 10 minutes
-
-Add check in btRecordPressed:
-```javascript
-// Inside btRecordPressed, after conversation initialization
-if (questionConfig.probingAmount === "None") {
-  console.log('No probing configured - single response only');
-  shouldActuallyStop = true;
-}
-```
-
-### Task 14: Add CSS for AI Processing State
-**File:** `templates/qualtrics-addpipe-custom.css`
-**Time:** 10 minutes
-
-Add at end of file:
-```css
-/* AI Processing State */
-[id^="pipeRec-"]:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-[id^="pipeRec-"]:disabled:hover {
-  transform: none;
-  box-shadow: var(--shadow-sm);
-}
-
-.ai-processing-indicator {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-```
-
-### Task 15: Add Error Recovery
+### Task 17: Update Success Modal for Conversation
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
 **Time:** 15 minutes
+**Dependencies:** Tasks 1-16
 
-Update AI error handling in btStopRecordingPressed:
+In validateVideo function, modify the success case (around line 541). Replace:
 ```javascript
-// Inside btStopRecordingPressed, after AI call
-if (aiResponse.error) {
-  console.error('AI Error, completing conversation:', aiResponse.error);
-  conversationManager.metadata.errors.push({
-    type: 'ai_error',
-    message: aiResponse.error,
-    timestamp: Date.now()
-  });
-  shouldActuallyStop = true;
-  completeConversation();
-  return;
+jQuery('#record-title').append('Perfect! Video Recorded Successfully');
+```
+
+With:
+```javascript
+// Check if this was a conversation
+if (window.conversationManager && window.conversationManager.segments.length > 0) {
+  jQuery('#record-title').append('Interview Completed Successfully!');
+  
+  const totalQuestions = window.conversationManager.segments.length;
+  const totalMinutes = Math.floor(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime / 60);
+  const totalSeconds = Math.round(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime % 60);
+  
+  sucessModalDetails = `Great job! You answered ${totalQuestions} question${totalQuestions > 1 ? 's' : ''} in ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}. Thank you for your thoughtful responses!`;
+} else {
+  jQuery('#record-title').append('Perfect! Video Recorded Successfully');
+  sucessModalDetails = 'Your video response has been recorded successfully! You can now continue to the next question.';
 }
 ```
 
-## Phase 4: Testing and Refinement (Tasks 16-20)
+### Task 18: Clean Up After Conversation
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 15 minutes
+**Dependencies:** Tasks 1-17
 
-### Task 16: Create Test Configuration
-**File:** `qualtrics-question-js.js`
-**Time:** 5 minutes
+Add cleanup function after the UI helper functions:
 
-Add test configurations:
 ```javascript
-// Test configurations (comment/uncomment as needed)
-// TEST 1: No probing
-// var questionConfig = {
-//   questionText: "What is your name?",
-//   probingInstructions: "Just get their name",
-//   probingAmount: "None"
-// };
-
-// TEST 2: Moderate probing
-// var questionConfig = {
-//   questionText: "What are your career goals?",
-//   probingInstructions: "Understand their motivations and timeline",
-//   probingAmount: "Moderate"
-// };
-
-// TEST 3: Deep probing
-// var questionConfig = {
-//   questionText: "Tell me about a challenging experience",
-//   probingInstructions: "Explore emotions, learnings, and impact",
-//   probingAmount: "Deep"
-// };
+// Clean up conversation state
+function cleanupConversation() {
+  console.log('🧹 Cleaning up conversation state');
+  
+  // Reset global flags
+  window.isConversationActive = false;
+  window.shouldActuallyStop = false;
+  window.fakeStopButtonActive = false;
+  
+  // Remove fake stop button
+  jQuery('#fake-stop-' + questionName).remove();
+  
+  // Remove event listeners
+  jQuery(document).off('click.conversation');
+  
+  // Reset UI
+  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state conversation-active');
+  toggleFakeStopButton(false);
+  
+  // Clear timers
+  if (window.intervalID) {
+    clearInterval(window.intervalID);
+  }
+}
 ```
 
-### Task 17: Add Debug Logging
-**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 10 minutes
+Then update the onVideoUploadSuccess handler (around line 217) to call cleanup:
 
-Add debug function:
 ```javascript
-function debugLog(message, data = null) {
+recorderObject.onVideoUploadSuccess = function (
+  recorderId,
+  filename,
+  filetype,
+  videoId,
+  audioOnly,
+  location
+) {
+  var args = Array.prototype.slice.call(arguments);
+  console.log('onVideoUploadSuccess(' + args.join(', ') + ')');
+  
+  // Clean up conversation if active
+  if (window.conversationManager) {
+    cleanupConversation();
+  }
+  
+  // Rest of existing code...
+  const transcript_array = global_transcript.split(' ');
+  jQuery('#' + recorderId).attr('style', 'height:120px !important');
+  jQuery('#NextButton-custom').show();
+};
+```
+
+### Task 19: Add Error Handling
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 20 minutes
+**Dependencies:** Tasks 1-18
+
+Add error handling utilities after the cleanup function:
+
+```javascript
+// Error handling for conversation
+function handleConversationError(error, context) {
+  console.error(`❌ Conversation error in ${context}:`, error);
+  
+  // Log to conversation metadata
+  if (window.conversationManager) {
+    window.conversationManager.metadata.errors.push({
+      context: context,
+      error: error.message || error,
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Show user-friendly error
+  const errorMessages = {
+    'ai_processing': 'AI service is temporarily unavailable. Completing your recording...',
+    'websocket': 'Transcription service interrupted. Your video is still being recorded.',
+    'recording': 'Recording error occurred. Please try again.',
+    'validation': 'Unable to validate recording. Please try again.'
+  };
+  
+  const message = errorMessages[context] || 'An error occurred. Completing your recording...';
+  
+  // Update UI
+  jQuery('#dynamic-question-description').text(message);
+  
+  // Force end conversation if critical error
+  if (context === 'ai_processing' || context === 'recording') {
+    setTimeout(async () => {
+      if (window.conversationManager && window.conversationManager.conversationActive) {
+        await window.conversationManager.endConversation();
+      }
+    }, 2000);
+  }
+}
+
+// Wrap AI calls with error handling
+async function safeAICall(conversationManager) {
+  try {
+    return await window.aiService.getFollowUpQuestion(conversationManager);
+  } catch (error) {
+    handleConversationError(error, 'ai_processing');
+    return { hasMoreQuestions: false, error: error.message };
+  }
+}
+```
+
+Then update pauseForAIProcessing to use safeAICall:
+
+```javascript
+// In pauseForAIProcessing, replace:
+// const aiResponse = await window.aiService.getFollowUpQuestion(window.conversationManager);
+// With:
+const aiResponse = await safeAICall(window.conversationManager);
+```
+
+### Task 20: Handle Edge Cases
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 20 minutes
+**Dependencies:** All previous tasks
+
+Add edge case handlers after error handling:
+
+```javascript
+// Handle browser navigation during conversation
+window.addEventListener('beforeunload', function(e) {
+  if (window.isConversationActive) {
+    e.preventDefault();
+    e.returnValue = 'Your interview is in progress. Are you sure you want to leave?';
+    
+    // Save state for potential recovery
+    if (window.conversationManager) {
+      const state = {
+        segments: window.conversationManager.segments,
+        transcript: window.global_transcript,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem('conversation_recovery_' + questionName, JSON.stringify(state));
+    }
+    
+    return e.returnValue;
+  }
+});
+
+// Handle maximum duration
+function checkMaximumDuration() {
+  if (!window.conversationManager || !window.conversationManager.conversationStartTime) return;
+  
+  const elapsed = (performance.now() - window.conversationManager.conversationStartTime) / 1000;
+  const maxDuration = 600; // 10 minutes
+  
+  if (elapsed >= maxDuration) {
+    console.warn('⏰ Maximum conversation duration reached');
+    window.conversationManager.endConversation();
+  }
+}
+
+// Check duration periodically during conversation
+if (window.conversationManager) {
+  setInterval(checkMaximumDuration, 10000); // Every 10 seconds
+}
+
+// Handle recorder object not ready
+function waitForRecorder(callback, maxAttempts = 20) {
+  let attempts = 0;
+  const checkInterval = setInterval(() => {
+    attempts++;
+    if (window.recorderObjectGlobal && window.recorderObjectGlobal.btStopRecordingPressed) {
+      clearInterval(checkInterval);
+      callback();
+    } else if (attempts >= maxAttempts) {
+      clearInterval(checkInterval);
+      console.error('❌ Recorder object not ready after maximum attempts');
+      handleConversationError(new Error('Recorder initialization timeout'), 'recording');
+    }
+  }, 500);
+}
+```
+
+## Phase 4: Testing and Refinement (Tasks 21-25)
+
+### Task 21: Create Test Configurations
+**File:** `qualtrics-question-js.js`
+**Time:** 10 minutes
+**Dependencies:** Basic setup complete
+
+Add after the questionConfig (around line 45):
+```javascript
+// ===== TEST CONFIGURATIONS =====
+// Uncomment one configuration for testing
+
+// TEST 1: No probing (single response)
+/*
+var questionConfig = {
+  questionText: "Please state your name and current role.",
+  probingInstructions: "Get basic identification only.",
+  probingAmount: "None"
+};
+*/
+
+// TEST 2: Moderate probing (2-3 follow-ups)
+/*
+var questionConfig = {
+  questionText: "What are your career goals for the next 5 years?",
+  probingInstructions: "Understand their specific goals, motivations, and planned steps to achieve them.",
+  probingAmount: "Moderate"
+};
+*/
+
+// TEST 3: Deep probing (4-5 follow-ups)
+/*
+var questionConfig = {
+  questionText: "Tell me about a time when you faced a significant challenge at work.",
+  probingInstructions: "Explore the situation, their actions, emotions, learnings, and how it changed their approach.",
+  probingAmount: "Deep"
+};
+*/
+
+// TEST 4: Error testing (invalid API key)
+/*
+var OPENAI_API_KEY = "sk-invalid-key-for-testing";
+*/
+```
+
+### Task 22: Add Debug Mode
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 15 minutes
+**Dependencies:** All core functionality
+
+Add at the top of the file after global variables:
+
+```javascript
+// Debug mode for detailed logging
+const DEBUG_MODE = true; // Set to false for production
+
+function debugLog(category, message, data = null) {
+  if (!DEBUG_MODE) return;
+  
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${message}`);
+  const prefix = {
+    'conversation': '🎬',
+    'ai': '🤖',
+    'recording': '🎙️',
+    'ui': '🎨',
+    'error': '❌',
+    'metadata': '📊'
+  }[category] || '📝';
+  
+  console.log(`[${timestamp}] ${prefix} ${category.toUpperCase()}: ${message}`);
   if (data) {
     console.log(data);
   }
 }
-```
 
-Replace console.log calls with debugLog throughout.
-
-### Task 18: Implement Conversation State Recovery
-**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 15 minutes
-
-Add state persistence:
-```javascript
-// Save conversation state periodically
-function saveConversationState() {
-  if (!conversationManager) return;
+// Add debug panel for testing
+if (DEBUG_MODE) {
+  jQuery(document).ready(function() {
+    const debugPanel = jQuery(`
+      <div id="conversation-debug" style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px; font-size: 12px; z-index: 10000; max-width: 300px;">
+        <strong>Debug Info</strong><br>
+        <div id="debug-content"></div>
+      </div>
+    `);
+    jQuery('body').append(debugPanel);
+  });
   
-  const state = {
-    conversationId: conversationManager.conversationId,
-    segments: conversationManager.segments,
-    thread: conversationManager.conversationThread,
-    probeCount: conversationManager.currentProbeCount
-  };
-  
-  sessionStorage.setItem('conversationState', JSON.stringify(state));
+  // Update debug panel periodically
+  setInterval(() => {
+    if (window.conversationManager) {
+      jQuery('#debug-content').html(`
+        Active: ${window.isConversationActive}<br>
+        Segments: ${window.conversationManager.segments.length}<br>
+        Probes: ${window.conversationManager.currentProbeCount}/${window.conversationManager.maxProbes}<br>
+        Recording: ${window.isRecording}<br>
+        AI Processing: ${window.conversationManager.isProcessingAI}
+      `);
+    }
+  }, 1000);
 }
-
-// Call after each segment
-setInterval(saveConversationState, 5000); // Every 5 seconds
 ```
 
-### Task 19: Add Visual Feedback for Recording State
+### Task 23: Implement State Recovery
 **File:** `templates/static/qualtrics-addpipe-custom-secure.js`
-**Time:** 10 minutes
+**Time:** 20 minutes
+**Dependencies:** Core conversation system
 
-Enhance UI state management:
+Add recovery system in loadPipe function, after conversation initialization:
+
 ```javascript
-function updateRecordingStateUI(state) {
-  const menuElement = jQuery('#pipeMenu-' + questionName);
-  
-  switch(state) {
-    case 'recording':
-      menuElement.addClass('conversation-recording');
-      break;
-    case 'ai-processing':
-      menuElement.addClass('conversation-ai-processing');
-      break;
-    case 'ready':
-      menuElement.removeClass('conversation-recording conversation-ai-processing');
-      break;
+// In loadPipe, after conversationManager initialization:
+// Check for recovery data
+const recoveryData = sessionStorage.getItem('conversation_recovery_' + question_name);
+if (recoveryData) {
+  try {
+    const parsed = JSON.parse(recoveryData);
+    const timeSinceLastSave = Date.now() - parsed.timestamp;
+    
+    // Only offer recovery if less than 5 minutes old
+    if (timeSinceLastSave < 300000) {
+      if (confirm('It looks like you had an interview in progress. Would you like to continue where you left off?')) {
+        console.log('🔄 Attempting conversation recovery');
+        // Recovery would require server-side support to continue recording
+        // For now, we'll just log the metadata
+        console.log('Previous segments:', parsed.segments);
+        console.log('Previous transcript:', parsed.transcript);
+        alert('Recovery feature requires server support. Please start a new recording.');
+      }
+    }
+    
+    // Clear old recovery data
+    sessionStorage.removeItem('conversation_recovery_' + question_name);
+  } catch (e) {
+    console.error('Failed to parse recovery data:', e);
   }
 }
+
+// Auto-save conversation state
+if (window.conversationManager) {
+  setInterval(() => {
+    if (window.isConversationActive && window.conversationManager) {
+      const state = {
+        conversationId: window.conversationManager.conversationId,
+        segments: window.conversationManager.segments,
+        transcript: window.global_transcript,
+        currentQuestion: window.conversationManager.currentAIQuestion,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem('conversation_state_' + questionName, JSON.stringify(state));
+      debugLog('metadata', 'Auto-saved conversation state');
+    }
+  }, 5000); // Every 5 seconds
+}
 ```
 
-### Task 20: Final Integration Testing
-**Time:** 30 minutes
+### Task 24: Add Mobile-Specific Handling
+**File:** `templates/static/qualtrics-addpipe-custom-secure.js`
+**Time:** 15 minutes
+**Dependencies:** Core system complete
 
-1. Test with `probingAmount: "None"` - Verify single recording
-2. Test with `probingAmount: "Moderate"` - Verify 2-3 follow-ups
-3. Test with `probingAmount: "Deep"` - Verify 4-5 follow-ups
-4. Test AI failure scenario - Verify graceful completion
-5. Test navigation warning - Verify prevention works
-6. Test metadata output - Verify JSON structure
-7. Test timer behavior - Verify pause during AI
-8. Test S3 upload - Verify single video file
+Add mobile detection enhancements after getMobileOperatingSystem function:
+
+```javascript
+// Enhanced mobile detection for conversation UI
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// Adjust UI for mobile conversations
+function optimizeForMobile() {
+  if (!isMobileDevice()) return;
+  
+  debugLog('ui', 'Optimizing for mobile device');
+  
+  // Adjust font sizes
+  jQuery('#dynamic-question-title').css('font-size', '1.2rem');
+  jQuery('#dynamic-question-description').css('font-size', '0.9rem');
+  
+  // Make buttons larger for touch
+  jQuery('.fake-stop-button').css({
+    'width': '80px',
+    'height': '80px'
+  });
+  
+  // Adjust AI processing overlay for mobile
+  jQuery('.ai-thinking-content').css({
+    'padding': '1rem',
+    'max-width': '90%'
+  });
+}
+
+// Call in loadPipe
+if (window.conversationManager) {
+  optimizeForMobile();
+}
+```
+
+### Task 25: Comprehensive Testing Checklist
+**Time:** 45 minutes
+**Dependencies:** All implementation complete
+
+### Core Functionality Tests:
+1. ✅ **No Probing Mode**
+   - Single recording completes normally
+   - No AI calls made
+   - Standard validation applies
+
+2. ✅ **Moderate Probing (2-3 questions)**
+   - Initial question displays
+   - Fake stop button works
+   - AI generates relevant follow-ups
+   - Stops at 3 total questions
+
+3. ✅ **Deep Probing (4-5 questions)**
+   - Extended conversation flows
+   - All segments recorded
+   - Metadata captures all segments
+
+### Technical Tests:
+4. ✅ **Continuous Recording**
+   - Video never actually stops until end
+   - No intermediate uploads
+   - Single S3 file created
+
+5. ✅ **Metadata Output**
+   - Console shows complete JSON
+   - All timestamps accurate
+   - Segment boundaries correct
+   - AI processing gaps recorded
+
+6. ✅ **Timer Behavior**
+   - Continues during AI processing
+   - Shows total conversation time
+   - No resets between segments
+
+### Error Scenarios:
+7. ✅ **AI API Failure**
+   - Graceful fallback
+   - Conversation ends cleanly
+   - Error logged in metadata
+
+8. ✅ **WebSocket Failure**
+   - Recording continues
+   - Warning shown
+   - Video still saved
+
+9. ✅ **Browser Navigation**
+   - Warning shown
+   - State saved to sessionStorage
+   - Recovery offered on return
+
+### UI/UX Tests:
+10. ✅ **Mobile Devices**
+    - Touch events work
+    - UI scales properly
+    - Buttons accessible
+
+11. ✅ **State Transitions**
+    - Recording → AI Processing → Ready
+    - No flashing or jumps
+    - Clear visual feedback
+
+12. ✅ **Modal Behavior**
+    - Can't close during conversation
+    - Success shows conversation summary
+    - Record Again disabled during conversation
 
 ## Summary
 
-Total Implementation Time: ~5.5 hours
+Total Implementation Time: ~8 hours (increased due to fake stop button complexity)
+
+### Key Implementation Strategy
+The "fake stop button" approach allows continuous recording while appearing to stop/start for each question. This creates a single video file containing the entire conversation, with metadata marking segment boundaries for server-side processing.
 
 ### Deliverables Checklist
-- [ ] Updated `qualtrics-question-js.js` with configuration
-- [ ] Modified `qualtrics-addpipe-custom-secure.js` with conversation logic
-- [ ] Updated `qualtrics-question-html.html` with dynamic question display
-- [ ] Added CSS for AI processing states
-- [ ] Functional continuous recording with AI follow-ups
-- [ ] Complete metadata JSON output in console
-- [ ] Error handling and recovery
-- [ ] Navigation protection
-- [ ] Comprehensive logging
+- [ ] Global state variables for conversation management
+- [ ] Question configuration with probing levels
+- [ ] ConversationManager class with segment tracking
+- [ ] AIService class for OpenAI integration
+- [ ] Fake stop button system overriding native behavior
+- [ ] UI helpers for AI processing states
+- [ ] CSS for conversation-specific states
+- [ ] Modified validation for conversation mode
+- [ ] Complete metadata output with timestamps
+- [ ] Error handling and recovery systems
+- [ ] Debug mode for testing
+- [ ] Mobile optimizations
+
+### Critical Success Factors
+1. **Fake Stop Button**: Must intercept ALL stop attempts during conversation
+2. **Timer Management**: Must show continuous time across segments
+3. **State Management**: Clear transitions between recording/AI/ready states
+4. **Error Resilience**: Graceful handling of AI/network failures
+5. **Metadata Accuracy**: Precise timestamps for video processing
 
 ### Post-Implementation Tasks
-1. Replace OpenAI API key with actual key
-2. Test in Qualtrics preview mode
-3. Verify S3 upload permissions
-4. Monitor console for metadata output
-5. Document any environment-specific adjustments needed
+1. **Required**:
+   - Replace OpenAI API key with actual key
+   - Test all three probing levels thoroughly
+   - Verify fake stop button in all browsers
+   - Confirm single video file upload to S3
+   - Test metadata JSON structure
+
+2. **Recommended**:
+   - Set up server endpoint for video processing
+   - Implement progress webhook for Qualtrics
+   - Add conversation analytics
+   - Create admin dashboard for reviewing conversations
+
+3. **Optional**:
+   - Add real-time transcript display
+   - Implement conversation pause/resume
+   - Add participant feedback collection
+   - Create conversation export tools
+
+### Testing Priority
+1. Core flow with moderate probing (most common use case)
+2. Error scenarios (API failures, network issues)
+3. Edge cases (max duration, browser refresh)
+4. Mobile devices (iOS and Android)
+5. Different browsers (Chrome, Safari, Firefox)
+
+### Known Limitations
+1. Recovery requires server support (not implemented)
+2. OpenAI API key is client-side (security concern)
+3. Maximum conversation duration is hardcoded (10 minutes)
+4. No real-time transcript display to user
+5. Can't edit/undo responses within conversation

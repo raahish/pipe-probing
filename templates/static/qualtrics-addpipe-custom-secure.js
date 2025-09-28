@@ -493,32 +493,45 @@ function initializeFakeStopButton() {
     }
   });
   
-  // Override native stop button clicks during conversation
+  // Override ALL button clicks during conversation - handle both record and stop
   jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
-    console.log('🔍 Record button clicked - checking interception conditions');
+    console.log('🔍 Button clicked during conversation - analyzing state');
     console.log('  - conversationManager exists:', !!window.conversationManager);
     console.log('  - conversationActive:', window.conversationManager?.conversationActive);
     console.log('  - isRecording:', window.isRecording);
     console.log('  - recorderState:', window.recorderObjectGlobal?.getState?.());
     
-    // Only intercept if we're in an active conversation and currently recording
-    if (window.conversationManager && 
-        window.conversationManager.conversationActive && 
-        window.isRecording && 
-        window.recorderObjectGlobal &&
-        window.recorderObjectGlobal.getState && 
-        window.recorderObjectGlobal.getState() === 'recording') {
-      console.log('🚫 Intercepting native stop button click');
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
+    // Only intercept if conversation is active
+    if (window.conversationManager && window.conversationManager.conversationActive) {
       
-      // Trigger fake stop instead
-      pauseForAIProcessing();
-      return false;
+      // If currently recording, this is a STOP click
+      if (window.isRecording && 
+          window.recorderObjectGlobal &&
+          window.recorderObjectGlobal.getState && 
+          window.recorderObjectGlobal.getState() === 'recording') {
+        console.log('🛑 Intercepting STOP click - doing fake stop');
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        pauseForAIProcessing();
+        return false;
+      }
+      
+      // If not recording, this is a RECORD click for next segment
+      else if (!window.isRecording) {
+        console.log('▶️ Intercepting RECORD click - starting new segment');
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        // Start new segment directly
+        startRecordingUIForSegment();
+        return false;
+      }
     }
     
-    console.log('✅ Allowing normal button behavior');
+    console.log('✅ Allowing normal button behavior (not in conversation)');
   });
 }
 
@@ -714,9 +727,9 @@ function showNextQuestion(question) {
         console.log('🔍 Button visibility check:', recordButton.is(':visible'), recordButton.css('display'));
       }, 100);
       
-      // CRITICAL FIX: Temporarily disable click interceptor for record mode
-      jQuery(document).off('click.conversation');
-      console.log('🔓 Disabled click interceptor - button ready for normal record behavior');
+      // CRITICAL FIX: Keep click interceptor active throughout conversation
+      // The interceptor will handle both record and stop clicks appropriately
+      console.log('🔒 Click interceptor remains active - will handle all button clicks');
       
       console.log('✅ Reset AddPipe button to record mode with forced visibility');
     } catch (e) {
@@ -807,34 +820,9 @@ function startRecordingUIForSegment() {
     window.fakeStopButtonActive = true;
   }
   
-  // CRITICAL FIX: Re-enable click interceptor now that we're recording
-  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
-    console.log('🔍 Record button clicked - checking interception conditions');
-    console.log('  - conversationManager exists:', !!window.conversationManager);
-    console.log('  - conversationActive:', window.conversationManager?.conversationActive);
-    console.log('  - isRecording:', window.isRecording);
-    console.log('  - recorderState:', window.recorderObjectGlobal?.getState?.());
-    
-    // Only intercept if we're in an active conversation and currently recording
-    if (window.conversationManager && 
-        window.conversationManager.conversationActive && 
-        window.isRecording && 
-        window.recorderObjectGlobal &&
-        window.recorderObjectGlobal.getState && 
-        window.recorderObjectGlobal.getState() === 'recording') {
-      console.log('🚫 Intercepting native stop button click');
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      
-      // Trigger fake stop instead
-      pauseForAIProcessing();
-      return false;
-    }
-    
-    console.log('✅ Allowing normal button behavior');
-  });
-  console.log('🔒 Re-enabled click interceptor - ready to intercept stop clicks');
+  // Note: Click interceptor is already active from initializeFakeStopButton()
+  // No need to add duplicate handlers
+  console.log('🔒 Click interceptor already active - ready for stop clicks');
   
   // Start new transcription session
   startTranscriptionForSegment();

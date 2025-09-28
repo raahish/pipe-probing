@@ -193,9 +193,9 @@ Qualtrics.SurveyEngine.addOnload(function() {
                     chunkCount++;
                     if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(event.data);
-                        log(`📤 Chunk #${chunkCount}: Sent ${event.data.size} bytes to DeepGram`);
+                        log('📤 Chunk #' + chunkCount + ': Sent ' + event.data.size + ' bytes to DeepGram');
                     } else {
-                        log(`⚠️ Chunk #${chunkCount}: Skipped (size: ${event.data.size}, ws state: ${ws ? ws.readyState : 'null'})`);
+                        log('⚠️ Chunk #' + chunkCount + ': Skipped (size: ' + event.data.size + ', ws state: ' + (ws ? ws.readyState : 'null') + ')');
                     }
                 });
                 
@@ -233,9 +233,9 @@ Qualtrics.SurveyEngine.addOnload(function() {
                             addTranscriptEntry(transcript, data.is_final, transcriptCount);
                             
                             if (data.is_final) {
-                                log(`✅ Final: "${transcript}"`);
+                                log('✅ Final: "' + transcript + '"');
                             } else {
-                                log(`⏳ Interim: "${transcript}"`);
+                                log('⏳ Interim: "' + transcript + '"');
                             }
                         }
                     } else if (data.type === 'Metadata') {

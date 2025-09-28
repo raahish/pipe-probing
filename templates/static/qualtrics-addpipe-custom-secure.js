@@ -10,6 +10,18 @@ var mediaRecorder;
 var stream;
 var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/';
 
+// Conversation state variables
+var isConversationActive = false;
+var shouldActuallyStop = false;
+var conversationManager = null;
+var aiService = null;
+var accumulatedTranscript = ""; // Full conversation transcript
+var currentSegmentTranscript = ""; // Current segment only
+var fakeStopButtonActive = false;
+var originalStopHandler = null;
+var conversationStartTime = null;
+var segmentStartTime = null;
+
 // UI State Management
 const UI_STATES = {
   INITIAL: 'initial',

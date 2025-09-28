@@ -25,6 +25,7 @@
     <button id="startBtn" class="start-btn" onclick="startTranscription()">Start Recording & Transcription</button>
     <button id="stopBtn" class="stop-btn" onclick="stopTranscription()" disabled>Stop Recording & Transcription</button>
     <button onclick="clearTranscript()">Clear Transcript</button>
+    <button onclick="releasePermissions()" style="background-color: #6c757d; color: white; border: none; border-radius: 5px; padding: 10px 20px; margin: 10px;">Release Microphone</button>
     
     <h3>Live Transcript:</h3>
     <div id="transcript">Click "Start Recording" to begin transcription...</div>
@@ -38,6 +39,7 @@
         let mediaRecorder = null;
         let stream = null;
         let transcriptCount = 0;
+        let permissionsGranted = false;
 
         function log(message) {
             console.log(message);
@@ -54,12 +56,18 @@
 
         async function startTranscription() {
             try {
-                log('🎤 Requesting microphone access...');
-                updateStatus('Requesting microphone access...', 'connecting');
-                
-                // Get microphone access
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                log('✅ Microphone access granted');
+                // Only request microphone access if we don't have it yet
+                if (!permissionsGranted || !stream) {
+                    log('🎤 Requesting microphone access...');
+                    updateStatus('Requesting microphone access...', 'connecting');
+                    
+                    // Get microphone access
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    permissionsGranted = true;
+                    log('✅ Microphone access granted');
+                } else {
+                    log('🎤 Using existing microphone access');
+                }
                 
                 // Create WebSocket connection
                 log('🔗 Connecting to DeepGram...');
@@ -158,13 +166,8 @@
         function cleanup() {
             log('🧹 Cleaning up resources...');
             
-            // Stop media tracks
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            
-            // Clear references
+            // Don't stop the media stream - keep it for reuse
+            // Only clear the recorder and websocket references
             mediaRecorder = null;
             ws = null;
             
@@ -204,8 +207,34 @@
             transcriptCount = 0;
         }
 
+        function releasePermissions() {
+            log('🔓 Releasing microphone permissions...');
+            
+            // Stop any active recording first
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            
+            // Close WebSocket
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+            
+            // Stop and release media stream
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                permissionsGranted = false;
+                log('✅ Microphone permissions released');
+            }
+            
+            // Clean up
+            cleanup();
+            updateStatus('Permissions released', 'disconnected');
+        }
+
         // Cleanup on page unload
-        window.addEventListener('beforeunload', cleanup);
+        window.addEventListener('beforeunload', releasePermissions);
     </script>
 </body>
 </html>

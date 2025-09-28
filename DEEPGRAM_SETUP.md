@@ -36,5 +36,24 @@ The system will work without DeepGram - you just won't get real-time transcripti
 ## Troubleshooting
 
 **Error Code 1006**: Usually means invalid API key or network issues
+- Verify your API key is correct (should be a long string starting with letters/numbers)
+- Check that you have remaining credits in your DeepGram account
+- Try regenerating your API key in the DeepGram console
+
 **Connection Failed**: Check your API key and internet connection
+- Ensure your network allows WebSocket connections to `wss://api.deepgram.com`
+- Some corporate firewalls block WebSocket connections
+
 **No Transcription**: Verify your API key is correct and you have credits remaining
+- Check the browser console for DeepGram connection logs
+- Look for "🎤 DeepGram WebSocket connected" message
+- Verify you see "📤 Sending audio chunk" messages
+
+## Modern Implementation Notes
+
+This implementation uses:
+- **Nova-3 Model**: DeepGram's latest and most accurate model
+- **Smart Formatting**: Automatic punctuation and capitalization
+- **Interim Results**: Real-time transcription updates
+- **KeepAlive Messages**: Prevents connection timeouts during silence
+- **Finalize Messages**: Ensures all audio is processed at segment end

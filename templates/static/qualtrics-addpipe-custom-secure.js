@@ -559,9 +559,19 @@ async function pauseForAIProcessing() {
   // Mark segment end
   const segment = window.conversationManager.markSegmentEnd();
   
-  // Close transcription WebSocket
+  // Finalize and close transcription WebSocket
   if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-    window.ws.close();
+    // Send Finalize message to get any remaining transcription
+    const finalizeMsg = JSON.stringify({ type: "Finalize" });
+    window.ws.send(finalizeMsg);
+    console.log('📤 Sent Finalize to DeepGram');
+    
+    // Close after a short delay to allow finalize processing
+    setTimeout(() => {
+      if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+        window.ws.close();
+      }
+    }, 500);
   }
   
   // Clear recording interval
@@ -904,17 +914,34 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
         
         // Create DeepGram WebSocket connection (if token is configured)
         if (deepGramConfiguration.token && deepGramConfiguration.token !== 'YOUR_DEEPGRAM_API_KEY_HERE') {
-          const deepgramUrl = `wss://api.deepgram.com/v1/listen?token=${deepGramConfiguration.token}&encoding=webm&sample_rate=48000&channels=1&interim_results=true`;
-          console.log('🔗 Connecting to DeepGram:', deepgramUrl.replace(deepGramConfiguration.token, 'TOKEN_HIDDEN'));
-          ws = new WebSocket(deepgramUrl);
+          // Use modern DeepGram WebSocket connection with proper parameters
+          const deepgramUrl = `wss://api.deepgram.com/v1/listen?model=nova-3&language=en-US&smart_format=true&interim_results=true`;
+          console.log('🔗 Connecting to DeepGram with modern API');
+          
+          // Create WebSocket with Authorization header (browser limitation workaround)
+          // Since browsers can't set custom headers on WebSocket, we'll use the token in URL as fallback
+          const deepgramUrlWithAuth = `wss://api.deepgram.com/v1/listen?token=${deepGramConfiguration.token}&model=nova-3&language=en-US&smart_format=true&interim_results=true`;
+          ws = new WebSocket(deepgramUrlWithAuth);
         } else {
           console.warn('⚠️ DeepGram token not configured - transcription disabled');
           console.log('💡 Add your DeepGram API key to enable real-time transcription');
         }
         
         if (ws) {
+          // Set up KeepAlive interval
+          let keepAliveInterval;
+          
           ws.onopen = () => {
             console.log('🎤 DeepGram WebSocket connected');
+            
+            // Start KeepAlive messages every 5 seconds to prevent timeout
+            keepAliveInterval = setInterval(() => {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                const keepAliveMsg = JSON.stringify({ type: "KeepAlive" });
+                ws.send(keepAliveMsg);
+                console.log('💓 Sent KeepAlive to DeepGram');
+              }
+            }, 5000);
             
             // Start MediaRecorder when WebSocket is ready
             const timeslice = 1000;
@@ -929,6 +956,10 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
             
             mediaRecorder.onstop = () => {
               console.log('🛑 MediaRecorder stopped');
+              // Clear KeepAlive when recording stops
+              if (keepAliveInterval) {
+                clearInterval(keepAliveInterval);
+              }
             };
           };
         } else {
@@ -945,16 +976,26 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           ws.onmessage = (msg) => {
             try {
               const data = JSON.parse(msg.data);
-              console.log('📥 DeepGram response:', data);
               
-              if (data.channel && data.channel.alternatives && data.channel.alternatives[0]) {
-                const transcript = data.channel.alternatives[0].transcript;
-                if (transcript && data.is_final) {
-                  console.log('✅ Final transcript:', transcript);
-                  global_transcript += transcript + ' ';
-                } else if (transcript) {
-                  console.log('⏳ Interim transcript:', transcript);
+              // Handle different response types
+              if (data.type === 'Results') {
+                console.log('📥 DeepGram Results:', data);
+                
+                if (data.channel && data.channel.alternatives && data.channel.alternatives[0]) {
+                  const transcript = data.channel.alternatives[0].transcript;
+                  if (transcript) {
+                    if (data.is_final) {
+                      console.log('✅ Final transcript:', transcript);
+                      global_transcript += transcript + ' ';
+                    } else {
+                      console.log('⏳ Interim transcript:', transcript);
+                    }
+                  }
                 }
+              } else if (data.type === 'Metadata') {
+                console.log('📊 DeepGram Metadata:', data);
+              } else {
+                console.log('📥 DeepGram message:', data);
               }
             } catch (error) {
               console.error('❌ Error parsing DeepGram response:', error, msg.data);
@@ -970,6 +1011,10 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
             console.log('🔌 DeepGram WebSocket closed:', event.code, event.reason);
             if (event.code !== 1000) {
               console.error('❌ WebSocket closed unexpectedly. Code:', event.code, 'Reason:', event.reason);
+            }
+            // Clear KeepAlive interval on close
+            if (keepAliveInterval) {
+              clearInterval(keepAliveInterval);
             }
           };
         }

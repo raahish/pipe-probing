@@ -42,7 +42,7 @@ var questionConfig = {
 };
 
 // OpenAI Configuration (temporary client-side)
-var OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE"; // Replace with actual key
+var OPENAI_API_KEY = "sk-proj-..."; // Replace with actual key
 var OPENAI_MODEL = "gpt-4"; // Using gpt-4 for better JSON responses
 
 // System prompts for each probing level

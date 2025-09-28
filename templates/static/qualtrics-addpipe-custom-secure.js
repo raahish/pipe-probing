@@ -649,51 +649,89 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
      */
     recorderObject.btRecordPressed = function (recorderId) {
       try {
-        console.log('btRecordPressed >>> ');
+        console.log('▶️ Record button pressed');
+        
+        // Handle conversation initialization
+        if (window.conversationManager && !window.isConversationActive) {
+          console.log('🎬 Starting conversation');
+          window.conversationManager.startConversation();
+          window.isConversationActive = true;
+          
+          // Initialize fake stop button system
+          initializeFakeStopButton();
+          
+          // If no probing, mark for actual stop
+          if (questionConfig.probingAmount === "None") {
+            window.shouldActuallyStop = true;
+          }
+        }
+        
+        // Show fake stop button during recording
+        if (window.conversationManager && window.isConversationActive) {
+          toggleFakeStopButton(true);
+        }
+        
+        // Standard recording setup
         startRecordingClicked();
         jQuery('#NextButton-custom').hide();
         isRecording = true;
-        global_transcript = '';
+        
+        // Don't reset global transcript during conversation
+        if (!window.isConversationActive) {
+          global_transcript = '';
+        }
+        
+        // Existing WebSocket setup code...
         const videoEl = document.getElementById('pipeVideoInput-' + question_name);
-        mediaRecorder = new MediaRecorder(videoEl.srcObject, {
-          mimeType: pipeParams.mimeType,
+        getMobileOperatingSystem();
+        if (videoEl.srcObject !== undefined) {
+          stream = videoEl.srcObject;
+        } else if (videoEl.mozSrcObject !== undefined) {
+          stream = videoEl.mozSrcObject;
+        } else if (videoEl.src !== undefined) {
+          stream = videoEl.src;
+        } else {
+          console.log('something went wrong');
+        }
+        
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mimetype,
         });
+        
         ws = new WebSocket(deepGramConfiguration.endPoint, ['token', deepGramConfiguration.token]);
-        console.log('WebSocket >>> ');
-        ws.onopen = function (ev) {
-          console.log(ev);
+        ws.onopen = () => {
+          console.log('🎤 WebSocket opened');
+          mediaRecorder.onstop = () => {
+            console.log('onstop fired');
+          };
+          const timeslice = 1000;
+          mediaRecorder.start(timeslice);
+          
           mediaRecorder.addEventListener('dataavailable', (event) => {
             if (event.data.size > 0 && ws.readyState == 1) {
-              console.log('Sent ', event.data);
+              console.log('Sent audio chunk: ', event.data);
               ws.send(event.data);
-            } 
-            if (ws.readyState == 3 && mediaRecorder.state != 'inactive') {
-              mediaRecorder.stop();
             }
           });
-          if (mediaRecorder.state != 'recording') {
-            mediaRecorder.start(1000);
-          }
-          ws.onclose = function (ev) {
-            console.log(ev);
-          };
-          ws.onerror = function (ev) {
-            console.log(ev);
-          };
         };
-        intervalID = setInterval(getTime, 1000, recorderObject);
-        ws.onmessage = function (message) {
-          const received = JSON.parse(message.data);
-          console.log('Received ', received);
-          const transcript = received.channel.alternatives[0].transcript;
-          if (transcript && received.is_final) {
+        
+        ws.onmessage = (msg) => {
+          const { channel, is_final } = JSON.parse(msg.data);
+          const transcript = channel.alternatives[0].transcript;
+          if (transcript && is_final) {
             console.log('transcript >>>', transcript);
             global_transcript += transcript + ' ';
           }
         };
-        ws.onerror = function (ev) {
-          console.log(ev);
+        
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
         };
+        
+        ws.onclose = () => {
+          console.log('🔌 WebSocket closed');
+        };
+        
       } catch (err) {
         console.log(err.message);
       }

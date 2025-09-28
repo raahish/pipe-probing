@@ -1,53 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>DeepGram API Key Test</title>
+    <title>DeepGram WebSocket Test</title>
 </head>
 <body>
-    <h1>DeepGram API Key Test</h1>
-    <p><strong>Note:</strong> CORS errors are expected for REST API calls from browsers. This is normal security behavior.</p>
+    <h1>DeepGram WebSocket Test</h1>
+    <p><strong>Note:</strong> This tests if your API key works with DeepGram WebSocket connections.</p>
     <button onclick="testWebSocketOnly()">Test WebSocket Connection</button>
     <div id="results"></div>
 
     <script>
         const API_KEY = "1189b2a8085fcccbf10862e04038fc6ae660f610"; // Your API key
-
-        async function testAPIKey() {
-            const results = document.getElementById('results');
-            results.innerHTML = '<p>Testing API key...</p>';
-
-            try {
-                // Test 1: Check if API key works with REST API
-                console.log('🧪 Testing DeepGram REST API...');
-                
-                const response = await fetch('https://api.deepgram.com/v1/projects', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Token ${API_KEY}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                console.log('📊 REST API Response Status:', response.status);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ REST API Success:', data);
-                    results.innerHTML += '<p>✅ REST API: SUCCESS - API key is valid!</p>';
-                    
-                    // Test 2: Try WebSocket connection
-                    testWebSocket();
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ REST API Error:', response.status, errorText);
-                    results.innerHTML += `<p>❌ REST API: FAILED (${response.status}) - ${errorText}</p>`;
-                }
-
-            } catch (error) {
-                console.error('❌ Network Error:', error);
-                results.innerHTML += `<p>❌ Network Error: ${error.message}</p>`;
-            }
-        }
 
         function testWebSocketOnly() {
             const results = document.getElementById('results');
@@ -81,7 +44,7 @@
             ws.onclose = (event) => {
                 console.log('🔌 WebSocket closed:', event.code, event.reason);
                 if (event.code !== 1000 && event.code !== 1005) {
-                    results.innerHTML += `<p>⚠️ WebSocket closed unexpectedly: Code ${event.code} - ${event.reason || 'No reason provided'}</p>';
+                    results.innerHTML += `<p>⚠️ WebSocket closed unexpectedly: Code ${event.code} - ${event.reason || 'No reason provided'}</p>`;
                     
                     if (event.code === 1006) {
                         results.innerHTML += '<p>🔍 Code 1006 usually means authentication failed or server rejected connection</p>';

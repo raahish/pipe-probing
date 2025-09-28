@@ -495,7 +495,13 @@ function initializeFakeStopButton() {
   
   // Override native stop button clicks during conversation
   jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
-    // Only intercept if we're actually recording (not just starting)
+    console.log('🔍 Record button clicked - checking interception conditions');
+    console.log('  - conversationManager exists:', !!window.conversationManager);
+    console.log('  - conversationActive:', window.conversationManager?.conversationActive);
+    console.log('  - isRecording:', window.isRecording);
+    console.log('  - recorderState:', window.recorderObjectGlobal?.getState?.());
+    
+    // Only intercept if we're in an active conversation and currently recording
     if (window.conversationManager && 
         window.conversationManager.conversationActive && 
         window.isRecording && 
@@ -508,9 +514,11 @@ function initializeFakeStopButton() {
       e.stopImmediatePropagation();
       
       // Trigger fake stop instead
-      jQuery('#fake-stop-' + questionName).click();
+      pauseForAIProcessing();
       return false;
     }
+    
+    console.log('✅ Allowing normal button behavior');
   });
 }
 
@@ -668,29 +676,40 @@ function showNextQuestion(question) {
   
   jQuery('#dynamic-question-description').text('Click record when ready to respond.');
   
-  // CRITICAL: Reset AddPipe button state to record mode
-  // This is necessary because AddPipe changes the button to stop mode during recording
-  // and doesn't automatically reset it
+  // CRITICAL: Reset AddPipe button state to record mode and ensure visibility
   if (window.recorderObjectGlobal) {
-    // Force the recorder to think we're ready to record again
-    // without actually stopping the underlying video recording
     try {
-      // Reset UI to record state
-      jQuery('#pipeRec-' + questionName).removeClass('pipeRecStop').addClass('pipeRecRec');
-      jQuery('#pipeRec-' + questionName + ' svg').remove();
-      jQuery('#pipeRec-' + questionName).html(
+      // Reset UI to record state with proper visibility
+      const recordButton = jQuery('#pipeRec-' + questionName);
+      
+      // Remove all state classes
+      recordButton.removeClass('pipeRecStop pipeRecRec');
+      
+      // Set record button appearance
+      recordButton.html(
         '<svg viewBox="0 0 24 24" width="24" height="24">' +
         '<circle cx="12" cy="12" r="10" fill="currentColor"/>' +
         '</svg>'
       );
       
-      // Show the record button
-      jQuery('#pipeRec-' + questionName).show().prop('disabled', false);
+      // Force visibility and enable
+      recordButton.css({
+        'display': 'block',
+        'visibility': 'visible',
+        'opacity': '1',
+        'pointer-events': 'auto'
+      }).prop('disabled', false).show();
       
       // Reset menu state
-      jQuery('#pipeMenu-' + questionName).removeClass('recording-state').addClass('ready-state');
+      jQuery('#pipeMenu-' + questionName).removeClass('recording-state ai-processing-state').addClass('ready-state');
       
-      console.log('✅ Reset AddPipe button to record mode');
+      // Ensure the button is in the DOM and visible
+      setTimeout(() => {
+        recordButton.show().css('display', 'block');
+        console.log('🔍 Button visibility check:', recordButton.is(':visible'), recordButton.css('display'));
+      }, 100);
+      
+      console.log('✅ Reset AddPipe button to record mode with forced visibility');
     } catch (e) {
       console.error('❌ Error resetting button state:', e);
     }
@@ -917,6 +936,12 @@ function startTranscriptionForSegment() {
     return;
   }
   
+  // Stop any existing MediaRecorder first
+  if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
+    console.log('🛑 Stopping existing MediaRecorder before creating new one');
+    window.mediaRecorder.stop();
+  }
+  
   // Create MediaRecorder for audio transcription
   const audioStream = new MediaStream(stream.getAudioTracks());
   window.mediaRecorder = new MediaRecorder(audioStream, {
@@ -943,24 +968,43 @@ function startTranscriptionForSegment() {
     window.ws.onopen = () => {
       console.log('🎤 DeepGram WebSocket connected for segment');
       
-      const timeslice = 1000;
-      
-      window.mediaRecorder.addEventListener('dataavailable', (event) => {
-        if (event.data.size > 0 && window.ws && window.ws.readyState === WebSocket.OPEN) {
-          console.log('📤 Sending audio chunk to DeepGram:', event.data.size, 'bytes');
-          window.ws.send(event.data);
+      // Send keepalive message to prevent timeout
+      const keepAliveInterval = setInterval(() => {
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+          window.ws.send(JSON.stringify({ type: 'KeepAlive' }));
+          console.log('💓 Sent KeepAlive to DeepGram');
+        } else {
+          clearInterval(keepAliveInterval);
         }
-      });
+      }, 8000); // Send every 8 seconds
       
-      window.mediaRecorder.addEventListener('stop', () => {
-        console.log('🎙️ MediaRecorder stopped for segment');
-      });
+      // Store interval reference for cleanup
+      window.ws.keepAliveInterval = keepAliveInterval;
       
-      window.mediaRecorder.addEventListener('error', (event) => {
-        console.log('❌ MediaRecorder error:', event.error);
-      });
-      
-      window.mediaRecorder.start(timeslice);
+      // Check MediaRecorder state before starting
+      if (window.mediaRecorder.state === 'inactive') {
+        const timeslice = 1000;
+        
+        window.mediaRecorder.addEventListener('dataavailable', (event) => {
+          if (event.data.size > 0 && window.ws && window.ws.readyState === WebSocket.OPEN) {
+            console.log('📤 Sending audio chunk to DeepGram:', event.data.size, 'bytes');
+            window.ws.send(event.data);
+          }
+        });
+        
+        window.mediaRecorder.addEventListener('stop', () => {
+          console.log('🎙️ MediaRecorder stopped for segment');
+        });
+        
+        window.mediaRecorder.addEventListener('error', (event) => {
+          console.log('❌ MediaRecorder error:', event.error);
+        });
+        
+        window.mediaRecorder.start(timeslice);
+        console.log('✅ MediaRecorder started for segment');
+      } else {
+        console.warn('⚠️ MediaRecorder not in inactive state:', window.mediaRecorder.state);
+      }
     };
     
     window.ws.onmessage = (msg) => {
@@ -991,15 +1035,23 @@ function startTranscriptionForSegment() {
     
     window.ws.onclose = (event) => {
       console.log('🔌 DeepGram WebSocket closed for segment:', event.code, event.reason);
+      
+      // Clean up keepalive interval
+      if (window.ws && window.ws.keepAliveInterval) {
+        clearInterval(window.ws.keepAliveInterval);
+        console.log('🧹 Cleaned up KeepAlive interval');
+      }
     };
   } else {
-    // Start MediaRecorder without DeepGram
-    const timeslice = 1000;
-    window.mediaRecorder.start(timeslice);
-    
-    window.mediaRecorder.onstop = () => {
-      console.log('🛑 MediaRecorder stopped (no transcription)');
-    };
+    // Start MediaRecorder without DeepGram (only if inactive)
+    if (window.mediaRecorder.state === 'inactive') {
+      const timeslice = 1000;
+      window.mediaRecorder.start(timeslice);
+      
+      window.mediaRecorder.onstop = () => {
+        console.log('🛑 MediaRecorder stopped (no transcription)');
+      };
+    }
   }
 }
 
@@ -1101,6 +1153,9 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           // Instead, just set up the UI and transcription
           startRecordingUIForSegment();
           
+          // CRITICAL: Return early to prevent AddPipe from starting a new recording
+          return;
+          
         } else {
           // First recording - handle conversation initialization
           if (window.conversationManager && !window.isConversationActive) {
@@ -1170,6 +1225,19 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           ws.onopen = () => {
             console.log('🎤 DeepGram WebSocket connected');
             
+            // Send keepalive message to prevent timeout
+            const keepAliveInterval = setInterval(() => {
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'KeepAlive' }));
+                console.log('💓 Sent KeepAlive to DeepGram');
+              } else {
+                clearInterval(keepAliveInterval);
+              }
+            }, 8000); // Send every 8 seconds
+            
+            // Store interval reference for cleanup
+            ws.keepAliveInterval = keepAliveInterval;
+            
             // Start MediaRecorder when WebSocket is ready (same as working test)
             const timeslice = 1000;
             
@@ -1231,6 +1299,12 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           
           ws.onclose = (event) => {
             console.log('🔌 DeepGram WebSocket closed:', event.code, event.reason);
+            
+            // Clean up keepalive interval
+            if (ws && ws.keepAliveInterval) {
+              clearInterval(ws.keepAliveInterval);
+              console.log('🧹 Cleaned up KeepAlive interval');
+            }
           };
         }
         

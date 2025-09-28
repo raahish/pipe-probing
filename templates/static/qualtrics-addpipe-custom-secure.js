@@ -494,8 +494,7 @@ function initializeFakeStopButton() {
   });
   
   // Override native stop button clicks during conversation
-  // Store reference to the handler so we can remove it later
-  window.conversationClickHandler = function(e) {
+  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
     console.log('🔍 Record button clicked - checking interception conditions');
     console.log('  - conversationManager exists:', !!window.conversationManager);
     console.log('  - conversationActive:', window.conversationManager?.conversationActive);
@@ -520,9 +519,7 @@ function initializeFakeStopButton() {
     }
     
     console.log('✅ Allowing normal button behavior');
-  };
-  
-  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', window.conversationClickHandler);
+  });
 }
 
 // Function to show/hide fake stop button
@@ -544,31 +541,6 @@ function toggleFakeStopButton(show) {
       'pointer-events': 'auto'
     });
     fakeBtn.hide();
-  }
-}
-
-// Function to disable click interception for record button
-function disableClickInterception() {
-  console.log('🔓 Disabling click interception for record button');
-  
-  // Remove the conversation click handler
-  if (window.conversationClickHandler) {
-    jQuery(document).off('click.conversation', '[id^="pipeRec-"]', window.conversationClickHandler);
-    console.log('✅ Removed conversation click handler');
-  }
-}
-
-// Function to enable click interception for stop button
-function enableClickInterception() {
-  console.log('🔒 Enabling click interception for stop button');
-  
-  // Add the conversation click handler back
-  if (window.conversationClickHandler) {
-    // Remove any existing handler first to prevent duplicates
-    jQuery(document).off('click.conversation', '[id^="pipeRec-"]', window.conversationClickHandler);
-    // Add it back
-    jQuery(document).on('click.conversation', '[id^="pipeRec-"]', window.conversationClickHandler);
-    console.log('✅ Added conversation click handler');
   }
 }
 
@@ -704,9 +676,6 @@ function showNextQuestion(question) {
   
   jQuery('#dynamic-question-description').text('Click record when ready to respond.');
   
-  // CRITICAL: Disable click interception so record button works normally
-  disableClickInterception();
-  
   // CRITICAL: Reset AddPipe button state to record mode and ensure visibility
   if (window.recorderObjectGlobal) {
     try {
@@ -723,28 +692,21 @@ function showNextQuestion(question) {
         '</svg>'
       );
       
-      // Force visibility and enable with explicit positioning
+      // Force visibility and enable
       recordButton.css({
-        'display': 'block !important',
-        'visibility': 'visible !important',
-        'opacity': '1 !important',
-        'pointer-events': 'auto !important',
-        'position': 'relative !important',
-        'z-index': '1001 !important'
+        'display': 'block',
+        'visibility': 'visible',
+        'opacity': '1',
+        'pointer-events': 'auto'
       }).prop('disabled', false).show();
       
       // Reset menu state
       jQuery('#pipeMenu-' + questionName).removeClass('recording-state ai-processing-state').addClass('ready-state');
       
-      // Ensure the button is in the DOM and visible with multiple checks
+      // Ensure the button is in the DOM and visible
       setTimeout(() => {
-        recordButton.show().css({
-          'display': 'block !important',
-          'z-index': '1001 !important'
-        });
+        recordButton.show().css('display', 'block');
         console.log('🔍 Button visibility check:', recordButton.is(':visible'), recordButton.css('display'));
-        console.log('🔍 Button z-index:', recordButton.css('z-index'));
-        console.log('🔍 Button position:', recordButton.css('position'));
       }, 100);
       
       console.log('✅ Reset AddPipe button to record mode with forced visibility');
@@ -826,9 +788,6 @@ function startRecordingUIForSegment() {
   
   // Mark as recording
   window.isRecording = true;
-  
-  // CRITICAL: Enable click interception now that button is in stop mode
-  enableClickInterception();
   
   // Re-enable fake stop button
   if (!window.fakeStopButtonActive) {
@@ -937,69 +896,10 @@ async function safeAICall(conversationManager) {
 function prepareForNextSegment() {
   console.log('🔄 Preparing for next recording segment');
   
-  // CRITICAL: Comprehensive state synchronization
-  synchronizeAllStates();
-  
-  // CRITICAL: Reset AddPipe's internal state to allow next segment
-  resetAddPipeStateForNextSegment();
-  
-  // Ensure timer display shows paused time
-  if (window.conversationManager && window.conversationManager.timerPausedAt) {
-    jQuery('.pipeTimer-custom').text(window.conversationManager.timerPausedAt);
-  }
-  
-  console.log('✅ Ready for next segment');
-}
-
-// Reset AddPipe's internal state for next conversation segment
-function resetAddPipeStateForNextSegment() {
-  console.log('🔄 Resetting AddPipe state for next segment');
-  
-  if (window.recorderObjectGlobal) {
-    try {
-      // Force AddPipe to think it's ready to record again
-      // This prevents it from starting a new recording stream
-      
-      // Reset the recorder's internal state flags
-      if (window.recorderObjectGlobal.state) {
-        window.recorderObjectGlobal.state = 'idle';
-        console.log('✅ Set AddPipe state to idle');
-      }
-      
-      // Reset any internal recording flags
-      if (window.recorderObjectGlobal.isRecording !== undefined) {
-        window.recorderObjectGlobal.isRecording = false;
-        console.log('✅ Set AddPipe isRecording to false');
-      }
-      
-      // Reset stream state if accessible
-      if (window.recorderObjectGlobal.streamState) {
-        window.recorderObjectGlobal.streamState = 'ready';
-        console.log('✅ Set AddPipe streamState to ready');
-      }
-      
-      console.log('✅ AddPipe state reset complete');
-    } catch (e) {
-      console.warn('⚠️ Could not fully reset AddPipe state:', e);
-      // Continue anyway - the UI fixes should handle most issues
-    }
-  }
-}
-
-// Comprehensive state synchronization for conversation segments
-function synchronizeAllStates() {
-  console.log('🔄 Synchronizing all state variables');
-  
-  // Reset our global state variables
+  // Reset recording flags
   window.isRecording = false;
-  window.fakeStopButtonActive = false;
   
-  // Reset conversation state flags
-  if (window.conversationManager) {
-    window.conversationManager.isProcessingAI = false;
-  }
-  
-  // Clear any lingering intervals
+  // Clear any existing intervals
   if (window.intervalID) {
     clearInterval(window.intervalID);
     window.intervalID = null;
@@ -1009,15 +909,12 @@ function synchronizeAllStates() {
   window.ws = null;
   window.mediaRecorder = null;
   
-  // Log current state for debugging
-  console.log('📊 State after synchronization:');
-  console.log('  - isRecording:', window.isRecording);
-  console.log('  - fakeStopButtonActive:', window.fakeStopButtonActive);
-  console.log('  - conversationActive:', window.isConversationActive);
-  console.log('  - intervalID:', window.intervalID);
-  console.log('  - AddPipe state:', window.recorderObjectGlobal?.getState?.());
+  // Ensure timer display shows paused time
+  if (window.conversationManager && window.conversationManager.timerPausedAt) {
+    jQuery('.pipeTimer-custom').text(window.conversationManager.timerPausedAt);
+  }
   
-  console.log('✅ State synchronization complete');
+  console.log('✅ Ready for next segment');
 }
 
 // Start transcription for a new conversation segment

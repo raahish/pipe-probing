@@ -902,14 +902,29 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           mimeType: mimetype, // Use the same mimetype as video recording
         });
         
-        // Create DeepGram WebSocket connection following official documentation
+        // Create DeepGram WebSocket connection 
         if (deepGramConfiguration.token && deepGramConfiguration.token !== 'YOUR_DEEPGRAM_API_KEY_HERE') {
-          // Follow the exact format from DeepGram documentation
-          const deepgramUrl = "wss://api.deepgram.com/v1/listen";
-          console.log('🔗 Connecting to DeepGram:', deepgramUrl);
+          console.log('🔗 Attempting DeepGram connection...');
           
-          // Create WebSocket (browsers can't set Authorization header, so we'll use protocol method)
-          ws = new WebSocket(deepgramUrl, ['token', deepGramConfiguration.token]);
+          // Try multiple authentication methods for browser compatibility
+          
+          // Method 1: Protocol-based auth (original DeepGram method)
+          try {
+            ws = new WebSocket("wss://api.deepgram.com/v1/listen", ['token', deepGramConfiguration.token]);
+            console.log('📡 Using protocol-based authentication');
+          } catch (protocolError) {
+            console.warn('⚠️ Protocol auth failed, trying URL method:', protocolError);
+            
+            // Method 2: Token in URL (fallback for some browsers)
+            try {
+              const urlWithToken = `wss://api.deepgram.com/v1/listen?token=${deepGramConfiguration.token}`;
+              ws = new WebSocket(urlWithToken);
+              console.log('📡 Using URL-based authentication');
+            } catch (urlError) {
+              console.error('❌ Both auth methods failed:', urlError);
+              ws = null;
+            }
+          }
         } else {
           console.warn('⚠️ DeepGram token not configured - transcription disabled');
           console.log('💡 Add your DeepGram API key to enable real-time transcription');
@@ -947,11 +962,18 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
         if (ws) {
           ws.onmessage = (msg) => {
             try {
-              const { channel, is_final } = JSON.parse(msg.data);
-              const transcript = channel.alternatives[0].transcript;
-              if (transcript && is_final) {
-                console.log('✅ Final transcript:', transcript);
-                global_transcript += transcript + ' ';
+              const response = JSON.parse(msg.data);
+              console.log('📥 DeepGram response:', response);
+              
+              // Match the Node.js example format
+              if (response.type === "Results") {
+                const transcript = response.channel.alternatives[0].transcript;
+                if (transcript) {
+                  console.log('✅ Transcript:', transcript);
+                  if (response.is_final) {
+                    global_transcript += transcript + ' ';
+                  }
+                }
               }
             } catch (error) {
               console.error('❌ Error parsing DeepGram response:', error);
@@ -960,7 +982,16 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
           
           ws.onerror = (error) => {
             console.error('❌ DeepGram WebSocket error:', error);
-            console.log('🔍 Check your DeepGram token and connection');
+            console.error('🔍 Error details:', {
+              readyState: ws.readyState,
+              url: ws.url,
+              protocol: ws.protocol
+            });
+            console.log('💡 Possible issues:');
+            console.log('   - Invalid API key');
+            console.log('   - No remaining credits');
+            console.log('   - Network/firewall blocking WebSocket');
+            console.log('   - Browser WebSocket authentication issue');
           };
           
           ws.onclose = (event) => {

@@ -13,6 +13,7 @@
 
 Qualtrics.SurveyEngine.addOnload(function() {
     console.log('🧪 DeepGram WebSocket Test - Starting...');
+    console.log('🔧 Testing console.log functionality directly');
     
     // DeepGram Configuration - using the working API key from test
     const DEEPGRAM_API_KEY = "1189b2a8085fcccbf10862e04038fc6ae660f610";
@@ -25,20 +26,11 @@ Qualtrics.SurveyEngine.addOnload(function() {
     let permissionsGranted = false;
     let isRecording = false;
     
-    // Enhanced logging function with multiple outputs
+    // Simple logging function - console only to avoid UI conflicts
     function log(message) {
         const timestamp = new Date().toLocaleTimeString();
         const logMessage = `[${timestamp}] ${message}`;
-        
-        // Log to console
         console.log(logMessage);
-        
-        // Also log to UI for visibility
-        const transcriptDiv = document.getElementById('dg-transcript');
-        if (transcriptDiv) {
-            transcriptDiv.textContent += logMessage + '\n';
-            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
-        }
     }
     
     // Separate function for transcript-only entries (cleaner UI)
@@ -46,6 +38,9 @@ Qualtrics.SurveyEngine.addOnload(function() {
         const timestamp = new Date().toLocaleTimeString();
         console.log(`[${timestamp}] ${message}`);
     }
+    
+    // Test the log function immediately
+    log('🧪 Log function test - this should appear with timestamp');
     
     // Create test UI elements
     function createTestUI() {

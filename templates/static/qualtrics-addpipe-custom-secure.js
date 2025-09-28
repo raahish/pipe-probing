@@ -1290,10 +1290,27 @@ function validateVideo(recorderObject, transcript_array, location, streamName) {
  * @param {object} recorderObject
  */
 function getTime(recorderObject) {
-  jQuery('.pipeTimer-custom').empty().append('00:00');
+  // Use conversation timer if active
+  if (window.conversationManager && window.isConversationActive) {
+    updateTimerDisplay();
+    return;
+  }
+  
+  // Original timer logic for non-conversation recordings
+  if (!recorderObject) return;
+  
   var totalSeconds = Math.round(recorderObject.getStreamTime());
-  var timerValue = arrengeTimeString(parseInt(totalSeconds / 60)) + ':' + arrengeTimeString(totalSeconds % 60);
-  jQuery('.pipeTimer-custom').empty().append(timerValue);
+  var minutes = Math.floor(totalSeconds / 60);
+  var seconds = totalSeconds % 60;
+  
+  if (seconds < 10) {
+    seconds = '0' + seconds;
+  }
+  if (minutes < 10) {
+    minutes = '0' + minutes;
+  }
+  
+  jQuery('.pipeTimer-custom').text(minutes + ':' + seconds);
 }
 
 /**

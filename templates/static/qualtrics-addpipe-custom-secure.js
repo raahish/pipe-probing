@@ -741,13 +741,37 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
      * Handler for stop recording button pressed.
      */
     recorderObject.btStopRecordingPressed = function (recorderId) {
-      clearInterval(intervalID);
-
-      var args = Array.prototype.slice.call(arguments);
-      console.log('btStopRecordingPressed(' + args.join(', ') + ')');
+      console.log('⏹️ Stop button pressed');
+      
+      // Clear recording timer
+      if (window.intervalID) {
+        clearInterval(window.intervalID);
+      }
+      
+      // Close WebSocket
       isRecording = false;
-      ws.close();
-      stoppedVideo();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+      
+      // Hide fake stop button
+      if (window.conversationManager && window.isConversationActive) {
+        toggleFakeStopButton(false);
+      }
+      
+      // Check if this is the real stop
+      if (window.shouldActuallyStop || !window.conversationManager || !window.isConversationActive) {
+        console.log('🏁 Actual stop - recording complete');
+        stoppedVideo();
+        window.isConversationActive = false;
+        
+        // Clean up event listeners
+        jQuery(document).off('click.conversation');
+        return;
+      }
+      
+      // This shouldn't happen - fake stop should have intercepted
+      console.warn('⚠️ Unexpected stop during conversation');
     };
 
     /**

@@ -5,7 +5,8 @@
 </head>
 <body>
     <h1>DeepGram API Key Test</h1>
-    <button onclick="testAPIKey()">Test API Key</button>
+    <p><strong>Note:</strong> CORS errors are expected for REST API calls from browsers. This is normal security behavior.</p>
+    <button onclick="testWebSocketOnly()">Test WebSocket Connection</button>
     <div id="results"></div>
 
     <script>
@@ -48,29 +49,43 @@
             }
         }
 
-        function testWebSocket() {
+        function testWebSocketOnly() {
             const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing WebSocket connection...</p>';
             
             console.log('🧪 Testing DeepGram WebSocket...');
+            console.log('🔑 API Key:', API_KEY.substring(0, 8) + '...');
             
             // Test WebSocket connection
             const ws = new WebSocket(`wss://api.deepgram.com/v1/listen?token=${API_KEY}`);
             
             ws.onopen = () => {
                 console.log('✅ WebSocket: Connected successfully!');
-                results.innerHTML += '<p>✅ WebSocket: SUCCESS - Connection established!</p>';
+                results.innerHTML = '<p>✅ WebSocket: SUCCESS - Connection established!</p>';
+                results.innerHTML += '<p>🎉 Your API key works! DeepGram transcription should work.</p>';
                 ws.close();
             };
             
             ws.onerror = (error) => {
                 console.error('❌ WebSocket Error:', error);
-                results.innerHTML += '<p>❌ WebSocket: FAILED - Connection error</p>';
+                results.innerHTML = '<p>❌ WebSocket: FAILED - Connection error</p>';
+                results.innerHTML += '<p>💡 Possible issues:</p>';
+                results.innerHTML += '<ul>';
+                results.innerHTML += '<li>Invalid API key</li>';
+                results.innerHTML += '<li>No remaining credits</li>';
+                results.innerHTML += '<li>Network/firewall blocking connection</li>';
+                results.innerHTML += '<li>API key type mismatch (need streaming-enabled key)</li>';
+                results.innerHTML += '</ul>';
             };
             
             ws.onclose = (event) => {
                 console.log('🔌 WebSocket closed:', event.code, event.reason);
-                if (event.code !== 1000) {
-                    results.innerHTML += `<p>⚠️ WebSocket closed unexpectedly: Code ${event.code}</p>`;
+                if (event.code !== 1000 && event.code !== 1005) {
+                    results.innerHTML += `<p>⚠️ WebSocket closed unexpectedly: Code ${event.code} - ${event.reason || 'No reason provided'}</p>';
+                    
+                    if (event.code === 1006) {
+                        results.innerHTML += '<p>🔍 Code 1006 usually means authentication failed or server rejected connection</p>';
+                    }
                 }
             };
         }

@@ -1392,6 +1392,17 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
       // Clean up event listeners
       jQuery(document).off('click.conversation');
     };
+    
+    // CRITICAL: Store original AddPipe stop method to prevent it during conversations
+    const originalPipeStop = recorderObject.stop;
+    recorderObject.stop = function() {
+      if (window.conversationManager && window.isConversationActive && !window.shouldActuallyStop) {
+        console.log('🚫 Blocked AddPipe.stop() during conversation');
+        return;
+      }
+      console.log('✅ Allowing AddPipe.stop() - conversation ended');
+      return originalPipeStop.apply(this, arguments);
+    };
 
     /**
      * Handler for playback complete event.

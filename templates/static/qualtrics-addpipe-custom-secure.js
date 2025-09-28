@@ -685,10 +685,11 @@ function showNextQuestion(question) {
       // Remove all state classes
       recordButton.removeClass('pipeRecStop pipeRecRec');
       
-      // Set record button appearance
+      // Set record button appearance using AddPipe's expected SVG
       recordButton.html(
-        '<svg viewBox="0 0 24 24" width="24" height="24">' +
-        '<circle cx="12" cy="12" r="10" fill="currentColor"/>' +
+        '<svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+        '<circle cx="50" cy="50" r="30" fill="red"></circle>' +
+        '<circle cx="50" cy="50" r="40" stroke="black" stroke-width="8" fill="none"></circle>' +
         '</svg>'
       );
       
@@ -699,6 +700,10 @@ function showNextQuestion(question) {
         'opacity': '1',
         'pointer-events': 'auto'
       }).prop('disabled', false).show();
+      
+      // CRITICAL: Reset AddPipe's internal state and button attributes
+      recordButton.attr('title', 'record'); // Change from 'stop' to 'record'
+      recordButton.removeClass('pipeBtn').addClass('pipeBtn'); // Ensure proper class
       
       // Reset menu state
       jQuery('#pipeMenu-' + questionName).removeClass('recording-state ai-processing-state').addClass('ready-state');
@@ -775,14 +780,17 @@ function startRecordingUIForSegment() {
   // Update UI to recording state
   jQuery('#pipeMenu-' + questionName).removeClass('ready-state').addClass('recording-state');
   
-  // Change button appearance to stop
+  // Change button appearance to stop using AddPipe's expected SVG
   jQuery('#pipeRec-' + questionName).removeClass('pipeRecRec').addClass('pipeRecStop');
   jQuery('#pipeRec-' + questionName + ' svg').remove();
   jQuery('#pipeRec-' + questionName).html(
-    '<svg viewBox="0 0 24 24" width="24" height="24">' +
-    '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>' +
+    '<svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+    '<rect x="25" y="25" width="50" height="50" fill="red"></rect>' +
     '</svg>'
   );
+  
+  // Update button title to stop
+  jQuery('#pipeRec-' + questionName).attr('title', 'stop');
   
   // Show timer
   jQuery('.pipeTimer-custom').show();

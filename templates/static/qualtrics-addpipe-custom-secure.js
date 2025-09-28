@@ -709,6 +709,10 @@ function showNextQuestion(question) {
         console.log('🔍 Button visibility check:', recordButton.is(':visible'), recordButton.css('display'));
       }, 100);
       
+      // CRITICAL FIX: Temporarily disable click interceptor for record mode
+      jQuery(document).off('click.conversation');
+      console.log('🔓 Disabled click interceptor - button ready for normal record behavior');
+      
       console.log('✅ Reset AddPipe button to record mode with forced visibility');
     } catch (e) {
       console.error('❌ Error resetting button state:', e);
@@ -794,6 +798,35 @@ function startRecordingUIForSegment() {
     toggleFakeStopButton(true);
     window.fakeStopButtonActive = true;
   }
+  
+  // CRITICAL FIX: Re-enable click interceptor now that we're recording
+  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
+    console.log('🔍 Record button clicked - checking interception conditions');
+    console.log('  - conversationManager exists:', !!window.conversationManager);
+    console.log('  - conversationActive:', window.conversationManager?.conversationActive);
+    console.log('  - isRecording:', window.isRecording);
+    console.log('  - recorderState:', window.recorderObjectGlobal?.getState?.());
+    
+    // Only intercept if we're in an active conversation and currently recording
+    if (window.conversationManager && 
+        window.conversationManager.conversationActive && 
+        window.isRecording && 
+        window.recorderObjectGlobal &&
+        window.recorderObjectGlobal.getState && 
+        window.recorderObjectGlobal.getState() === 'recording') {
+      console.log('🚫 Intercepting native stop button click');
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Trigger fake stop instead
+      pauseForAIProcessing();
+      return false;
+    }
+    
+    console.log('✅ Allowing normal button behavior');
+  });
+  console.log('🔒 Re-enabled click interceptor - ready to intercept stop clicks');
   
   // Start new transcription session
   startTranscriptionForSegment();

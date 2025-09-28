@@ -1360,6 +1360,16 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
     recorderObject.btStopRecordingPressed = function (recorderId) {
       console.log('⏹️ Stop button pressed');
       
+      // CRITICAL FIX: If conversation is active, ALWAYS do fake stop
+      if (window.conversationManager && window.isConversationActive && !window.shouldActuallyStop) {
+        console.log('🔄 Conversation active - redirecting to fake stop');
+        pauseForAIProcessing();
+        return;
+      }
+      
+      // Only reach here for legitimate stops (conversation ended, errors, etc.)
+      console.log('🏁 Actual stop - recording complete');
+      
       // Clear recording timer
       if (window.intervalID) {
         clearInterval(window.intervalID);
@@ -1376,19 +1386,11 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
         toggleFakeStopButton(false);
       }
       
-      // Check if this is the real stop
-      if (window.shouldActuallyStop || !window.conversationManager || !window.isConversationActive) {
-        console.log('🏁 Actual stop - recording complete');
-        stoppedVideo();
-        window.isConversationActive = false;
-        
-        // Clean up event listeners
-        jQuery(document).off('click.conversation');
-        return;
-      }
+      stoppedVideo();
+      window.isConversationActive = false;
       
-      // This shouldn't happen - fake stop should have intercepted
-      console.warn('⚠️ Unexpected stop during conversation');
+      // Clean up event listeners
+      jQuery(document).off('click.conversation');
     };
 
     /**

@@ -528,6 +528,13 @@ border-radius: 50%;
   cursor: pointer !important;
   align-items: center !important;
   justify-content: center !important;
+  /* CRITICAL: Ensure button is always visible and clickable */
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 1001 !important;
 }
 
 [id^="pipeRec-"]:hover {
@@ -885,6 +892,20 @@ text-align: left;
 
 [id^="pipeMenu-"].playback-state {
   background: rgba(0, 0, 0, 0.2) !important;
+}
+
+[id^="pipeMenu-"].ready-state {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Ensure record button is visible in ready state */
+[id^="pipeMenu-"].ready-state [id^="pipeRec-"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 1001 !important;
 }
 
 /* Control Panel for Recorded State */

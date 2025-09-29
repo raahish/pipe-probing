@@ -179,10 +179,14 @@ var ConversationManager = (function() {
         Utils.Logger.info('ConversationManager', 'Final transcription stop - conversation ending');
       }
 
-      // CRITICAL: Clear conversation state FIRST
+      // CRITICAL: Clear conversation state FIRST (both systems)
       Utils.Logger.info('ConversationManager', 'Clearing conversation active state');
       this.conversationActive = false;
       GlobalRegistry.setState('isConversationActive', false);
+      
+      // CRITICAL: Also clear StateManager conversation state so stop override allows the stop
+      StateManager.transition(StateManager.getStates().COMPLETE);
+      Utils.Logger.info('ConversationManager', 'StateManager conversation state cleared - stop will now be allowed');
       
       // Show completion UI
       this.showConversationComplete();

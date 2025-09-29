@@ -169,13 +169,34 @@ var PipeIntegration = (function() {
           Utils.Logger.debug('PipeIntegration', 'Calling original AddPipe stop method');
           return originalPipeStop.apply(this, arguments);
         } else {
-          Utils.Logger.warn('PipeIntegration', 'Original AddPipe stop method not available, using fallback');
-          // Fallback: trigger stop via AddPipe's internal mechanisms
-          if (this.btStopRecordingPressed && typeof this.btStopRecordingPressed === 'function') {
-            Utils.Logger.info('PipeIntegration', 'Using btStopRecordingPressed as fallback');
-            return this.btStopRecordingPressed(this.id || 'unknown');
+          Utils.Logger.warn('PipeIntegration', 'Original AddPipe stop method not available, using DOM fallback');
+          
+          // Fallback: Trigger stop via DOM button click to bypass the override
+          var config = GlobalRegistry.getConfig();
+          var questionName = config.questionName;
+          var stopButton = document.getElementById('pipeRec-' + questionName);
+          
+          if (stopButton && stopButton.title === 'stop') {
+            Utils.Logger.info('PipeIntegration', 'Triggering AddPipe stop via DOM button click');
+            
+            // Temporarily clear conversation state to allow the click
+            var wasActive = StateManager.isConversationActive();
+            if (wasActive) {
+              StateManager.transition(StateManager.getStates().COMPLETE);
+              Utils.Logger.debug('PipeIntegration', 'Temporarily cleared conversation state for stop');
+            }
+            
+            // Click the button to trigger AddPipe's native stop
+            stopButton.click();
+            
+            Utils.Logger.info('PipeIntegration', 'DOM button click triggered');
+            return true;
           } else {
-            Utils.Logger.error('PipeIntegration', 'No fallback stop method available');
+            Utils.Logger.error('PipeIntegration', 'Stop button not found or not in stop state');
+            Utils.Logger.error('PipeIntegration', 'Button exists: ' + !!stopButton);
+            if (stopButton) {
+              Utils.Logger.error('PipeIntegration', 'Button title: "' + stopButton.title + '"');
+            }
             return false;
           }
         }

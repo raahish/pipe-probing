@@ -102,10 +102,10 @@ var ConversationManager = (function() {
       var fullTranscript = window.global_transcript || '';
       var segmentTranscript = fullTranscript.substring(this.accumulatedTranscript.length).trim();
       
-      Utils.Logger.debug('ConversationManager', 'Transcript extraction:');
-      Utils.Logger.debug('ConversationManager', '  Full transcript length: ' + fullTranscript.length);
-      Utils.Logger.debug('ConversationManager', '  Accumulated length: ' + this.accumulatedTranscript.length);
-      Utils.Logger.debug('ConversationManager', '  Segment transcript: "' + segmentTranscript + '"');
+      Utils.Logger.info('ConversationManager', '🔍 Transcript extraction:');
+      Utils.Logger.info('ConversationManager', '  Full transcript length: ' + fullTranscript.length);
+      Utils.Logger.info('ConversationManager', '  Accumulated length: ' + this.accumulatedTranscript.length);
+      Utils.Logger.info('ConversationManager', '  Segment transcript: "' + segmentTranscript + '"');
 
       var segment = {
         segmentId: this.segments.length + 1,

@@ -223,6 +223,26 @@ var VideoRecorderApp = (function() {
         if (modalManager) {
           modalManager.handleClose();
         }
+        
+        // Display the initial question from config
+        var config = GlobalRegistry.getConfig();
+        if (config.questionConfig && config.questionConfig.questionText) {
+          Utils.Logger.info('VideoRecorderApp', 'Displaying initial question from config');
+          
+          var titleElement = Utils.DOM.select('#dynamic-question-title');
+          var descElement = Utils.DOM.select('#dynamic-question-description');
+          
+          if (titleElement && titleElement.length > 0) {
+            titleElement.text(config.questionConfig.questionText);
+            Utils.Logger.debug('VideoRecorderApp', 'Question title updated: ' + config.questionConfig.questionText);
+          }
+          
+          if (descElement && descElement.length > 0) {
+            descElement.text('Click record when ready to respond.');
+          }
+        } else {
+          Utils.Logger.warn('VideoRecorderApp', 'No question config found or questionText missing');
+        }
       };
 
       window.modalRetake = function() {

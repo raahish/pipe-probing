@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T20:49:22.702Z
+// Generated: 2025-09-29T20:51:45.541Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -3388,7 +3388,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (389 lines) ===
+// === main.js (409 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -3613,6 +3613,26 @@ var VideoRecorderApp = (function() {
         var modalManager = GlobalRegistry.get('modalManager');
         if (modalManager) {
           modalManager.handleClose();
+        }
+        
+        // Display the initial question from config
+        var config = GlobalRegistry.getConfig();
+        if (config.questionConfig && config.questionConfig.questionText) {
+          Utils.Logger.info('VideoRecorderApp', 'Displaying initial question from config');
+          
+          var titleElement = Utils.DOM.select('#dynamic-question-title');
+          var descElement = Utils.DOM.select('#dynamic-question-description');
+          
+          if (titleElement && titleElement.length > 0) {
+            titleElement.text(config.questionConfig.questionText);
+            Utils.Logger.debug('VideoRecorderApp', 'Question title updated: ' + config.questionConfig.questionText);
+          }
+          
+          if (descElement && descElement.length > 0) {
+            descElement.text('Click record when ready to respond.');
+          }
+        } else {
+          Utils.Logger.warn('VideoRecorderApp', 'No question config found or questionText missing');
         }
       };
 

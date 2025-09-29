@@ -75,8 +75,7 @@ var VideoRecorderApp = (function() {
     _initializeCoreModules: function() {
       Utils.Logger.info('VideoRecorderApp', 'Initializing core modules');
 
-      // Initialize state manager
-      StateManager.initialize();
+      // Register state manager (no initialization needed)
       GlobalRegistry.register('stateManager', StateManager);
 
       // Initialize event handler
@@ -384,3 +383,6 @@ var VideoRecorderApp = (function() {
   return VideoRecorderApp;
 
 })();
+
+// Auto-initialize the application when the script loads
+VideoRecorderApp.initialize();

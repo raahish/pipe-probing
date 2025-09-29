@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T17:13:24.052Z
+// Generated: 2025-09-29T18:02:18.295Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -3370,7 +3370,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (387 lines) ===
+// === main.js (389 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -3448,8 +3448,7 @@ var VideoRecorderApp = (function() {
     _initializeCoreModules: function() {
       Utils.Logger.info('VideoRecorderApp', 'Initializing core modules');
 
-      // Initialize state manager
-      StateManager.initialize();
+      // Register state manager (no initialization needed)
       GlobalRegistry.register('stateManager', StateManager);
 
       // Initialize event handler
@@ -3757,5 +3756,8 @@ var VideoRecorderApp = (function() {
   return VideoRecorderApp;
 
 })();
+
+// Auto-initialize the application when the script loads
+VideoRecorderApp.initialize();
 
 

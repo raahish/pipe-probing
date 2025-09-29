@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T23:10:30.870Z
+// Generated: 2025-09-29T23:17:27.219Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -2353,7 +2353,7 @@ var PipeIntegration = (function() {
 })();
 
 
-// === transcription.js (257 lines) ===
+// === transcription.js (270 lines) ===
 // Transcription Service - DeepGram WebSocket integration
 // No template literals used - only string concatenation
 
@@ -2389,9 +2389,18 @@ var TranscriptionService = (function() {
     // Start transcription for new segment
     startNewSegment: function() {
       Utils.Logger.info('TranscriptionService', 'Starting fresh transcription for new segment');
+      
+      // DEBUG: Check global transcript before stopping
+      var transcriptBefore = window.global_transcript || '';
+      Utils.Logger.info('TranscriptionService', '🔍 BEFORE STOP - global_transcript: "' + transcriptBefore + '" (length: ' + transcriptBefore.length + ')');
 
       // CRITICAL: Ensure clean state by stopping any existing transcription
       this.stop();
+      
+      // DEBUG: Check global transcript after stopping
+      var transcriptAfter = window.global_transcript || '';
+      Utils.Logger.info('TranscriptionService', '🔍 AFTER STOP - global_transcript: "' + transcriptAfter + '" (length: ' + transcriptAfter.length + ')');
+      
       Utils.Logger.info('TranscriptionService', 'Previous transcription cleaned up');
 
       var config = GlobalRegistry.getConfig();
@@ -2418,6 +2427,10 @@ var TranscriptionService = (function() {
       }
 
       Utils.Logger.info('TranscriptionService', 'Creating fresh MediaRecorder and WebSocket for segment');
+      
+      // DEBUG: Check global transcript before creating WebSocket
+      var transcriptBeforeWS = window.global_transcript || '';
+      Utils.Logger.info('TranscriptionService', '🔍 BEFORE WEBSOCKET - global_transcript: "' + transcriptBeforeWS + '" (length: ' + transcriptBeforeWS.length + ')');
 
       // Create MediaRecorder for audio transcription
       var audioStream = new MediaStream(stream.getAudioTracks());

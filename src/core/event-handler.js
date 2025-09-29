@@ -51,11 +51,24 @@ var EventHandler = (function() {
           e.stopPropagation();         // Stop bubble phase
           e.stopImmediatePropagation(); // Stop ALL remaining handlers
           
-          // Determine if this is a record or stop click
-          var isRecording = StateManager.isRecording();
-          Utils.Logger.debug('EventHandler', 'Current recording state: ' + isRecording);
+          // Determine if this is a record or stop click by checking UI state
+          var elementController = GlobalRegistry.get('elementController');
+          var isCurrentlyRecording = false;
           
-          if (isRecording) {
+          if (elementController && elementController.getCurrentState) {
+            var uiState = elementController.getCurrentState();
+            isCurrentlyRecording = (uiState === 'recording');
+            Utils.Logger.debug('EventHandler', 'UI state: ' + uiState + ', Currently recording: ' + isCurrentlyRecording);
+          } else {
+            // Fallback: check if timer is running
+            var timerManager = GlobalRegistry.get('timerManager');
+            if (timerManager && timerManager.isRunning) {
+              isCurrentlyRecording = timerManager.isRunning();
+              Utils.Logger.debug('EventHandler', 'Timer running: ' + isCurrentlyRecording);
+            }
+          }
+          
+          if (isCurrentlyRecording) {
             Utils.Logger.info('EventHandler', 'FAKE STOP: Handling stop click via conversation manager');
             EventHandler.handleInterceptedStopClick();
           } else {

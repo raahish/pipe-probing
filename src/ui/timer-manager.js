@@ -115,6 +115,11 @@ var TimerManager = (function() {
       Utils.Logger.info('TimerManager', 'Timer reset');
     },
 
+    // Check if timer is running
+    isRunning: function() {
+      return !!intervalId && !isPaused;
+    },
+
     // Get timer state for debugging
     getState: function() {
       return {

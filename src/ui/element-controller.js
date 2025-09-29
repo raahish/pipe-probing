@@ -80,6 +80,23 @@ var ElementController = (function() {
     },
 
     // UI State Management Methods
+    getCurrentState: function() {
+      var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        return 'unknown';
+      }
+
+      if (menu.hasClass('recording-state')) {
+        return 'recording';
+      } else if (menu.hasClass('playback-state')) {
+        return 'playback';
+      } else if (menu.hasClass('ai-processing-state')) {
+        return 'processing';
+      } else {
+        return 'ready';
+      }
+    },
+
     setReadyToRecordState: function() {
       Utils.Logger.info('ElementController', 'Setting ready-to-record state');
 

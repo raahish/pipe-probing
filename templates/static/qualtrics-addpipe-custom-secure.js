@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T21:18:13.327Z
+// Generated: 2025-09-29T21:28:11.724Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -704,7 +704,7 @@ var StateManager = (function() {
 })();
 
 
-// === event-handler.js (189 lines) ===
+// === event-handler.js (202 lines) ===
 // Event Handler - Unified click event management and interception
 // No template literals used - only string concatenation
 
@@ -758,11 +758,24 @@ var EventHandler = (function() {
           e.stopPropagation();         // Stop bubble phase
           e.stopImmediatePropagation(); // Stop ALL remaining handlers
           
-          // Determine if this is a record or stop click
-          var isRecording = StateManager.isRecording();
-          Utils.Logger.debug('EventHandler', 'Current recording state: ' + isRecording);
+          // Determine if this is a record or stop click by checking UI state
+          var elementController = GlobalRegistry.get('elementController');
+          var isCurrentlyRecording = false;
           
-          if (isRecording) {
+          if (elementController && elementController.getCurrentState) {
+            var uiState = elementController.getCurrentState();
+            isCurrentlyRecording = (uiState === 'recording');
+            Utils.Logger.debug('EventHandler', 'UI state: ' + uiState + ', Currently recording: ' + isCurrentlyRecording);
+          } else {
+            // Fallback: check if timer is running
+            var timerManager = GlobalRegistry.get('timerManager');
+            if (timerManager && timerManager.isRunning) {
+              isCurrentlyRecording = timerManager.isRunning();
+              Utils.Logger.debug('EventHandler', 'Timer running: ' + isCurrentlyRecording);
+            }
+          }
+          
+          if (isCurrentlyRecording) {
             Utils.Logger.info('EventHandler', 'FAKE STOP: Handling stop click via conversation manager');
             EventHandler.handleInterceptedStopClick();
           } else {
@@ -895,7 +908,7 @@ var EventHandler = (function() {
 })();
 
 
-// === element-controller.js (459 lines) ===
+// === element-controller.js (476 lines) ===
 // Element Controller - DOM element management and UI state control
 // No template literals used - only string concatenation
 
@@ -978,6 +991,23 @@ var ElementController = (function() {
     },
 
     // UI State Management Methods
+    getCurrentState: function() {
+      var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        return 'unknown';
+      }
+
+      if (menu.hasClass('recording-state')) {
+        return 'recording';
+      } else if (menu.hasClass('playback-state')) {
+        return 'playback';
+      } else if (menu.hasClass('ai-processing-state')) {
+        return 'processing';
+      } else {
+        return 'ready';
+      }
+    },
+
     setReadyToRecordState: function() {
       Utils.Logger.info('ElementController', 'Setting ready-to-record state');
 
@@ -1356,7 +1386,7 @@ var ElementController = (function() {
 })();
 
 
-// === timer-manager.js (171 lines) ===
+// === timer-manager.js (176 lines) ===
 // Timer Manager - Timer display and management
 // No template literals used - only string concatenation
 
@@ -1472,6 +1502,11 @@ var TimerManager = (function() {
       }
 
       Utils.Logger.info('TimerManager', 'Timer reset');
+    },
+
+    // Check if timer is running
+    isRunning: function() {
+      return !!intervalId && !isPaused;
     },
 
     // Get timer state for debugging

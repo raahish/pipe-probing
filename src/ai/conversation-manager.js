@@ -188,6 +188,13 @@ var ConversationManager = (function() {
       StateManager.transition(StateManager.getStates().COMPLETE);
       Utils.Logger.info('ConversationManager', 'StateManager conversation state cleared - stop will now be allowed');
       
+      // CRITICAL: Hide AI processing UI first
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.hideProcessingState();
+        Utils.Logger.info('ConversationManager', 'AI processing UI hidden - conversation complete');
+      }
+      
       // Show completion UI
       this.showConversationComplete();
       

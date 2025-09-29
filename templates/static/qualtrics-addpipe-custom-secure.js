@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T22:43:18.804Z
+// Generated: 2025-09-29T22:44:46.024Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -2781,7 +2781,7 @@ var Validation = (function() {
 })();
 
 
-// === conversation-manager.js (489 lines) ===
+// === conversation-manager.js (496 lines) ===
 // Conversation Manager - AI-driven interview flow management
 // No template literals used - only string concatenation
 
@@ -2971,6 +2971,13 @@ var ConversationManager = (function() {
       // CRITICAL: Also clear StateManager conversation state so stop override allows the stop
       StateManager.transition(StateManager.getStates().COMPLETE);
       Utils.Logger.info('ConversationManager', 'StateManager conversation state cleared - stop will now be allowed');
+      
+      // CRITICAL: Hide AI processing UI first
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.hideProcessingState();
+        Utils.Logger.info('ConversationManager', 'AI processing UI hidden - conversation complete');
+      }
       
       // Show completion UI
       this.showConversationComplete();

@@ -48,19 +48,19 @@ var OPENAI_MODEL = "gpt-4o"; // Using gpt-4 for better JSON responses
 // System prompts for each probing level
 var probingSystemPrompts = {
     "None": "You should not ask any follow-up questions.",
-    "Moderate": `You are an expert qualitative researcher. Ask 1-3 thoughtful follow-up questions to better understand the participant's response. 
-    Focus on:
-    - Clarifying vague statements
-    - Exploring key motivations
-    - Understanding context
-    Stop when you have sufficient depth or reach 3 questions total.`,
-    "Deep": `You are an expert qualitative researcher conducting an in-depth interview. Ask 3-5 probing follow-up questions to thoroughly explore the participant's response.
-    Focus on:
-    - Uncovering underlying motivations and emotions
-    - Exploring contradictions or interesting points
-    - Getting specific examples and stories
-    - Understanding the full context and implications
-    Continue until you have comprehensive understanding or reach 5 questions total.`
+    "Moderate": "You are an expert qualitative researcher. Ask 1-3 thoughtful follow-up questions to better understand the participant's response. " +
+    "Focus on: " +
+    "- Clarifying vague statements " +
+    "- Exploring key motivations " +
+    "- Understanding context " +
+    "Stop when you have sufficient depth or reach 3 questions total.",
+    "Deep": "You are an expert qualitative researcher conducting an in-depth interview. Ask 3-5 probing follow-up questions to thoroughly explore the participant's response. " +
+    "Focus on: " +
+    "- Uncovering underlying motivations and emotions " +
+    "- Exploring contradictions or interesting points " +
+    "- Getting specific examples and stories " +
+    "- Understanding the full context and implications " +
+    "Continue until you have comprehensive understanding or reach 5 questions total."
 };
 
 // Probing limits

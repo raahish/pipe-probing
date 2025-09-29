@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T23:08:13.113Z
+// Generated: 2025-09-29T23:10:30.870Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -1860,7 +1860,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (490 lines) ===
+// === pipe-integration.js (491 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -2316,9 +2316,10 @@ var PipeIntegration = (function() {
 
       if (recorderObject) {
         try {
-          // Stop any ongoing recording
+          // Stop any ongoing recording using official Pipe API
           if (recorderObject.getState && recorderObject.getState() === 'recording') {
-            recorderObject.stop();
+            Utils.Logger.info('PipeIntegration', 'Stopping ongoing recording during cleanup using official stopVideo API');
+            recorderObject.stopVideo();
           }
 
           // Clean up event handlers
@@ -2330,9 +2331,9 @@ var PipeIntegration = (function() {
           if (recorderObject.onVideoUploadSuccess) recorderObject.onVideoUploadSuccess = null;
           if (recorderObject.btPlayPressed) recorderObject.btPlayPressed = null;
 
-          // Restore original stop method
-          if (recorderObject.stop) {
-            recorderObject.stop = null;
+          // Restore original stopVideo method
+          if (recorderObject.stopVideo) {
+            recorderObject.stopVideo = null;
           }
         } catch (error) {
           Utils.Logger.warn('PipeIntegration', 'Error during Pipe cleanup', error);

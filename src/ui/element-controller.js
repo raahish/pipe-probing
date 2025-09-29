@@ -204,6 +204,17 @@ var ElementController = (function() {
     setPlaybackState: function() {
       Utils.Logger.info('ElementController', 'Setting playback state');
 
+      // Check if this was a conversation - if so, use conversation complete state instead
+      var conversationManager = GlobalRegistry.get('conversationManager');
+      if (conversationManager && conversationManager.segments && conversationManager.segments.length > 0) {
+        Utils.Logger.info('ElementController', 'Detected conversation completion - using conversation complete state');
+        this.setConversationCompleteState();
+        return;
+      }
+
+      // Regular playback state for non-conversation recordings
+      Utils.Logger.info('ElementController', 'Setting regular playback state for non-conversation recording');
+
       // Ensure we have fresh element references
       var menu = this.elements.menu;
       if (!menu || menu.length === 0) {
@@ -219,6 +230,31 @@ var ElementController = (function() {
 
       this.hideElement('recordButton');
       this.showElement('nativePlayButton');
+    },
+
+    setConversationCompleteState: function() {
+      Utils.Logger.info('ElementController', 'Setting conversation complete state');
+
+      // Ensure we have fresh element references
+      var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
+      if (menu && menu.length > 0) {
+        menu.removeClass('recording-state ready-state ai-processing-state playback-state').addClass('conversation-complete-state');
+        Utils.Logger.debug('ElementController', 'Added conversation-complete-state class to menu');
+      }
+
+      // Hide ALL AddPipe buttons for conversation completion
+      this.hideElement('recordButton');
+      this.hideElement('nativePlayButton');
+      
+      // Show the Next Question button
+      Utils.DOM.select('#NextButton-custom').show();
+      Utils.Logger.info('ElementController', 'Next Question button shown for conversation completion');
     },
 
     // Button state management

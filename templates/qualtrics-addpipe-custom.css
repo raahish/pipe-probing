@@ -887,6 +887,11 @@ text-align: left;
   background: rgba(0, 0, 0, 0.2) !important;
 }
 
+/* Conversation Complete State - Green tint for completion */
+[id^="pipeMenu-"].conversation-complete-state {
+  background: rgba(34, 197, 94, 0.1) !important;
+}
+
 /* Control Panel for Recorded State */
 [id^="pipeMenu-"] .control-panel {
 display: flex;
@@ -918,6 +923,30 @@ align-items: center;
 /* Hide record button in playback state */
 [id^="pipeMenu-"].playback-state [id^="pipeRec-"] {
   display: none !important;
+}
+
+/* Conversation Complete State - Hide ALL AddPipe buttons */
+[id^="pipeMenu-"].conversation-complete-state [id^="pipeRec-"],
+[id^="pipeMenu-"].conversation-complete-state [id^="pipePlay-"] {
+  display: none !important;
+}
+
+/* Make Next Question button prominent when conversation is complete */
+.conversation-complete-state ~ #NextButton-custom,
+#NextButton-custom.conversation-complete {
+  display: block !important;
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+@keyframes subtle-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 4px 12px hsla(var(--primary), 0.3);
+  }
+  50% { 
+    transform: scale(1.02);
+    box-shadow: 0 6px 16px hsla(var(--primary), 0.4);
+  }
 }
 
 [id^="pipePlay-"] svg {

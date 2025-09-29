@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T23:20:22.818Z
+// Generated: 2025-09-29T23:30:44.080Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -921,7 +921,7 @@ var EventHandler = (function() {
 })();
 
 
-// === element-controller.js (527 lines) ===
+// === element-controller.js (563 lines) ===
 // Element Controller - DOM element management and UI state control
 // No template literals used - only string concatenation
 
@@ -1128,6 +1128,17 @@ var ElementController = (function() {
     setPlaybackState: function() {
       Utils.Logger.info('ElementController', 'Setting playback state');
 
+      // Check if this was a conversation - if so, use conversation complete state instead
+      var conversationManager = GlobalRegistry.get('conversationManager');
+      if (conversationManager && conversationManager.segments && conversationManager.segments.length > 0) {
+        Utils.Logger.info('ElementController', 'Detected conversation completion - using conversation complete state');
+        this.setConversationCompleteState();
+        return;
+      }
+
+      // Regular playback state for non-conversation recordings
+      Utils.Logger.info('ElementController', 'Setting regular playback state for non-conversation recording');
+
       // Ensure we have fresh element references
       var menu = this.elements.menu;
       if (!menu || menu.length === 0) {
@@ -1143,6 +1154,31 @@ var ElementController = (function() {
 
       this.hideElement('recordButton');
       this.showElement('nativePlayButton');
+    },
+
+    setConversationCompleteState: function() {
+      Utils.Logger.info('ElementController', 'Setting conversation complete state');
+
+      // Ensure we have fresh element references
+      var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
+      if (menu && menu.length > 0) {
+        menu.removeClass('recording-state ready-state ai-processing-state playback-state').addClass('conversation-complete-state');
+        Utils.Logger.debug('ElementController', 'Added conversation-complete-state class to menu');
+      }
+
+      // Hide ALL AddPipe buttons for conversation completion
+      this.hideElement('recordButton');
+      this.hideElement('nativePlayButton');
+      
+      // Show the Next Question button
+      Utils.DOM.select('#NextButton-custom').show();
+      Utils.Logger.info('ElementController', 'Next Question button shown for conversation completion');
     },
 
     // Button state management
@@ -2633,7 +2669,7 @@ var TranscriptionService = (function() {
 })();
 
 
-// === validation.js (208 lines) ===
+// === validation.js (216 lines) ===
 // Validation - Video/audio validation and error handling
 // No template literals used - only string concatenation
 
@@ -2745,7 +2781,15 @@ var Validation = (function() {
         Qualtrics.SurveyEngine.setEmbeddedData('VQ1_pipe_url', videoUrl);
       }
 
-      Utils.DOM.select('#NextButton-custom').show();
+      // Check if this was a conversation
+      if (conversationManager && conversationManager.segments.length > 0) {
+        // For conversations, Next button will be shown by ElementController.setConversationCompleteState()
+        Utils.Logger.info('Validation', 'Conversation detected - Next button will be handled by ElementController');
+      } else {
+        // For regular recordings, show Next button immediately
+        Utils.DOM.select('#NextButton-custom').show();
+        Utils.Logger.info('Validation', 'Regular recording - showing Next button immediately');
+      }
 
       // Check if this was a conversation
       if (conversationManager && conversationManager.segments.length > 0) {

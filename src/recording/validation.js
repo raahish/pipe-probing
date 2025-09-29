@@ -109,7 +109,15 @@ var Validation = (function() {
         Qualtrics.SurveyEngine.setEmbeddedData('VQ1_pipe_url', videoUrl);
       }
 
-      Utils.DOM.select('#NextButton-custom').show();
+      // Check if this was a conversation
+      if (conversationManager && conversationManager.segments.length > 0) {
+        // For conversations, Next button will be shown by ElementController.setConversationCompleteState()
+        Utils.Logger.info('Validation', 'Conversation detected - Next button will be handled by ElementController');
+      } else {
+        // For regular recordings, show Next button immediately
+        Utils.DOM.select('#NextButton-custom').show();
+        Utils.Logger.info('Validation', 'Regular recording - showing Next button immediately');
+      }
 
       // Check if this was a conversation
       if (conversationManager && conversationManager.segments.length > 0) {

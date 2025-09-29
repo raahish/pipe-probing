@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T21:05:18.377Z
+// Generated: 2025-09-29T21:18:13.327Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -704,7 +704,7 @@ var StateManager = (function() {
 })();
 
 
-// === event-handler.js (173 lines) ===
+// === event-handler.js (189 lines) ===
 // Event Handler - Unified click event management and interception
 // No template literals used - only string concatenation
 
@@ -738,104 +738,120 @@ var EventHandler = (function() {
       }
 
       capturePhaseHandler = Utils.ErrorBoundary('EventHandler', function(e) {
-        // Only intercept clicks on AddPipe record buttons
-        if (!e.target || !e.target.id || !e.target.id.startsWith('pipeRec-')) {
-          return; // Not our button, ignore
+        // ROBUST AddPipe button detection - multiple strategies
+        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+        
+        if (!isAddPipeButton) {
+          return; // Not an AddPipe button, ignore
         }
 
-        var questionName = GlobalRegistry.getConfig().questionName;
-        var buttonId = e.target.id;
+        Utils.Logger.info('EventHandler', 'CAPTURE PHASE: AddPipe button click detected');
+        Utils.Logger.debug('EventHandler', 'Target element: ' + (e.target.id || e.target.className || e.target.tagName));
+        Utils.Logger.debug('EventHandler', 'Conversation active: ' + StateManager.isConversationActive());
 
-        Utils.Logger.debug('EventHandler', 'Capture phase click on: ' + buttonId);
-
-        // Only intercept during active conversations
-        if (!StateManager.isConversationActive()) {
-          Utils.Logger.debug('EventHandler', 'No active conversation, allowing normal behavior');
-          return; // No conversation active, allow normal behavior
-        }
-
-        var isRecording = StateManager.isRecording();
-        var recorderState = null;
-
-        try {
-          var recorderObject = GlobalRegistry.get('pipeIntegration');
-          if (recorderObject && recorderObject.getState) {
-            recorderState = recorderObject.getState();
+        // CRITICAL: Always intercept AddPipe buttons during conversations
+        if (StateManager.isConversationActive()) {
+          Utils.Logger.info('EventHandler', 'INTERCEPTING: Blocking AddPipe button during active conversation');
+          
+          // TRIPLE-STOP propagation for maximum effectiveness
+          e.preventDefault();           // Prevent default action
+          e.stopPropagation();         // Stop bubble phase
+          e.stopImmediatePropagation(); // Stop ALL remaining handlers
+          
+          // Determine if this is a record or stop click
+          var isRecording = StateManager.isRecording();
+          Utils.Logger.debug('EventHandler', 'Current recording state: ' + isRecording);
+          
+          if (isRecording) {
+            Utils.Logger.info('EventHandler', 'FAKE STOP: Handling stop click via conversation manager');
+            EventHandler.handleInterceptedStopClick();
+          } else {
+            Utils.Logger.info('EventHandler', 'FAKE RECORD: Handling record click via conversation manager');
+            EventHandler.handleInterceptedRecordClick();
           }
-        } catch (error) {
-          Utils.Logger.warn('EventHandler', 'Could not get recorder state', error);
+          
+          return false; // Ensure no further processing
         }
 
-        Utils.Logger.debug('EventHandler', 'State check - Recording: ' + isRecording + ', Recorder: ' + recorderState);
-
-        // Determine click type and handle appropriately
-        if (isRecording && recorderState === 'recording') {
-          // STOP click - block AddPipe and do fake stop
-          Utils.Logger.info('EventHandler', 'STOP click intercepted - blocking AddPipe');
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          this.handleStopClick();
-          return false;
-
-        } else if (!isRecording && buttonId.indexOf(questionName) !== -1) {
-          // RECORD click for new segment - block AddPipe
-          Utils.Logger.info('EventHandler', 'RECORD click intercepted - blocking AddPipe');
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          this.handleRecordClick();
-          return false;
-
-        } else {
-          // First recording or legitimate action - allow AddPipe to handle
-          Utils.Logger.debug('EventHandler', 'Allowing AddPipe to handle this click');
-        }
+        // No active conversation - allow AddPipe to handle normally
+        Utils.Logger.debug('EventHandler', 'ALLOWING: No active conversation, AddPipe can handle normally');
       });
 
       // Attach in CAPTURE PHASE (executes before bubble phase handlers)
       document.addEventListener('click', capturePhaseHandler, true);
 
-      Utils.Logger.info('EventHandler', 'Capture phase handler attached');
+      Utils.Logger.info('EventHandler', 'DOM capture phase handler attached - ready to intercept AddPipe');
     },
 
-    // Handle stop button click
-    handleStopClick: function() {
-      Utils.Logger.info('EventHandler', 'Processing STOP click');
+    // Robust AddPipe button detection with multiple strategies
+    isAddPipeButton: function(target) {
+      if (!target) return false;
+      
+      // Strategy 1: Direct ID match
+      if (target.id && target.id.includes('pipeRec-')) {
+        Utils.Logger.debug('EventHandler', 'Button detected via direct ID: ' + target.id);
+        return true;
+      }
+      
+      // Strategy 2: Parent element search (for child elements like SVG icons)
+      var parentButton = target.closest('[id*="pipeRec-"]');
+      if (parentButton) {
+        Utils.Logger.debug('EventHandler', 'Button detected via parent search: ' + parentButton.id);
+        return true;
+      }
+      
+      // Strategy 3: Class-based detection
+      if (target.classList && target.classList.contains('pipeBtn')) {
+        Utils.Logger.debug('EventHandler', 'Button detected via pipeBtn class');
+        return true;
+      }
+      
+      // Strategy 4: SVG icon clicks (common in AddPipe buttons)
+      if (target.tagName === 'svg' || target.tagName === 'SVG') {
+        var svgParent = target.closest('[id*="pipeRec-"], .pipeBtn');
+        if (svgParent) {
+          Utils.Logger.debug('EventHandler', 'Button detected via SVG parent: ' + (svgParent.id || svgParent.className));
+          return true;
+        }
+      }
+      
+      return false;
+    },
 
+    // Handle intercepted stop click
+    handleInterceptedStopClick: function() {
+      Utils.Logger.info('EventHandler', 'Processing intercepted STOP click');
+      
       try {
-        // Trigger pause for AI processing
         var conversationManager = GlobalRegistry.get('conversationManager');
         if (conversationManager && conversationManager.pauseForAIProcessing) {
           conversationManager.pauseForAIProcessing();
+          Utils.Logger.info('EventHandler', 'Successfully triggered fake stop via conversation manager');
         } else {
-          Utils.Logger.error('EventHandler', 'Conversation manager not available for pause');
+          Utils.Logger.error('EventHandler', 'Conversation manager not available for intercepted stop');
         }
       } catch (error) {
-        Utils.Logger.error('EventHandler', 'Stop click handling failed', error);
-        StateManager.setError('Failed to process stop click: ' + error.message);
+        Utils.Logger.error('EventHandler', 'Error handling intercepted stop click', error);
       }
     },
 
-    // Handle record button click
-    handleRecordClick: function() {
-      Utils.Logger.info('EventHandler', 'Processing RECORD click');
-
+    // Handle intercepted record click  
+    handleInterceptedRecordClick: function() {
+      Utils.Logger.info('EventHandler', 'Processing intercepted RECORD click');
+      
       try {
         var conversationManager = GlobalRegistry.get('conversationManager');
-        if (conversationManager) {
-          // Start new recording segment
+        if (conversationManager && conversationManager.startNewSegment) {
           conversationManager.startNewSegment();
+          Utils.Logger.info('EventHandler', 'Successfully triggered fake record via conversation manager');
         } else {
-          Utils.Logger.error('EventHandler', 'Conversation manager not available for record');
+          Utils.Logger.error('EventHandler', 'Conversation manager not available for intercepted record');
         }
       } catch (error) {
-        Utils.Logger.error('EventHandler', 'Record click handling failed', error);
-        StateManager.setError('Failed to process record click: ' + error.message);
+        Utils.Logger.error('EventHandler', 'Error handling intercepted record click', error);
       }
     },
+
 
     // Clean up event handlers
     cleanup: function() {
@@ -1746,7 +1762,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (433 lines) ===
+// === pipe-integration.js (403 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -1835,61 +1851,31 @@ var PipeIntegration = (function() {
 
       // Handler for record button pressed
       recorderObject.btRecordPressed = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', 'DECISION POINT: Record button pressed');
-        Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
-
-        // CRITICAL: ALWAYS fake record during conversations, regardless of segment count
+        Utils.Logger.warn('PipeIntegration', 'AddPipe btRecordPressed executed despite DOM interception!');
+        Utils.Logger.debug('PipeIntegration', 'This should rarely happen - DOM interception should block most clicks');
+        
         if (StateManager.isConversationActive()) {
-          Utils.Logger.info('PipeIntegration', 'Conversation active - ALWAYS fake record (continuous recording)');
-          
-          var conversationManager = GlobalRegistry.get('conversationManager');
-          Utils.Logger.debug('PipeIntegration', 'Current segments: ' + (conversationManager ? conversationManager.segments.length : 0));
-          
-          // Update UI to recording state
-          var elementController = GlobalRegistry.get('elementController');
-          if (elementController) {
-            elementController.setRecordingState();
-            Utils.Logger.debug('PipeIntegration', 'UI updated to recording state');
-          }
-          
-          // Restart transcription for new segment
-          var transcriptionService = GlobalRegistry.get('transcriptionService');
-          if (transcriptionService) {
-            transcriptionService.startNewSegment();
-            Utils.Logger.debug('PipeIntegration', 'Transcription restarted for new segment');
-          }
-          
-          // CRITICAL: Always return early, never allow new AddPipe recording
+          Utils.Logger.error('PipeIntegration', 'LEAK: Record button reached AddPipe during active conversation');
+          // DOM interception failed - don't allow AddPipe to proceed
           return;
         }
 
-        // Only reach here for the very first recording
-        Utils.Logger.info('PipeIntegration', 'Starting initial AddPipe recording (first time only)');
+        Utils.Logger.info('PipeIntegration', 'Allowing initial AddPipe recording (first time only)');
       };
 
-      // Handler for stop recording button pressed
+      // Handler for stop recording button pressed - simplified (DOM interception handles most cases)
       recorderObject.btStopRecordingPressed = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', 'DECISION POINT: Stop button pressed');
-        Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
-
-        // CRITICAL: ALWAYS fake stop during conversations, NEVER real stop
+        Utils.Logger.warn('PipeIntegration', 'AddPipe btStopRecordingPressed executed despite DOM interception!');
+        Utils.Logger.debug('PipeIntegration', 'This should rarely happen - DOM interception should block most clicks');
+        
         if (StateManager.isConversationActive()) {
-          Utils.Logger.info('PipeIntegration', 'Conversation active - ALWAYS fake stop (continuous recording)');
-          
-          var conversationManager = GlobalRegistry.get('conversationManager');
-          if (conversationManager && conversationManager.pauseForAIProcessing) {
-            Utils.Logger.debug('PipeIntegration', 'Triggering AI processing for segment');
-            conversationManager.pauseForAIProcessing();
-          } else {
-            Utils.Logger.error('PipeIntegration', 'Conversation manager not available for fake stop');
-          }
-          
-          // CRITICAL: Always return early, never allow real stop during conversation
+          Utils.Logger.error('PipeIntegration', 'LEAK: Stop button reached AddPipe during active conversation');
+          // DOM interception failed - don't allow AddPipe to proceed
           return;
         }
 
-        // Only reach here when NO conversation is active (initial stop or error cases)
-        Utils.Logger.info('PipeIntegration', 'No active conversation - allowing real stop');
+        // No active conversation - allow real stop
+        Utils.Logger.info('PipeIntegration', 'Allowing real stop - no active conversation');
 
         // Clear recording timer
         var timerManager = GlobalRegistry.get('timerManager');

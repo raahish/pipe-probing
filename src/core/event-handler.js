@@ -31,104 +31,120 @@ var EventHandler = (function() {
       }
 
       capturePhaseHandler = Utils.ErrorBoundary('EventHandler', function(e) {
-        // Only intercept clicks on AddPipe record buttons
-        if (!e.target || !e.target.id || !e.target.id.startsWith('pipeRec-')) {
-          return; // Not our button, ignore
+        // ROBUST AddPipe button detection - multiple strategies
+        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+        
+        if (!isAddPipeButton) {
+          return; // Not an AddPipe button, ignore
         }
 
-        var questionName = GlobalRegistry.getConfig().questionName;
-        var buttonId = e.target.id;
+        Utils.Logger.info('EventHandler', 'CAPTURE PHASE: AddPipe button click detected');
+        Utils.Logger.debug('EventHandler', 'Target element: ' + (e.target.id || e.target.className || e.target.tagName));
+        Utils.Logger.debug('EventHandler', 'Conversation active: ' + StateManager.isConversationActive());
 
-        Utils.Logger.debug('EventHandler', 'Capture phase click on: ' + buttonId);
-
-        // Only intercept during active conversations
-        if (!StateManager.isConversationActive()) {
-          Utils.Logger.debug('EventHandler', 'No active conversation, allowing normal behavior');
-          return; // No conversation active, allow normal behavior
-        }
-
-        var isRecording = StateManager.isRecording();
-        var recorderState = null;
-
-        try {
-          var recorderObject = GlobalRegistry.get('pipeIntegration');
-          if (recorderObject && recorderObject.getState) {
-            recorderState = recorderObject.getState();
+        // CRITICAL: Always intercept AddPipe buttons during conversations
+        if (StateManager.isConversationActive()) {
+          Utils.Logger.info('EventHandler', 'INTERCEPTING: Blocking AddPipe button during active conversation');
+          
+          // TRIPLE-STOP propagation for maximum effectiveness
+          e.preventDefault();           // Prevent default action
+          e.stopPropagation();         // Stop bubble phase
+          e.stopImmediatePropagation(); // Stop ALL remaining handlers
+          
+          // Determine if this is a record or stop click
+          var isRecording = StateManager.isRecording();
+          Utils.Logger.debug('EventHandler', 'Current recording state: ' + isRecording);
+          
+          if (isRecording) {
+            Utils.Logger.info('EventHandler', 'FAKE STOP: Handling stop click via conversation manager');
+            EventHandler.handleInterceptedStopClick();
+          } else {
+            Utils.Logger.info('EventHandler', 'FAKE RECORD: Handling record click via conversation manager');
+            EventHandler.handleInterceptedRecordClick();
           }
-        } catch (error) {
-          Utils.Logger.warn('EventHandler', 'Could not get recorder state', error);
+          
+          return false; // Ensure no further processing
         }
 
-        Utils.Logger.debug('EventHandler', 'State check - Recording: ' + isRecording + ', Recorder: ' + recorderState);
-
-        // Determine click type and handle appropriately
-        if (isRecording && recorderState === 'recording') {
-          // STOP click - block AddPipe and do fake stop
-          Utils.Logger.info('EventHandler', 'STOP click intercepted - blocking AddPipe');
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          this.handleStopClick();
-          return false;
-
-        } else if (!isRecording && buttonId.indexOf(questionName) !== -1) {
-          // RECORD click for new segment - block AddPipe
-          Utils.Logger.info('EventHandler', 'RECORD click intercepted - blocking AddPipe');
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          this.handleRecordClick();
-          return false;
-
-        } else {
-          // First recording or legitimate action - allow AddPipe to handle
-          Utils.Logger.debug('EventHandler', 'Allowing AddPipe to handle this click');
-        }
+        // No active conversation - allow AddPipe to handle normally
+        Utils.Logger.debug('EventHandler', 'ALLOWING: No active conversation, AddPipe can handle normally');
       });
 
       // Attach in CAPTURE PHASE (executes before bubble phase handlers)
       document.addEventListener('click', capturePhaseHandler, true);
 
-      Utils.Logger.info('EventHandler', 'Capture phase handler attached');
+      Utils.Logger.info('EventHandler', 'DOM capture phase handler attached - ready to intercept AddPipe');
     },
 
-    // Handle stop button click
-    handleStopClick: function() {
-      Utils.Logger.info('EventHandler', 'Processing STOP click');
+    // Robust AddPipe button detection with multiple strategies
+    isAddPipeButton: function(target) {
+      if (!target) return false;
+      
+      // Strategy 1: Direct ID match
+      if (target.id && target.id.includes('pipeRec-')) {
+        Utils.Logger.debug('EventHandler', 'Button detected via direct ID: ' + target.id);
+        return true;
+      }
+      
+      // Strategy 2: Parent element search (for child elements like SVG icons)
+      var parentButton = target.closest('[id*="pipeRec-"]');
+      if (parentButton) {
+        Utils.Logger.debug('EventHandler', 'Button detected via parent search: ' + parentButton.id);
+        return true;
+      }
+      
+      // Strategy 3: Class-based detection
+      if (target.classList && target.classList.contains('pipeBtn')) {
+        Utils.Logger.debug('EventHandler', 'Button detected via pipeBtn class');
+        return true;
+      }
+      
+      // Strategy 4: SVG icon clicks (common in AddPipe buttons)
+      if (target.tagName === 'svg' || target.tagName === 'SVG') {
+        var svgParent = target.closest('[id*="pipeRec-"], .pipeBtn');
+        if (svgParent) {
+          Utils.Logger.debug('EventHandler', 'Button detected via SVG parent: ' + (svgParent.id || svgParent.className));
+          return true;
+        }
+      }
+      
+      return false;
+    },
 
+    // Handle intercepted stop click
+    handleInterceptedStopClick: function() {
+      Utils.Logger.info('EventHandler', 'Processing intercepted STOP click');
+      
       try {
-        // Trigger pause for AI processing
         var conversationManager = GlobalRegistry.get('conversationManager');
         if (conversationManager && conversationManager.pauseForAIProcessing) {
           conversationManager.pauseForAIProcessing();
+          Utils.Logger.info('EventHandler', 'Successfully triggered fake stop via conversation manager');
         } else {
-          Utils.Logger.error('EventHandler', 'Conversation manager not available for pause');
+          Utils.Logger.error('EventHandler', 'Conversation manager not available for intercepted stop');
         }
       } catch (error) {
-        Utils.Logger.error('EventHandler', 'Stop click handling failed', error);
-        StateManager.setError('Failed to process stop click: ' + error.message);
+        Utils.Logger.error('EventHandler', 'Error handling intercepted stop click', error);
       }
     },
 
-    // Handle record button click
-    handleRecordClick: function() {
-      Utils.Logger.info('EventHandler', 'Processing RECORD click');
-
+    // Handle intercepted record click  
+    handleInterceptedRecordClick: function() {
+      Utils.Logger.info('EventHandler', 'Processing intercepted RECORD click');
+      
       try {
         var conversationManager = GlobalRegistry.get('conversationManager');
-        if (conversationManager) {
-          // Start new recording segment
+        if (conversationManager && conversationManager.startNewSegment) {
           conversationManager.startNewSegment();
+          Utils.Logger.info('EventHandler', 'Successfully triggered fake record via conversation manager');
         } else {
-          Utils.Logger.error('EventHandler', 'Conversation manager not available for record');
+          Utils.Logger.error('EventHandler', 'Conversation manager not available for intercepted record');
         }
       } catch (error) {
-        Utils.Logger.error('EventHandler', 'Record click handling failed', error);
-        StateManager.setError('Failed to process record click: ' + error.message);
+        Utils.Logger.error('EventHandler', 'Error handling intercepted record click', error);
       }
     },
+
 
     // Clean up event handlers
     cleanup: function() {

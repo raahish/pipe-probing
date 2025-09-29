@@ -86,61 +86,31 @@ var PipeIntegration = (function() {
 
       // Handler for record button pressed
       recorderObject.btRecordPressed = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', 'DECISION POINT: Record button pressed');
-        Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
-
-        // CRITICAL: ALWAYS fake record during conversations, regardless of segment count
+        Utils.Logger.warn('PipeIntegration', 'AddPipe btRecordPressed executed despite DOM interception!');
+        Utils.Logger.debug('PipeIntegration', 'This should rarely happen - DOM interception should block most clicks');
+        
         if (StateManager.isConversationActive()) {
-          Utils.Logger.info('PipeIntegration', 'Conversation active - ALWAYS fake record (continuous recording)');
-          
-          var conversationManager = GlobalRegistry.get('conversationManager');
-          Utils.Logger.debug('PipeIntegration', 'Current segments: ' + (conversationManager ? conversationManager.segments.length : 0));
-          
-          // Update UI to recording state
-          var elementController = GlobalRegistry.get('elementController');
-          if (elementController) {
-            elementController.setRecordingState();
-            Utils.Logger.debug('PipeIntegration', 'UI updated to recording state');
-          }
-          
-          // Restart transcription for new segment
-          var transcriptionService = GlobalRegistry.get('transcriptionService');
-          if (transcriptionService) {
-            transcriptionService.startNewSegment();
-            Utils.Logger.debug('PipeIntegration', 'Transcription restarted for new segment');
-          }
-          
-          // CRITICAL: Always return early, never allow new AddPipe recording
+          Utils.Logger.error('PipeIntegration', 'LEAK: Record button reached AddPipe during active conversation');
+          // DOM interception failed - don't allow AddPipe to proceed
           return;
         }
 
-        // Only reach here for the very first recording
-        Utils.Logger.info('PipeIntegration', 'Starting initial AddPipe recording (first time only)');
+        Utils.Logger.info('PipeIntegration', 'Allowing initial AddPipe recording (first time only)');
       };
 
-      // Handler for stop recording button pressed
+      // Handler for stop recording button pressed - simplified (DOM interception handles most cases)
       recorderObject.btStopRecordingPressed = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', 'DECISION POINT: Stop button pressed');
-        Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
-
-        // CRITICAL: ALWAYS fake stop during conversations, NEVER real stop
+        Utils.Logger.warn('PipeIntegration', 'AddPipe btStopRecordingPressed executed despite DOM interception!');
+        Utils.Logger.debug('PipeIntegration', 'This should rarely happen - DOM interception should block most clicks');
+        
         if (StateManager.isConversationActive()) {
-          Utils.Logger.info('PipeIntegration', 'Conversation active - ALWAYS fake stop (continuous recording)');
-          
-          var conversationManager = GlobalRegistry.get('conversationManager');
-          if (conversationManager && conversationManager.pauseForAIProcessing) {
-            Utils.Logger.debug('PipeIntegration', 'Triggering AI processing for segment');
-            conversationManager.pauseForAIProcessing();
-          } else {
-            Utils.Logger.error('PipeIntegration', 'Conversation manager not available for fake stop');
-          }
-          
-          // CRITICAL: Always return early, never allow real stop during conversation
+          Utils.Logger.error('PipeIntegration', 'LEAK: Stop button reached AddPipe during active conversation');
+          // DOM interception failed - don't allow AddPipe to proceed
           return;
         }
 
-        // Only reach here when NO conversation is active (initial stop or error cases)
-        Utils.Logger.info('PipeIntegration', 'No active conversation - allowing real stop');
+        // No active conversation - allow real stop
+        Utils.Logger.info('PipeIntegration', 'Allowing real stop - no active conversation');
 
         // Clear recording timer
         var timerManager = GlobalRegistry.get('timerManager');

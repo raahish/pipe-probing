@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T22:16:21.663Z
+// Generated: 2025-09-29T22:21:50.434Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -1860,7 +1860,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (410 lines) ===
+// === pipe-integration.js (450 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -1932,7 +1932,12 @@ var PipeIntegration = (function() {
 
       // Handler for when recording actually starts
       recorderObject.onRecordingStarted = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', 'Recording actually started');
+        Utils.Logger.info('PipeIntegration', '🔴 ADDPIPE RECORDING STARTED');
+        Utils.Logger.info('PipeIntegration', '📹 Recording Details:');
+        Utils.Logger.info('PipeIntegration', '  • Recorder ID: ' + recorderId);
+        Utils.Logger.info('PipeIntegration', '  • Start Time: ' + new Date().toISOString());
+        Utils.Logger.info('PipeIntegration', '  • This is the CONTINUOUS recording that will capture the entire conversation');
+        
         StateManager.setRecording();
         
         // Start conversation and transcription for initial recording
@@ -1965,7 +1970,7 @@ var PipeIntegration = (function() {
           return;
         }
 
-        Utils.Logger.info('PipeIntegration', 'Allowing initial AddPipe recording (first time only)');
+        Utils.Logger.info('PipeIntegration', '🎬 ADDPIPE RECORDING: Allowing initial AddPipe recording start (first time only)');
       };
 
       // Handler for stop recording button pressed - simplified (DOM interception handles most cases)
@@ -1980,7 +1985,12 @@ var PipeIntegration = (function() {
         }
 
         // No active conversation - allow real stop
-        Utils.Logger.info('PipeIntegration', 'Allowing real stop - no active conversation');
+        Utils.Logger.info('PipeIntegration', '⏹️ ADDPIPE RECORDING STOPPED');
+        Utils.Logger.info('PipeIntegration', '📹 Final Recording Details:');
+        Utils.Logger.info('PipeIntegration', '  • Recorder ID: ' + recorderId);
+        Utils.Logger.info('PipeIntegration', '  • Stop Time: ' + new Date().toISOString());
+        Utils.Logger.info('PipeIntegration', '  • This was the CONTINUOUS recording for the entire conversation');
+        Utils.Logger.info('PipeIntegration', '  • Recording will now be processed and uploaded to S3');
 
         // Clear recording timer
         var timerManager = GlobalRegistry.get('timerManager');
@@ -2050,22 +2060,47 @@ var PipeIntegration = (function() {
         audioOnly,
         location
       ) {
-        Utils.Logger.info('PipeIntegration', 'Save OK triggered');
+        Utils.Logger.info('PipeIntegration', '💾 ADDPIPE RECORDING SAVED SUCCESSFULLY!');
+        Utils.Logger.info('PipeIntegration', '🎯 Final Video Details:');
+        Utils.Logger.info('PipeIntegration', '  • Stream Name: ' + streamName);
+        Utils.Logger.info('PipeIntegration', '  • Duration: ' + streamDuration + ' seconds');
+        Utils.Logger.info('PipeIntegration', '  • Camera: ' + cameraName);
+        Utils.Logger.info('PipeIntegration', '  • Microphone: ' + micName);
+        Utils.Logger.info('PipeIntegration', '  • Audio Codec: ' + audioCodec);
+        Utils.Logger.info('PipeIntegration', '  • Video Codec: ' + videoCodec);
+        Utils.Logger.info('PipeIntegration', '  • File Type: ' + fileType);
+        Utils.Logger.info('PipeIntegration', '  • Video ID: ' + videoId);
+        Utils.Logger.info('PipeIntegration', '  • Audio Only: ' + audioOnly);
+        Utils.Logger.info('PipeIntegration', '  • Location: ' + location);
 
         // Build video URL
         var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/';
         var videoUrl = S3_BASE_URL + streamName + '.mp4';
+        
+        Utils.Logger.info('PipeIntegration', '🔗 FINAL VIDEO URL: ' + videoUrl);
+        Utils.Logger.info('PipeIntegration', '📋 This URL will be saved to Qualtrics embedded data as VQ1_pipe_url');
 
         // Handle conversation metadata
         var conversationManager = GlobalRegistry.get('conversationManager');
         if (conversationManager && conversationManager.segments.length > 0) {
           var metadata = conversationManager.getMetadata(videoUrl);
 
-          // Output metadata to console
-          Utils.Logger.info('PipeIntegration', 'Conversation metadata:');
-          console.log('\n=== 📊 CONVERSATION METADATA ===');
+          // Output comprehensive metadata to console
+          Utils.Logger.info('PipeIntegration', '📊 COMPLETE CONVERSATION METADATA GENERATED');
+          console.log('\n' + '='.repeat(80));
+          console.log('🎬 COMPLETE CONVERSATION METADATA');
+          console.log('='.repeat(80));
+          console.log('📹 Video URL: ' + videoUrl);
+          console.log('⏱️  Total Duration: ' + (metadata.totalDuration || 0) + ' seconds');
+          console.log('🗣️  Total Segments: ' + (metadata.segments ? metadata.segments.length : 0));
+          console.log('🤖 Total AI Probes: ' + (metadata.totalProbes || 0));
+          console.log('📝 Completion Reason: ' + (metadata.completionReason || 'unknown'));
+          console.log('🕐 Recording Start: ' + (metadata.recordingStartTime || 'unknown'));
+          console.log('🕐 Recording End: ' + (metadata.recordingEndTime || 'unknown'));
+          console.log('-'.repeat(80));
+          console.log('📋 FULL METADATA JSON:');
           console.log(JSON.stringify(metadata, null, 2));
-          console.log('=================================\n');
+          console.log('='.repeat(80) + '\n');
 
           // Store metadata in sessionStorage for recovery
           sessionStorage.setItem('conversation_metadata_' + questionName, JSON.stringify(metadata));
@@ -2158,11 +2193,16 @@ var PipeIntegration = (function() {
       }
 
       try {
+        Utils.Logger.info('PipeIntegration', '🛑 TRIGGERING FINAL ADDPIPE STOP');
+        Utils.Logger.info('PipeIntegration', '  • This will stop the continuous recording');
+        Utils.Logger.info('PipeIntegration', '  • Video will be processed and uploaded to S3');
+        Utils.Logger.info('PipeIntegration', '  • onSaveOk will be called when upload completes');
+        
         recorderObject.stop();
-        Utils.Logger.info('PipeIntegration', 'Recording stopped via Pipe SDK');
+        Utils.Logger.info('PipeIntegration', '✅ Final AddPipe stop triggered successfully');
         return true;
       } catch (error) {
-        Utils.Logger.error('PipeIntegration', 'Failed to stop recording', error);
+        Utils.Logger.error('PipeIntegration', '❌ Failed to trigger final AddPipe stop', error);
         return false;
       }
     },

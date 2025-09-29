@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T23:17:27.219Z
+// Generated: 2025-09-29T23:20:22.818Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -269,7 +269,7 @@ var Utils = (function() {
 })();
 
 
-// === global-registry.js (252 lines) ===
+// === global-registry.js (260 lines) ===
 // Global Registry - Centralized state and module management
 // No template literals used - only string concatenation
 
@@ -415,9 +415,17 @@ var GlobalRegistry = (function() {
       globalVars.conversationStartTime = state.conversationStartTime;
       globalVars.segmentStartTime = state.segmentStartTime;
 
-      // Copy to window object
+      // Copy to window object (preserve existing global_transcript)
       for (var key in globalVars) {
-        window[key] = globalVars[key];
+        if (key === 'global_transcript') {
+          // CRITICAL: Never overwrite global_transcript - it accumulates across segments
+          if (!window.global_transcript) {
+            window.global_transcript = globalVars[key];
+          }
+          // Keep existing transcript content
+        } else {
+          window[key] = globalVars[key];
+        }
       }
     },
 

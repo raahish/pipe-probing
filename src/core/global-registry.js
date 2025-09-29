@@ -143,9 +143,17 @@ var GlobalRegistry = (function() {
       globalVars.conversationStartTime = state.conversationStartTime;
       globalVars.segmentStartTime = state.segmentStartTime;
 
-      // Copy to window object
+      // Copy to window object (preserve existing global_transcript)
       for (var key in globalVars) {
-        window[key] = globalVars[key];
+        if (key === 'global_transcript') {
+          // CRITICAL: Never overwrite global_transcript - it accumulates across segments
+          if (!window.global_transcript) {
+            window.global_transcript = globalVars[key];
+          }
+          // Keep existing transcript content
+        } else {
+          window[key] = globalVars[key];
+        }
       }
     },
 

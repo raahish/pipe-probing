@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T12:58:11.995Z
+// Generated: 2025-09-29T12:59:17.826Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -3371,7 +3371,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (402 lines) ===
+// === main.js (410 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -3597,6 +3597,14 @@ var VideoRecorderApp = (function() {
         var modalManager = GlobalRegistry.get('modalManager');
         if (modalManager) {
           modalManager.handleClose();
+        }
+      };
+
+      window.modalRetake = function() {
+        Utils.Logger.info('VideoRecorderApp', 'Modal retake triggered');
+        var modalManager = GlobalRegistry.get('modalManager');
+        if (modalManager) {
+          modalManager.handleRetake();
         }
       };
 

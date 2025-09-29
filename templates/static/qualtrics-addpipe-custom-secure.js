@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T23:05:09.661Z
+// Generated: 2025-09-29T23:08:13.113Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -1860,7 +1860,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (486 lines) ===
+// === pipe-integration.js (490 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -2012,25 +2012,25 @@ var PipeIntegration = (function() {
         StateManager.setComplete();
       };
 
-      // CRITICAL: Store original AddPipe stop method to prevent it during conversations
-      var originalPipeStop = recorderObject.stop;
-      recorderObject.stop = function() {
-        Utils.Logger.info('PipeIntegration', 'DECISION POINT: AddPipe.stop() called internally');
+      // CRITICAL: Store original AddPipe stopVideo method to prevent it during conversations
+      var originalStopVideo = recorderObject.stopVideo;
+      recorderObject.stopVideo = function() {
+        Utils.Logger.info('PipeIntegration', 'DECISION POINT: AddPipe.stopVideo() called internally');
         Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
         
         // NEW: Simplified - block ALL stops during conversation
         if (StateManager.isConversationActive()) {
-          Utils.Logger.info('PipeIntegration', 'BLOCKED: AddPipe.stop() during active conversation');
+          Utils.Logger.info('PipeIntegration', 'BLOCKED: AddPipe.stopVideo() during active conversation');
           Utils.Logger.debug('PipeIntegration', 'Conversation must end before allowing real stop');
           return; // Always block, no exceptions
         }
         
-        Utils.Logger.info('PipeIntegration', 'ALLOWED: AddPipe.stop() - no active conversation');
+        Utils.Logger.info('PipeIntegration', 'ALLOWED: AddPipe.stopVideo() - no active conversation');
         
-        // CRITICAL: Check if original stop method exists before calling
-        if (originalPipeStop && typeof originalPipeStop === 'function') {
-          Utils.Logger.debug('PipeIntegration', 'Calling original AddPipe stop method');
-          return originalPipeStop.apply(this, arguments);
+        // CRITICAL: Check if original stopVideo method exists before calling
+        if (originalStopVideo && typeof originalStopVideo === 'function') {
+          Utils.Logger.debug('PipeIntegration', 'Calling original AddPipe stopVideo method');
+          return originalStopVideo.apply(this, arguments);
         } else {
           Utils.Logger.warn('PipeIntegration', 'Original AddPipe stop method not available, using DOM fallback');
           
@@ -2223,22 +2223,26 @@ var PipeIntegration = (function() {
 
     // Stop recording
     stopRecording: function() {
-      if (!recorderObject || !recorderObject.stop) {
-        Utils.Logger.error('PipeIntegration', 'Cannot stop recording - recorder not ready');
+      if (!recorderObject || !recorderObject.stopVideo) {
+        Utils.Logger.error('PipeIntegration', 'Cannot stop recording - recorder not ready or stopVideo method not available');
+        Utils.Logger.debug('PipeIntegration', 'Recorder exists: ' + !!recorderObject);
+        if (recorderObject) {
+          Utils.Logger.debug('PipeIntegration', 'stopVideo method exists: ' + !!recorderObject.stopVideo);
+        }
         return false;
       }
 
       try {
-        Utils.Logger.info('PipeIntegration', '🛑 TRIGGERING FINAL ADDPIPE STOP');
+        Utils.Logger.info('PipeIntegration', '🛑 TRIGGERING FINAL ADDPIPE STOP (using official stopVideo API)');
         Utils.Logger.info('PipeIntegration', '  • This will stop the continuous recording');
         Utils.Logger.info('PipeIntegration', '  • Video will be processed and uploaded to S3');
         Utils.Logger.info('PipeIntegration', '  • onSaveOk will be called when upload completes');
         
-        recorderObject.stop();
-        Utils.Logger.info('PipeIntegration', '✅ Final AddPipe stop triggered successfully');
+        recorderObject.stopVideo();
+        Utils.Logger.info('PipeIntegration', '✅ Final AddPipe stopVideo triggered successfully');
         return true;
       } catch (error) {
-        Utils.Logger.error('PipeIntegration', '❌ Failed to trigger final AddPipe stop', error);
+        Utils.Logger.error('PipeIntegration', '❌ Failed to trigger final AddPipe stopVideo', error);
         return false;
       }
     },
@@ -2817,7 +2821,7 @@ var Validation = (function() {
 })();
 
 
-// === conversation-manager.js (504 lines) ===
+// === conversation-manager.js (509 lines) ===
 // Conversation Manager - AI-driven interview flow management
 // No template literals used - only string concatenation
 
@@ -2915,6 +2919,8 @@ var ConversationManager = (function() {
 
     // Mark segment end and create segment data
     markSegmentEnd: function() {
+      Utils.Logger.info('ConversationManager', '📝 MARKING SEGMENT END - Starting transcript extraction');
+      
       var now = performance.now();
       var segmentEnd = (now - this.conversationStartTime) / 1000;
       
@@ -2922,10 +2928,13 @@ var ConversationManager = (function() {
       var fullTranscript = window.global_transcript || '';
       var segmentTranscript = fullTranscript.substring(this.accumulatedTranscript.length).trim();
       
-      Utils.Logger.info('ConversationManager', '🔍 Transcript extraction:');
-      Utils.Logger.info('ConversationManager', '  Full transcript length: ' + fullTranscript.length);
-      Utils.Logger.info('ConversationManager', '  Accumulated length: ' + this.accumulatedTranscript.length);
-      Utils.Logger.info('ConversationManager', '  Segment transcript: "' + segmentTranscript + '"');
+      Utils.Logger.info('ConversationManager', '🔍 TRANSCRIPT EXTRACTION DEBUG:');
+      Utils.Logger.info('ConversationManager', '  📄 Full global transcript: "' + fullTranscript + '"');
+      Utils.Logger.info('ConversationManager', '  📏 Full transcript length: ' + fullTranscript.length);
+      Utils.Logger.info('ConversationManager', '  📚 Previously accumulated: "' + this.accumulatedTranscript + '"');
+      Utils.Logger.info('ConversationManager', '  📏 Accumulated length: ' + this.accumulatedTranscript.length);
+      Utils.Logger.info('ConversationManager', '  ✂️  Extracted segment: "' + segmentTranscript + '"');
+      Utils.Logger.info('ConversationManager', '  📏 Segment length: ' + segmentTranscript.length);
 
       var segment = {
         segmentId: this.segments.length + 1,

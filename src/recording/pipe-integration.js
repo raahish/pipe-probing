@@ -149,25 +149,25 @@ var PipeIntegration = (function() {
         StateManager.setComplete();
       };
 
-      // CRITICAL: Store original AddPipe stop method to prevent it during conversations
-      var originalPipeStop = recorderObject.stop;
-      recorderObject.stop = function() {
-        Utils.Logger.info('PipeIntegration', 'DECISION POINT: AddPipe.stop() called internally');
+      // CRITICAL: Store original AddPipe stopVideo method to prevent it during conversations
+      var originalStopVideo = recorderObject.stopVideo;
+      recorderObject.stopVideo = function() {
+        Utils.Logger.info('PipeIntegration', 'DECISION POINT: AddPipe.stopVideo() called internally');
         Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
         
         // NEW: Simplified - block ALL stops during conversation
         if (StateManager.isConversationActive()) {
-          Utils.Logger.info('PipeIntegration', 'BLOCKED: AddPipe.stop() during active conversation');
+          Utils.Logger.info('PipeIntegration', 'BLOCKED: AddPipe.stopVideo() during active conversation');
           Utils.Logger.debug('PipeIntegration', 'Conversation must end before allowing real stop');
           return; // Always block, no exceptions
         }
         
-        Utils.Logger.info('PipeIntegration', 'ALLOWED: AddPipe.stop() - no active conversation');
+        Utils.Logger.info('PipeIntegration', 'ALLOWED: AddPipe.stopVideo() - no active conversation');
         
-        // CRITICAL: Check if original stop method exists before calling
-        if (originalPipeStop && typeof originalPipeStop === 'function') {
-          Utils.Logger.debug('PipeIntegration', 'Calling original AddPipe stop method');
-          return originalPipeStop.apply(this, arguments);
+        // CRITICAL: Check if original stopVideo method exists before calling
+        if (originalStopVideo && typeof originalStopVideo === 'function') {
+          Utils.Logger.debug('PipeIntegration', 'Calling original AddPipe stopVideo method');
+          return originalStopVideo.apply(this, arguments);
         } else {
           Utils.Logger.warn('PipeIntegration', 'Original AddPipe stop method not available, using DOM fallback');
           
@@ -360,22 +360,26 @@ var PipeIntegration = (function() {
 
     // Stop recording
     stopRecording: function() {
-      if (!recorderObject || !recorderObject.stop) {
-        Utils.Logger.error('PipeIntegration', 'Cannot stop recording - recorder not ready');
+      if (!recorderObject || !recorderObject.stopVideo) {
+        Utils.Logger.error('PipeIntegration', 'Cannot stop recording - recorder not ready or stopVideo method not available');
+        Utils.Logger.debug('PipeIntegration', 'Recorder exists: ' + !!recorderObject);
+        if (recorderObject) {
+          Utils.Logger.debug('PipeIntegration', 'stopVideo method exists: ' + !!recorderObject.stopVideo);
+        }
         return false;
       }
 
       try {
-        Utils.Logger.info('PipeIntegration', '🛑 TRIGGERING FINAL ADDPIPE STOP');
+        Utils.Logger.info('PipeIntegration', '🛑 TRIGGERING FINAL ADDPIPE STOP (using official stopVideo API)');
         Utils.Logger.info('PipeIntegration', '  • This will stop the continuous recording');
         Utils.Logger.info('PipeIntegration', '  • Video will be processed and uploaded to S3');
         Utils.Logger.info('PipeIntegration', '  • onSaveOk will be called when upload completes');
         
-        recorderObject.stop();
-        Utils.Logger.info('PipeIntegration', '✅ Final AddPipe stop triggered successfully');
+        recorderObject.stopVideo();
+        Utils.Logger.info('PipeIntegration', '✅ Final AddPipe stopVideo triggered successfully');
         return true;
       } catch (error) {
-        Utils.Logger.error('PipeIntegration', '❌ Failed to trigger final AddPipe stop', error);
+        Utils.Logger.error('PipeIntegration', '❌ Failed to trigger final AddPipe stopVideo', error);
         return false;
       }
     },

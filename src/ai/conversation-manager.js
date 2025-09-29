@@ -95,6 +95,8 @@ var ConversationManager = (function() {
 
     // Mark segment end and create segment data
     markSegmentEnd: function() {
+      Utils.Logger.info('ConversationManager', '📝 MARKING SEGMENT END - Starting transcript extraction');
+      
       var now = performance.now();
       var segmentEnd = (now - this.conversationStartTime) / 1000;
       
@@ -102,10 +104,13 @@ var ConversationManager = (function() {
       var fullTranscript = window.global_transcript || '';
       var segmentTranscript = fullTranscript.substring(this.accumulatedTranscript.length).trim();
       
-      Utils.Logger.info('ConversationManager', '🔍 Transcript extraction:');
-      Utils.Logger.info('ConversationManager', '  Full transcript length: ' + fullTranscript.length);
-      Utils.Logger.info('ConversationManager', '  Accumulated length: ' + this.accumulatedTranscript.length);
-      Utils.Logger.info('ConversationManager', '  Segment transcript: "' + segmentTranscript + '"');
+      Utils.Logger.info('ConversationManager', '🔍 TRANSCRIPT EXTRACTION DEBUG:');
+      Utils.Logger.info('ConversationManager', '  📄 Full global transcript: "' + fullTranscript + '"');
+      Utils.Logger.info('ConversationManager', '  📏 Full transcript length: ' + fullTranscript.length);
+      Utils.Logger.info('ConversationManager', '  📚 Previously accumulated: "' + this.accumulatedTranscript + '"');
+      Utils.Logger.info('ConversationManager', '  📏 Accumulated length: ' + this.accumulatedTranscript.length);
+      Utils.Logger.info('ConversationManager', '  ✂️  Extracted segment: "' + segmentTranscript + '"');
+      Utils.Logger.info('ConversationManager', '  📏 Segment length: ' + segmentTranscript.length);
 
       var segment = {
         segmentId: this.segments.length + 1,

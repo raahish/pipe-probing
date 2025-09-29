@@ -182,7 +182,7 @@ var ConversationManager = (function() {
       // CRITICAL: Clear conversation state FIRST
       Utils.Logger.info('ConversationManager', 'Clearing conversation active state');
       this.conversationActive = false;
-      StateManager.setState('isConversationActive', false);
+      GlobalRegistry.setState('isConversationActive', false);
       
       // Show completion UI
       this.showConversationComplete();

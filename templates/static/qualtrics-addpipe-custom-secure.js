@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T22:09:20.698Z
+// Generated: 2025-09-29T22:16:21.663Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -2926,7 +2926,7 @@ var ConversationManager = (function() {
       // CRITICAL: Clear conversation state FIRST
       Utils.Logger.info('ConversationManager', 'Clearing conversation active state');
       this.conversationActive = false;
-      StateManager.setState('isConversationActive', false);
+      GlobalRegistry.setState('isConversationActive', false);
       
       // Show completion UI
       this.showConversationComplete();

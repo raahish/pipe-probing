@@ -163,7 +163,22 @@ var PipeIntegration = (function() {
         }
         
         Utils.Logger.info('PipeIntegration', 'ALLOWED: AddPipe.stop() - no active conversation');
-        return originalPipeStop.apply(this, arguments);
+        
+        // CRITICAL: Check if original stop method exists before calling
+        if (originalPipeStop && typeof originalPipeStop === 'function') {
+          Utils.Logger.debug('PipeIntegration', 'Calling original AddPipe stop method');
+          return originalPipeStop.apply(this, arguments);
+        } else {
+          Utils.Logger.warn('PipeIntegration', 'Original AddPipe stop method not available, using fallback');
+          // Fallback: trigger stop via AddPipe's internal mechanisms
+          if (this.btStopRecordingPressed && typeof this.btStopRecordingPressed === 'function') {
+            Utils.Logger.info('PipeIntegration', 'Using btStopRecordingPressed as fallback');
+            return this.btStopRecordingPressed(this.id || 'unknown');
+          } else {
+            Utils.Logger.error('PipeIntegration', 'No fallback stop method available');
+            return false;
+          }
+        }
       };
 
       // Handler for playback complete event

@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T22:44:46.024Z
+// Generated: 2025-09-29T22:53:40.762Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -1860,7 +1860,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (450 lines) ===
+// === pipe-integration.js (465 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -2026,7 +2026,22 @@ var PipeIntegration = (function() {
         }
         
         Utils.Logger.info('PipeIntegration', 'ALLOWED: AddPipe.stop() - no active conversation');
-        return originalPipeStop.apply(this, arguments);
+        
+        // CRITICAL: Check if original stop method exists before calling
+        if (originalPipeStop && typeof originalPipeStop === 'function') {
+          Utils.Logger.debug('PipeIntegration', 'Calling original AddPipe stop method');
+          return originalPipeStop.apply(this, arguments);
+        } else {
+          Utils.Logger.warn('PipeIntegration', 'Original AddPipe stop method not available, using fallback');
+          // Fallback: trigger stop via AddPipe's internal mechanisms
+          if (this.btStopRecordingPressed && typeof this.btStopRecordingPressed === 'function') {
+            Utils.Logger.info('PipeIntegration', 'Using btStopRecordingPressed as fallback');
+            return this.btStopRecordingPressed(this.id || 'unknown');
+          } else {
+            Utils.Logger.error('PipeIntegration', 'No fallback stop method available');
+            return false;
+          }
+        }
       };
 
       // Handler for playback complete event
@@ -2781,7 +2796,7 @@ var Validation = (function() {
 })();
 
 
-// === conversation-manager.js (496 lines) ===
+// === conversation-manager.js (504 lines) ===
 // Conversation Manager - AI-driven interview flow management
 // No template literals used - only string concatenation
 
@@ -2881,10 +2896,15 @@ var ConversationManager = (function() {
     markSegmentEnd: function() {
       var now = performance.now();
       var segmentEnd = (now - this.conversationStartTime) / 1000;
-      var segmentTranscript = this.getCurrentSegmentTranscript();
-
-      // Update accumulated transcript
-      this.accumulatedTranscript = window.global_transcript || '';
+      
+      // CRITICAL: Get current segment transcript BEFORE updating accumulated transcript
+      var fullTranscript = window.global_transcript || '';
+      var segmentTranscript = fullTranscript.substring(this.accumulatedTranscript.length).trim();
+      
+      Utils.Logger.debug('ConversationManager', 'Transcript extraction:');
+      Utils.Logger.debug('ConversationManager', '  Full transcript length: ' + fullTranscript.length);
+      Utils.Logger.debug('ConversationManager', '  Accumulated length: ' + this.accumulatedTranscript.length);
+      Utils.Logger.debug('ConversationManager', '  Segment transcript: "' + segmentTranscript + '"');
 
       var segment = {
         segmentId: this.segments.length + 1,
@@ -2901,6 +2921,9 @@ var ConversationManager = (function() {
         role: 'user',
         content: segmentTranscript
       });
+
+      // CRITICAL: Update accumulated transcript AFTER extracting segment transcript
+      this.accumulatedTranscript = fullTranscript;
 
       Utils.Logger.info('ConversationManager', 'Segment ' + segment.segmentId + ' recorded:', segment);
       return segment;

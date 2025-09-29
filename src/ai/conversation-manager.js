@@ -97,10 +97,15 @@ var ConversationManager = (function() {
     markSegmentEnd: function() {
       var now = performance.now();
       var segmentEnd = (now - this.conversationStartTime) / 1000;
-      var segmentTranscript = this.getCurrentSegmentTranscript();
-
-      // Update accumulated transcript
-      this.accumulatedTranscript = window.global_transcript || '';
+      
+      // CRITICAL: Get current segment transcript BEFORE updating accumulated transcript
+      var fullTranscript = window.global_transcript || '';
+      var segmentTranscript = fullTranscript.substring(this.accumulatedTranscript.length).trim();
+      
+      Utils.Logger.debug('ConversationManager', 'Transcript extraction:');
+      Utils.Logger.debug('ConversationManager', '  Full transcript length: ' + fullTranscript.length);
+      Utils.Logger.debug('ConversationManager', '  Accumulated length: ' + this.accumulatedTranscript.length);
+      Utils.Logger.debug('ConversationManager', '  Segment transcript: "' + segmentTranscript + '"');
 
       var segment = {
         segmentId: this.segments.length + 1,
@@ -117,6 +122,9 @@ var ConversationManager = (function() {
         role: 'user',
         content: segmentTranscript
       });
+
+      // CRITICAL: Update accumulated transcript AFTER extracting segment transcript
+      this.accumulatedTranscript = fullTranscript;
 
       Utils.Logger.info('ConversationManager', 'Segment ' + segment.segmentId + ' recorded:', segment);
       return segment;

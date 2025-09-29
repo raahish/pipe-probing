@@ -51,28 +51,28 @@ var EventHandler = (function() {
           e.stopPropagation();         // Stop bubble phase
           e.stopImmediatePropagation(); // Stop ALL remaining handlers
           
-          // Determine if this is a record or stop click by checking UI state
-          var elementController = GlobalRegistry.get('elementController');
-          var isCurrentlyRecording = false;
+          // IMPROVED: Determine click type using button title (most reliable)
+          var targetButton = EventHandler.findAddPipeButton(e.target);
+          var buttonTitle = targetButton ? targetButton.title : '';
+          var isCurrentlyRecording = (buttonTitle === 'stop');
           
-          if (elementController && elementController.getCurrentState) {
-            var uiState = elementController.getCurrentState();
-            isCurrentlyRecording = (uiState === 'recording');
-            Utils.Logger.debug('EventHandler', 'UI state: ' + uiState + ', Currently recording: ' + isCurrentlyRecording);
-          } else {
-            // Fallback: check if timer is running
-            var timerManager = GlobalRegistry.get('timerManager');
-            if (timerManager && timerManager.isRunning) {
-              isCurrentlyRecording = timerManager.isRunning();
-              Utils.Logger.debug('EventHandler', 'Timer running: ' + isCurrentlyRecording);
-            }
+          // DEBUG: Log detection details
+          Utils.Logger.info('EventHandler', '🔍 DETECTION DEBUG:');
+          Utils.Logger.info('EventHandler', '  Button found: ' + !!targetButton);
+          Utils.Logger.info('EventHandler', '  Button title: "' + buttonTitle + '"');
+          Utils.Logger.info('EventHandler', '  Detected as: ' + (isCurrentlyRecording ? 'STOP' : 'RECORD') + ' click');
+          
+          // Additional debug info for validation
+          if (targetButton) {
+            Utils.Logger.debug('EventHandler', '  Button ID: ' + targetButton.id);
+            Utils.Logger.debug('EventHandler', '  Button classes: ' + targetButton.className);
           }
           
           if (isCurrentlyRecording) {
-            Utils.Logger.info('EventHandler', 'FAKE STOP: Handling stop click via conversation manager');
+            Utils.Logger.info('EventHandler', '✅ FAKE STOP: Handling stop click via conversation manager');
             EventHandler.handleInterceptedStopClick();
           } else {
-            Utils.Logger.info('EventHandler', 'FAKE RECORD: Handling record click via conversation manager');
+            Utils.Logger.info('EventHandler', '✅ FAKE RECORD: Handling record click via conversation manager');
             EventHandler.handleInterceptedRecordClick();
           }
           
@@ -91,37 +91,42 @@ var EventHandler = (function() {
 
     // Robust AddPipe button detection with multiple strategies
     isAddPipeButton: function(target) {
-      if (!target) return false;
+      return !!this.findAddPipeButton(target);
+    },
+
+    // Find the actual AddPipe button element (returns the button, not just boolean)
+    findAddPipeButton: function(target) {
+      if (!target) return null;
       
       // Strategy 1: Direct ID match
       if (target.id && target.id.includes('pipeRec-')) {
-        Utils.Logger.debug('EventHandler', 'Button detected via direct ID: ' + target.id);
-        return true;
+        Utils.Logger.debug('EventHandler', 'Button found via direct ID: ' + target.id);
+        return target;
       }
       
       // Strategy 2: Parent element search (for child elements like SVG icons)
       var parentButton = target.closest('[id*="pipeRec-"]');
       if (parentButton) {
-        Utils.Logger.debug('EventHandler', 'Button detected via parent search: ' + parentButton.id);
-        return true;
+        Utils.Logger.debug('EventHandler', 'Button found via parent search: ' + parentButton.id);
+        return parentButton;
       }
       
       // Strategy 3: Class-based detection
       if (target.classList && target.classList.contains('pipeBtn')) {
-        Utils.Logger.debug('EventHandler', 'Button detected via pipeBtn class');
-        return true;
+        Utils.Logger.debug('EventHandler', 'Button found via pipeBtn class');
+        return target;
       }
       
       // Strategy 4: SVG icon clicks (common in AddPipe buttons)
       if (target.tagName === 'svg' || target.tagName === 'SVG') {
         var svgParent = target.closest('[id*="pipeRec-"], .pipeBtn');
         if (svgParent) {
-          Utils.Logger.debug('EventHandler', 'Button detected via SVG parent: ' + (svgParent.id || svgParent.className));
-          return true;
+          Utils.Logger.debug('EventHandler', 'Button found via SVG parent: ' + (svgParent.id || svgParent.className));
+          return svgParent;
         }
       }
       
-      return false;
+      return null;
     },
 
     // Handle intercepted stop click

@@ -461,78 +461,89 @@ class AIService {
   }
 }
 
-// Fake Stop Button Management
+// CAPTURE PHASE Click Interceptor - executes BEFORE AddPipe handlers
+var capturePhaseInterceptor = null;
+
+function initializeCapturePhaseInterceptor() {
+  console.log('🚀 Initializing CAPTURE PHASE interceptor (executes before AddPipe)');
+  
+  // Remove any existing interceptors
+  if (capturePhaseInterceptor) {
+    document.removeEventListener('click', capturePhaseInterceptor, true);
+  }
+  jQuery(document).off('click.conversation');
+  
+  // Create the capture phase interceptor function
+  capturePhaseInterceptor = function(e) {
+    // Only intercept clicks on AddPipe record buttons
+    if (!e.target.id || !e.target.id.startsWith('pipeRec-')) {
+      return; // Not our button, ignore
+    }
+    
+    // Only intercept during active conversations
+    if (!window.conversationManager || !window.conversationManager.conversationActive) {
+      console.log('✅ Capture Phase: No active conversation, allowing normal behavior');
+      return; // No conversation active, allow normal behavior
+    }
+    
+    console.log('🔍 Capture Phase: Intercepting button click BEFORE AddPipe');
+    console.log('  - conversationActive:', window.conversationManager.conversationActive);
+    console.log('  - isRecording:', window.isRecording);
+    console.log('  - recorderState:', window.recorderObjectGlobal?.getState?.());
+    
+    // Determine if this is a STOP click (currently recording)
+    if (window.isRecording && 
+        window.recorderObjectGlobal &&
+        window.recorderObjectGlobal.getState && 
+        window.recorderObjectGlobal.getState() === 'recording') {
+      
+      console.log('🛑 Capture Phase: STOP click detected - blocking AddPipe and doing fake stop');
+      
+      // CRITICAL: Prevent AddPipe from seeing this event AT ALL
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Do our fake stop logic
+      pauseForAIProcessing();
+      return false;
+    }
+    
+    // Determine if this is a RECORD click for next segment (not recording)
+    else if (!window.isRecording && window.conversationManager.segments.length > 0) {
+      console.log('▶️ Capture Phase: RECORD click for new segment - blocking AddPipe');
+      
+      // CRITICAL: Prevent AddPipe from starting new recording
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Start new segment UI without triggering AddPipe
+      startRecordingUIForSegment();
+      return false;
+    }
+    
+    // First recording or legitimate action - allow AddPipe to handle
+    console.log('✅ Capture Phase: Allowing AddPipe to handle this click');
+  };
+  
+  // Attach in CAPTURE PHASE (executes before bubble phase handlers)
+  document.addEventListener('click', capturePhaseInterceptor, true);
+  
+  console.log('✅ Capture phase interceptor attached - will execute BEFORE AddPipe handlers');
+}
+
+// Legacy fake stop button system (keeping for compatibility)
 function initializeFakeStopButton() {
-  console.log('🔴 Initializing fake stop button system');
+  console.log('🔴 Initializing legacy fake stop button system (now using capture phase)');
   
   // Store reference to original Pipe stop handler
   if (window.recorderObjectGlobal && window.recorderObjectGlobal.btStopRecordingPressed) {
     window.originalStopHandler = window.recorderObjectGlobal.btStopRecordingPressed;
   }
   
-  // Create fake stop button
-  const fakeStopBtn = jQuery(
-    '<button class="fake-stop-button" id="fake-stop-' + questionName + '" style="display: none;">' +
-      '<svg viewBox="0 0 24 24">' +
-        '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>' +
-      '</svg>' +
-    '</button>'
-  );
-  
-  // Add to pipe menu
-  jQuery('#pipeMenu-' + questionName).append(fakeStopBtn);
-  
-  // Handle fake stop click
-  fakeStopBtn.on('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (window.conversationManager && window.conversationManager.conversationActive) {
-      console.log('🛑 Fake stop clicked - pausing for AI');
-      pauseForAIProcessing();
-    }
-  });
-  
-  // Override ALL button clicks during conversation - handle both record and stop
-  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
-    console.log('🔍 Button clicked during conversation - analyzing state');
-    console.log('  - conversationManager exists:', !!window.conversationManager);
-    console.log('  - conversationActive:', window.conversationManager?.conversationActive);
-    console.log('  - isRecording:', window.isRecording);
-    console.log('  - recorderState:', window.recorderObjectGlobal?.getState?.());
-    
-    // Only intercept if conversation is active
-    if (window.conversationManager && window.conversationManager.conversationActive) {
-      
-      // If currently recording, this is a STOP click
-      if (window.isRecording && 
-          window.recorderObjectGlobal &&
-          window.recorderObjectGlobal.getState && 
-          window.recorderObjectGlobal.getState() === 'recording') {
-        console.log('🛑 Intercepting STOP click - doing fake stop');
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        pauseForAIProcessing();
-        return false;
-      }
-      
-      // If not recording, this is a RECORD click for next segment
-      else if (!window.isRecording) {
-        console.log('▶️ Intercepting RECORD click - starting new segment');
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        // Start new segment directly
-        startRecordingUIForSegment();
-        return false;
-      }
-    }
-    
-    console.log('✅ Allowing normal button behavior (not in conversation)');
-  });
+  // Initialize the new capture phase interceptor instead
+  initializeCapturePhaseInterceptor();
 }
 
 // Function to show/hide fake stop button
@@ -727,9 +738,9 @@ function showNextQuestion(question) {
         console.log('🔍 Button visibility check:', recordButton.is(':visible'), recordButton.css('display'));
       }, 100);
       
-      // CRITICAL FIX: Keep click interceptor active throughout conversation
-      // The interceptor will handle both record and stop clicks appropriately
-      console.log('🔒 Click interceptor remains active - will handle all button clicks');
+      // CAPTURE PHASE: Interceptor is already active and will handle all clicks
+      // No need to manage event listeners - capture phase handles everything
+      console.log('🚀 Capture phase interceptor active - will intercept all button clicks before AddPipe');
       
       console.log('✅ Reset AddPipe button to record mode with forced visibility');
     } catch (e) {
@@ -843,6 +854,13 @@ function cleanupConversation() {
   // Remove ALL conversation event listeners
   jQuery(document).off('click.conversation');
   jQuery('#fake-stop-' + questionName).off('click');
+  
+  // Remove capture phase interceptor
+  if (capturePhaseInterceptor) {
+    document.removeEventListener('click', capturePhaseInterceptor, true);
+    capturePhaseInterceptor = null;
+    console.log('🧹 Removed capture phase interceptor');
+  }
   
   // Reset UI
   jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state conversation-active recording-state');
@@ -1137,6 +1155,11 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
       window.conversationManager = new ConversationManager(question_name, recorderObject, questionConfig);
       window.aiService = new AIService(OPENAI_API_KEY, OPENAI_MODEL);
       console.log('🤖 Conversation components initialized with recorder object');
+      
+      // CRITICAL: Initialize capture phase interceptor immediately after AddPipe loads
+      // This ensures our handler is ready before any user interactions
+      initializeCapturePhaseInterceptor();
+      console.log('🚀 Capture phase interceptor initialized early - ready to intercept clicks');
     }
     /**
      * Handler for when recorder is ready to record.
@@ -1154,10 +1177,9 @@ const loadPipe = async function (question_name, pipeParams, deepGramConfiguratio
       // Set recording flag
       window.isRecording = true;
       
-      // Now initialize fake stop button for conversation
+      // Capture phase interceptor is already initialized - just mark as active
       if (window.conversationManager && window.isConversationActive && !window.fakeStopButtonActive) {
-        initializeFakeStopButton();
-        toggleFakeStopButton(true);
+        console.log('🔒 Capture phase interceptor already active - ready to intercept stop clicks');
         window.fakeStopButtonActive = true;
       }
     };

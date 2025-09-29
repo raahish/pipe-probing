@@ -70,18 +70,51 @@ var maxProbesByLevel = {
     "Deep": 5
 };
 
-// Start function
+// Essential functions that must be available immediately
+function getMobileOperatingSystem() {
+    var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/windows phone/i.test(userAgent)) {
+        window.mimetype = 'audio/webm';
+    } else if (/android/i.test(userAgent)) {
+        window.mimetype = 'audio/webm';
+    } else if (/iPad|iPhone|iPod/.test(userAgent)) {
+        window.mimetype = 'audio/mp4';
+    } else {
+        window.mimetype = 'audio/webm';
+    }
+    console.log('Mobile OS detected, mimetype set to: ' + window.mimetype);
+}
+
+function modalClose() {
+    console.log('Modal close triggered');
+    jQuery.modal.close();
+}
+
+function modalRetake() {
+    console.log('Modal retake triggered');
+    jQuery.modal.close();
+    // Will be enhanced by the modular system when it loads
+}
+
+function nextQuestion() {
+    console.log('Next question triggered');
+    jQuery.modal.close();
+    if (typeof document.querySelector('.NextButton') !== 'undefined') {
+        document.querySelector('.NextButton').click();
+    }
+}
 
 function updateEmbeddedData(data){
     Qualtrics.SurveyEngine.setEmbeddedData(videoURL, data);
 }
 
+// Initialize mimetype immediately
+getMobileOperatingSystem();
 
 Qualtrics.SurveyEngine.addOnload(function() {
 
     jQuery("#SkinContent #Buttons").hide();
     jQuery("#NextButton-custom").hide();
-    getMobileOperatingSystem();
     jQuery("#permission").modal({
         escapeClose: false,
         clickClose: false,

@@ -242,23 +242,8 @@ var VideoRecorderApp = (function() {
         }
       };
 
-      // Mobile OS detection for MediaRecorder compatibility
-      window.getMobileOperatingSystem = function() {
-        var userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        if (/windows phone/i.test(userAgent)) {
-          window.mimetype = 'audio/webm';
-        } else if (/android/i.test(userAgent)) {
-          window.mimetype = 'audio/webm';
-        } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-          window.mimetype = 'audio/mp4';
-        } else {
-          window.mimetype = 'audio/webm';
-        }
-        Utils.Logger.debug('VideoRecorderApp', 'Mobile OS detected, mimetype set to: ' + window.mimetype);
-      };
-
-      // Initialize mimetype on load
-      window.getMobileOperatingSystem();
+      // Mobile OS detection - now handled in qualtrics-question-js.js
+      // The function is already defined and initialized there
 
       // Legacy functions for compatibility
       window.playVideoCustom = function() {

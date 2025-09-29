@@ -160,8 +160,7 @@ var GlobalRegistry = (function() {
       config = Utils.Config.load();
       Utils.Config.validate(config);
 
-      // Update mimetype for MediaRecorder compatibility
-      this.updateMimetype();
+      // Mimetype is already initialized in qualtrics-question-js.js
 
       // Initialize global variables
       this.syncGlobalVars();

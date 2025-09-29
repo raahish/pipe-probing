@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T12:59:17.826Z
+// Generated: 2025-09-29T17:13:24.052Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -269,7 +269,7 @@ var Utils = (function() {
 })();
 
 
-// === global-registry.js (253 lines) ===
+// === global-registry.js (252 lines) ===
 // Global Registry - Centralized state and module management
 // No template literals used - only string concatenation
 
@@ -432,8 +432,7 @@ var GlobalRegistry = (function() {
       config = Utils.Config.load();
       Utils.Config.validate(config);
 
-      // Update mimetype for MediaRecorder compatibility
-      this.updateMimetype();
+      // Mimetype is already initialized in qualtrics-question-js.js
 
       // Initialize global variables
       this.syncGlobalVars();
@@ -3371,7 +3370,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (410 lines) ===
+// === main.js (387 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -3608,14 +3607,6 @@ var VideoRecorderApp = (function() {
         }
       };
 
-      window.modalRetake = function() {
-        Utils.Logger.info('VideoRecorderApp', 'Modal retake triggered');
-        var modalManager = GlobalRegistry.get('modalManager');
-        if (modalManager) {
-          modalManager.handleRetake();
-        }
-      };
-
       window.nextQuestion = function() {
         Utils.Logger.info('VideoRecorderApp', 'Next question triggered');
         jQuery.modal.close();
@@ -3624,23 +3615,8 @@ var VideoRecorderApp = (function() {
         }
       };
 
-      // Mobile OS detection for MediaRecorder compatibility
-      window.getMobileOperatingSystem = function() {
-        var userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        if (/windows phone/i.test(userAgent)) {
-          window.mimetype = 'audio/webm';
-        } else if (/android/i.test(userAgent)) {
-          window.mimetype = 'audio/webm';
-        } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-          window.mimetype = 'audio/mp4';
-        } else {
-          window.mimetype = 'audio/webm';
-        }
-        Utils.Logger.debug('VideoRecorderApp', 'Mobile OS detected, mimetype set to: ' + window.mimetype);
-      };
-
-      // Initialize mimetype on load
-      window.getMobileOperatingSystem();
+      // Mobile OS detection - now handled in qualtrics-question-js.js
+      // The function is already defined and initialized there
 
       // Legacy functions for compatibility
       window.playVideoCustom = function() {

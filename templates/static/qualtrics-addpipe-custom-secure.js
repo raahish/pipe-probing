@@ -1,1914 +1,3747 @@
-var isRecording = false;
-var global_transcript = '';
-var defaultThumbnail = 'https://d2kltgp8v5sml0.cloudfront.net/templates/svg/gallary.svg';
-var streamTime = '';
-var recorderObjectGlobal;
-var isBackTOcamera = false;
-var intervalID;
-var ws;
-var mediaRecorder;
-var stream;
-var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/';
+// ===============================================
+// QUALTRICS MODULAR VIDEO RECORDER BUNDLE
+// Generated: 2025-09-29T00:36:07.878Z
+// Total modules: 13
+// DO NOT EDIT - Generated from src/ directory
+// ===============================================
 
-// Conversation state variables
-var isConversationActive = false;
-var shouldActuallyStop = false;
-var conversationManager = null;
-var aiService = null;
-var accumulatedTranscript = ""; // Full conversation transcript
-var currentSegmentTranscript = ""; // Current segment only
-var fakeStopButtonActive = false;
-var originalStopHandler = null;
-var conversationStartTime = null;
-var segmentStartTime = null;
+// === utils.js (262 lines) ===
+// Core Utilities Module - Foundation for all other modules
+// No template literals used - only string concatenation
 
-// UI State Management
-const UI_STATES = {
-  INITIAL: 'initial',
-  RECORDING: 'recording',
-  RECORDED: 'recorded',
-  READY_TO_RECORD: 'ready',
-  PLAYING: 'playing'
-};
+var Utils = (function() {
 
-// Element Controller for clean UI management
-class ElementController {
-  constructor(questionName) {
-    this.questionName = questionName;
-    this.elements = {
-      recordButton: '#pipeRec-' + questionName,
-      nativePlayButton: '#pipePlay-' + questionName,
-      customPlayButton: '.play-custom-btn',
-      timer: '.pipeTimer-custom',
-      nativeTimer: '.pipeTimer',
-      backButton: '.back-to-camera',
-      menu: '#pipeMenu-' + questionName
-    };
-  }
+  // Structured logging system
+  var Logger = {
+    levels: { ERROR: 0, WARN: 1, INFO: 2, DEBUG: 3 },
+    currentLevel: 2, // INFO level in production
 
-  // Atomic operations - each does ONE thing clearly
-  forceHideElement(selector) {
-    jQuery(selector).attr('style', 'display: none !important; opacity: 0 !important;');
-  }
-  
-  showElement(selector) {
-    jQuery(selector).show().css('opacity', '1');
-  }
-  
-  hideElement(selector) {
-    jQuery(selector).hide();
-  }
-  
-  removeElement(selector) {
-    jQuery(selector).remove();
-  }
-  
-  // High-level state operations
-  setReadyToRecordState() {
-    console.log('ElementController: Setting ready-to-record state');
-    this.showElement(this.elements.recordButton);
-    this.forceHideElement(this.elements.nativePlayButton); // Aggressive hiding
-    this.removeElement(this.elements.customPlayButton);
-    this.removeElement(this.elements.backButton);
-    this.hideElement(this.elements.timer);
-    this.hideElement(this.elements.nativeTimer);
-    jQuery(this.elements.menu).removeClass('playback-state recording-state');
-  }
-  
-  setReadyToRecordWithVideoState() {
-    console.log('ElementController: Setting ready-to-record-with-video state');
-    this.setReadyToRecordState(); // Start clean
-    // Add custom play button for existing video
-    jQuery(this.elements.menu).append(
-      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
-    );
-  }
-}
+    log: function(level, module, message, data) {
+      if (level > this.currentLevel) return;
 
-// Conversation Manager for AI-driven interviews
-class ConversationManager {
-  constructor(questionName, recorderObject, config) {
-    this.questionName = questionName;
-    this.recorderObject = recorderObject;
-    this.config = config;
-    this.segments = [];
-    this.conversationThread = [];
-    this.currentProbeCount = 0;
-    this.maxProbes = window.maxProbesByLevel[config.probingAmount] || 0;
-    this.conversationStartTime = null;
-    this.currentSegmentStartTime = null;
-    this.isProcessingAI = false;
-    this.conversationActive = false;
-    this.conversationId = questionName + '_' + Date.now();
-    this.accumulatedTranscript = "";
-    this.currentAIQuestion = config.questionText;
-    this.timerPausedAt = null;
-  }
+      var prefix = '[' + module + ']';
+      var timestamp = new Date().toISOString();
+      var logMessage = timestamp + ' ' + prefix + ' ' + message;
 
-  startConversation() {
-    this.conversationActive = true;
-    this.conversationStartTime = performance.now();
-    this.currentSegmentStartTime = 0;
-    
-    // Add initial question to thread
-    this.conversationThread.push({
-      role: "assistant",
-      content: this.config.questionText
-    });
-    
-    // Display initial question in UI
-    this.displayQuestion(this.config.questionText);
-    
-    console.log('🎬 Conversation started:', this.conversationId);
-  }
+      if (data !== null && data !== undefined) {
+        console.log(logMessage, data);
+      } else {
+        console.log(logMessage);
+      }
+    },
 
-  getCurrentSegmentTranscript() {
-    // Return the transcript since the last segment ended
-    const fullTranscript = window.global_transcript || '';
-    const accumulatedLength = this.accumulatedTranscript.length;
-    return fullTranscript.substring(accumulatedLength).trim();
-  }
+    error: function(module, message, error) {
+      this.log(0, module, '❌ ' + message, error);
+    },
 
-  markSegmentEnd() {
-    const now = performance.now();
-    const segmentEnd = (now - this.conversationStartTime) / 1000;
-    const segmentTranscript = this.getCurrentSegmentTranscript();
-    
-    // Update accumulated transcript
-    this.accumulatedTranscript = window.global_transcript || '';
-    
-    const segment = {
-      segmentId: this.segments.length + 1,
-      aiQuestion: this.currentAIQuestion,
-      startTime: this.currentSegmentStartTime,
-      endTime: segmentEnd,
-      duration: segmentEnd - this.currentSegmentStartTime,
-      transcript: segmentTranscript,
-      type: "user_response"
-    };
-    
-    this.segments.push(segment);
-    this.conversationThread.push({
-      role: "user",
-      content: segmentTranscript
-    });
-    
-    console.log('📝 Segment ' + segment.segmentId + ' recorded:', segment);
-    return segment;
-  }
+    warn: function(module, message) {
+      this.log(1, module, '⚠️ ' + message);
+    },
 
-  markAIProcessingStart() {
-    this.isProcessingAI = true;
-    const now = performance.now();
-    const processingStartTime = (now - this.conversationStartTime) / 1000;
-    
-    // Pause timer display
-    this.timerPausedAt = jQuery('.pipeTimer-custom').text();
-    
-    return processingStartTime;
-  }
+    info: function(module, message) {
+      this.log(2, module, 'ℹ️ ' + message);
+    },
 
-  markAIProcessingEnd(nextQuestion) {
-    this.isProcessingAI = false;
-    const now = performance.now();
-    this.currentSegmentStartTime = (now - this.conversationStartTime) / 1000;
-    
-    if (nextQuestion && nextQuestion !== "DONE") {
-      this.currentAIQuestion = nextQuestion;
-      this.conversationThread.push({
-        role: "assistant",
-        content: nextQuestion
-      });
-      this.currentProbeCount++;
+    debug: function(module, message, data) {
+      this.log(3, module, '🔍 ' + message, data);
     }
-  }
+  };
 
-  shouldContinueProbing() {
-    if (this.config.probingAmount === "None") return false;
-    return this.currentProbeCount < this.maxProbes;
-  }
-
-  async endConversation() {
-    this.conversationActive = false;
-    window.shouldActuallyStop = true;
-    
-    console.log('🏁 Ending conversation, triggering real stop');
-    
-    // Show completion UI
-    this.showConversationComplete();
-    
-    // Trigger the actual stop using the correct method
-    if (this.recorderObject && this.recorderObject.btStopRecordingPressed) {
-      this.recorderObject.btStopRecordingPressed();
-    } else {
-      console.error('❌ Recorder stop method not available');
-    }
-  }
-
-  showConversationComplete() {
-    jQuery('#dynamic-question-title').text('Interview Complete!');
-    jQuery('#dynamic-question-description').text('Thank you for your thoughtful responses. Finalizing your recording...');
-  }
-
-  displayQuestion(question) {
-    jQuery('#dynamic-question-title').text(question);
-    jQuery('#dynamic-question-description').text('Click record when ready to respond.');
-  }
-
-  getMetadata(fullVideoUrl) {
-    const now = performance.now();
-    const totalDuration = (now - this.conversationStartTime) / 1000;
-    
-    return {
-      conversationId: this.conversationId,
-      responseId: Qualtrics.SurveyEngine.getEmbeddedData('ResponseID') || 'preview',
-      questionConfig: this.config,
-      totalDuration: totalDuration,
-      recordingStartTime: new Date(Date.now() - (now - this.conversationStartTime)).toISOString(),
-      recordingEndTime: new Date().toISOString(),
-      fullVideoUrl: fullVideoUrl,
-      segments: this.segments,
-      aiProcessingGaps: this.calculateProcessingGaps(),
-      totalProbes: this.currentProbeCount,
-      completionReason: this.currentProbeCount >= this.maxProbes ? "max_probes_reached" : "ai_satisfied",
-      accumulatedTranscript: this.accumulatedTranscript,
-      conversationThread: this.conversationThread,
-      errors: []
-    };
-  }
-
-  calculateProcessingGaps() {
-    const gaps = [];
-    for (let i = 0; i < this.segments.length - 1; i++) {
-      gaps.push({
-        gapId: i + 1,
-        afterSegment: this.segments[i].segmentId,
-        startTime: this.segments[i].endTime,
-        endTime: this.segments[i + 1].startTime,
-        duration: this.segments[i + 1].startTime - this.segments[i].endTime,
-        type: "ai_processing"
-      });
-    }
-    return gaps;
-  }
-}
-
-// AI Service for OpenAI integration
-class AIService {
-  constructor(apiKey, model) {
-    this.apiKey = apiKey;
-    this.model = model || 'gpt-4';
-    this.maxRetries = 2;
-    this.retryDelay = 1000; // 1 second
-  }
-
-  async getFollowUpQuestion(conversationManager) {
-    let lastError = null;
-    
-    // Retry logic for API calls
-    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+  // Error boundary wrapper
+  function ErrorBoundary(moduleName, fn) {
+    return function() {
       try {
-        console.log('🤖 AI Service: Attempt ' + attempt + '/' + this.maxRetries);
-        
-        const systemPrompt = this.buildSystemPrompt(conversationManager.config, conversationManager.currentProbeCount);
-        
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + this.apiKey
-          },
-          body: JSON.stringify({
-            model: this.model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...conversationManager.conversationThread
-            ],
-            temperature: 0.7,
-            max_tokens: 200,
-            response_format: { type: "json_object" }
-          })
+        var args = Array.prototype.slice.call(arguments);
+        var result = fn.apply(this, args);
+        Logger.debug(moduleName, 'Function executed successfully');
+        return result;
+      } catch (error) {
+        Logger.error(moduleName, 'Function failed', error);
+
+        // Attempt recovery if handler available
+        if (this && this.handleError) {
+          try {
+            return this.handleError(error);
+          } catch (recoveryError) {
+            Logger.error(moduleName, 'Error recovery failed', recoveryError);
+          }
+        }
+
+        throw error;
+      }
+    };
+  }
+
+  // Safe async wrapper
+  function safeAsync(moduleName, asyncFn) {
+    return async function() {
+      try {
+        var args = Array.prototype.slice.call(arguments);
+        var result = await asyncFn.apply(this, args);
+        Logger.debug(moduleName, 'Async function executed successfully');
+        return result;
+      } catch (error) {
+        Logger.error(moduleName, 'Async function failed', error);
+
+        // Attempt recovery if handler available
+        if (this && this.handleError) {
+          try {
+            return await this.handleError(error);
+          } catch (recoveryError) {
+            Logger.error(moduleName, 'Async error recovery failed', recoveryError);
+          }
+        }
+
+        throw error;
+      }
+    };
+  }
+
+  // DOM utility functions
+  var DOM = {
+    // Safe element selection
+    select: function(selector) {
+      try {
+        return jQuery(selector);
+      } catch (error) {
+        Logger.error('DOM', 'Element selection failed: ' + selector, error);
+        return jQuery();
+      }
+    },
+
+    // Safe element creation
+    create: function(tagName, attributes, content) {
+      try {
+        var element = jQuery('<' + tagName + '>');
+
+        if (attributes) {
+          element.attr(attributes);
+        }
+
+        if (content) {
+          element.html(content);
+        }
+
+        return element;
+      } catch (error) {
+        Logger.error('DOM', 'Element creation failed', error);
+        return jQuery();
+      }
+    },
+
+    // Safe event binding
+    on: function(element, event, handler) {
+      try {
+        if (element && element.length > 0) {
+          element.on(event, handler);
+        }
+      } catch (error) {
+        Logger.error('DOM', 'Event binding failed', error);
+      }
+    },
+
+    // Safe event unbinding
+    off: function(element, event) {
+      try {
+        if (element && element.length > 0) {
+          element.off(event);
+        }
+      } catch (error) {
+        Logger.error('DOM', 'Event unbinding failed', error);
+      }
+    }
+  };
+
+  // Configuration utilities
+  var Config = {
+    // Load configuration from global variables
+    load: function() {
+      return {
+        questionName: window.questionName || 'VQ1',
+        deepgram: window.deepGramConfiguration || {},
+        openai: {
+          apiKey: window.OPENAI_API_KEY || '',
+          model: window.OPENAI_MODEL || 'gpt-4o'
+        },
+        questionConfig: window.questionConfig || {},
+        pipeParams: window.pipeParams || {},
+        validationDetails: window.validationDetails || {}
+      };
+    },
+
+    // Validate configuration
+    validate: function(config) {
+      var errors = [];
+
+      if (!config.questionName) {
+        errors.push('Question name is required');
+      }
+
+      if (!config.openai.apiKey) {
+        errors.push('OpenAI API key is required');
+      }
+
+      if (!config.pipeParams.accountHash) {
+        errors.push('Pipe account hash is required');
+      }
+
+      if (errors.length > 0) {
+        throw new Error('Configuration errors: ' + errors.join(', '));
+      }
+
+      return true;
+    }
+  };
+
+  // Utility functions
+  var Helpers = {
+    // Safe JSON operations
+    parseJSON: function(str) {
+      try {
+        return JSON.parse(str);
+      } catch (error) {
+        Logger.error('Utils', 'JSON parse failed', error);
+        return null;
+      }
+    },
+
+    stringifyJSON: function(obj) {
+      try {
+        return JSON.stringify(obj);
+      } catch (error) {
+        Logger.error('Utils', 'JSON stringify failed', error);
+        return '{}';
+      }
+    },
+
+    // Debounce function for performance
+    debounce: function(func, wait) {
+      var timeout;
+      return function() {
+        var context = this;
+        var args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(function() {
+          func.apply(context, args);
+        }, wait);
+      };
+    },
+
+    // Format time as MM:SS
+    formatTime: function(seconds) {
+      var mins = Math.floor(seconds / 60);
+      var secs = Math.floor(seconds % 60);
+      return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+    },
+
+    // Generate unique IDs
+    generateId: function(prefix) {
+      return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+  };
+
+  // Performance monitoring
+  var Performance = {
+    startTime: performance.now(),
+
+    mark: function(name) {
+      var duration = performance.now() - this.startTime;
+      Logger.debug('Performance', 'Mark: ' + name + ' at ' + duration.toFixed(2) + 'ms');
+    },
+
+    measure: function(name, startMark, endMark) {
+      var duration = performance.now() - this.startTime;
+      Logger.info('Performance', 'Measure: ' + name + ' took ' + duration.toFixed(2) + 'ms');
+    }
+  };
+
+  // Export public API
+  return {
+    Logger: Logger,
+    ErrorBoundary: ErrorBoundary,
+    safeAsync: safeAsync,
+    DOM: DOM,
+    Config: Config,
+    Helpers: Helpers,
+    Performance: Performance
+  };
+
+})();
+
+
+// === global-registry.js (241 lines) ===
+// Global Registry - Centralized state and module management
+// No template literals used - only string concatenation
+
+var GlobalRegistry = (function() {
+
+  var Utils = window.Utils; // Will be set after Utils loads
+
+  // Module storage
+  var modules = {};
+
+  // State storage
+  var state = {
+    // Core state
+    isRecording: false,
+    isConversationActive: false,
+    shouldActuallyStop: false,
+    conversationStartTime: null,
+    segmentStartTime: null,
+
+    // UI state
+    currentQuestion: '',
+    isProcessingAI: false,
+
+    // Error state
+    hasError: false,
+    errorMessage: '',
+
+    // Performance metrics
+    loadTime: 0,
+    recordingCount: 0
+  };
+
+  // Configuration cache
+  var config = null;
+
+  // Global variables that need to be maintained for compatibility
+  var globalVars = {
+    isRecording: false,
+    global_transcript: '',
+    defaultThumbnail: 'https://d2kltgp8v5sml0.cloudfront.net/templates/svg/gallary.svg',
+    streamTime: '',
+    recorderObjectGlobal: null,
+    isBackTOcamera: false,
+    intervalID: null,
+    ws: null,
+    mediaRecorder: null,
+    stream: null,
+    S3_BASE_URL: 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/',
+
+    // Conversation state variables
+    isConversationActive: false,
+    shouldActuallyStop: false,
+    conversationManager: null,
+    aiService: null,
+    accumulatedTranscript: '',
+    currentSegmentTranscript: '',
+    fakeStopButtonActive: false,
+    originalStopHandler: null,
+    conversationStartTime: null,
+    segmentStartTime: null
+  };
+
+  // Registry API
+  var Registry = {
+
+    // Module management
+    register: function(name, module) {
+      modules[name] = module;
+      Utils.Logger.debug('GlobalRegistry', 'Registered module: ' + name);
+    },
+
+    get: function(name) {
+      if (!modules[name]) {
+        Utils.Logger.warn('GlobalRegistry', 'Module not found: ' + name);
+        return null;
+      }
+      return modules[name];
+    },
+
+    has: function(name) {
+      return modules[name] !== undefined;
+    },
+
+    getAllModules: function() {
+      return Utils.Helpers.parseJSON(Utils.Helpers.stringifyJSON(modules));
+    },
+
+    // State management
+    getState: function() {
+      return Utils.Helpers.parseJSON(Utils.Helpers.stringifyJSON(state));
+    },
+
+    setState: function(key, value) {
+      var oldValue = state[key];
+      state[key] = value;
+
+      // Update global variables for compatibility
+      this.syncGlobalVars();
+
+      Utils.Logger.debug('GlobalRegistry', 'State changed: ' + key + ' = ' + value + ' (was: ' + oldValue + ')');
+    },
+
+    updateState: function(updates) {
+      var changes = [];
+      for (var key in updates) {
+        if (state[key] !== updates[key]) {
+          changes.push(key + ': ' + state[key] + ' -> ' + updates[key]);
+          state[key] = updates[key];
+        }
+      }
+
+      if (changes.length > 0) {
+        Utils.Logger.debug('GlobalRegistry', 'State updated: ' + changes.join(', '));
+      }
+
+      this.syncGlobalVars();
+    },
+
+    // Configuration management
+    getConfig: function() {
+      if (!config) {
+        config = Utils.Config.load();
+        Utils.Config.validate(config);
+        Utils.Logger.info('GlobalRegistry', 'Configuration loaded and validated');
+      }
+      return config;
+    },
+
+    // Global variable synchronization
+    syncGlobalVars: function() {
+      // Sync state to global variables for backward compatibility
+      globalVars.isRecording = state.isRecording;
+      globalVars.isConversationActive = state.isConversationActive;
+      globalVars.shouldActuallyStop = state.shouldActuallyStop;
+      globalVars.conversationStartTime = state.conversationStartTime;
+      globalVars.segmentStartTime = state.segmentStartTime;
+
+      // Copy to window object
+      for (var key in globalVars) {
+        window[key] = globalVars[key];
+      }
+    },
+
+    // Initialization
+    initialize: function() {
+      Utils.Logger.info('GlobalRegistry', 'Initializing global registry');
+
+      // Set start time
+      state.loadTime = performance.now();
+
+      // Load and validate configuration
+      config = Utils.Config.load();
+      Utils.Config.validate(config);
+
+      // Initialize global variables
+      this.syncGlobalVars();
+
+      Utils.Logger.info('GlobalRegistry', 'Global registry initialized successfully');
+    },
+
+    // Cleanup
+    cleanup: function() {
+      Utils.Logger.info('GlobalRegistry', 'Cleaning up global registry');
+
+      // Clear modules
+      modules = {};
+
+      // Reset state
+      state = {
+        isRecording: false,
+        isConversationActive: false,
+        shouldActuallyStop: false,
+        conversationStartTime: null,
+        segmentStartTime: null,
+        currentQuestion: '',
+        isProcessingAI: false,
+        hasError: false,
+        errorMessage: '',
+        loadTime: 0,
+        recordingCount: 0
+      };
+
+      // Reset global variables
+      globalVars = {
+        isRecording: false,
+        global_transcript: '',
+        defaultThumbnail: 'https://d2kltgp8v5sml0.cloudfront.net/templates/svg/gallary.svg',
+        streamTime: '',
+        recorderObjectGlobal: null,
+        isBackTOcamera: false,
+        intervalID: null,
+        ws: null,
+        mediaRecorder: null,
+        stream: null,
+        S3_BASE_URL: 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/',
+        isConversationActive: false,
+        shouldActuallyStop: false,
+        conversationManager: null,
+        aiService: null,
+        accumulatedTranscript: '',
+        currentSegmentTranscript: '',
+        fakeStopButtonActive: false,
+        originalStopHandler: null,
+        conversationStartTime: null,
+        segmentStartTime: null
+      };
+
+      // Sync to window
+      this.syncGlobalVars();
+
+      Utils.Logger.info('GlobalRegistry', 'Global registry cleanup complete');
+    },
+
+    // Performance monitoring
+    getPerformanceMetrics: function() {
+      var now = performance.now();
+      return {
+        loadTime: state.loadTime,
+        uptime: now - state.loadTime,
+        recordingCount: state.recordingCount,
+        memoryUsage: this.getMemoryUsage()
+      };
+    },
+
+    getMemoryUsage: function() {
+      if (performance.memory) {
+        return {
+          used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+          total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024),
+          limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024)
+        };
+      }
+      return null;
+    }
+  };
+
+  // Export registry
+  return Registry;
+
+})();
+
+
+// === state-manager.js (179 lines) ===
+// State Manager - Single source of truth for application state
+// No template literals used - only string concatenation
+
+var StateManager = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+
+  // State constants
+  var STATES = {
+    INITIALIZING: 'initializing',
+    READY: 'ready',
+    RECORDING: 'recording',
+    PROCESSING: 'processing',
+    CONVERSATION_ACTIVE: 'conversation_active',
+    ERROR: 'error',
+    COMPLETE: 'complete'
+  };
+
+  // Current state
+  var currentState = STATES.INITIALIZING;
+
+  // State history for debugging
+  var stateHistory = [];
+
+  // State Manager API
+  var StateManager = {
+
+    // Get current state
+    getState: function() {
+      return {
+        current: currentState,
+        history: stateHistory.slice(),
+        timestamp: new Date().toISOString()
+      };
+    },
+
+    // Get state constants
+    getStates: function() {
+      return STATES;
+    },
+
+    // Transition to new state
+    transition: function(newState, data) {
+      var oldState = currentState;
+      currentState = newState;
+
+      // Record transition
+      stateHistory.push({
+        from: oldState,
+        to: newState,
+        timestamp: new Date().toISOString(),
+        data: data || null
+      });
+
+      // Keep only last 50 transitions to prevent memory leaks
+      if (stateHistory.length > 50) {
+        stateHistory = stateHistory.slice(-50);
+      }
+
+      Utils.Logger.info('StateManager', 'State transition: ' + oldState + ' -> ' + newState);
+
+      // Update global registry
+      GlobalRegistry.updateState(this.getStateFlags());
+
+      // Trigger state change handlers
+      this.notifyStateChange(oldState, newState, data);
+
+      return true;
+    },
+
+    // Get state flags for global registry
+    getStateFlags: function() {
+      return {
+        isRecording: currentState === STATES.RECORDING,
+        isConversationActive: currentState === STATES.CONVERSATION_ACTIVE,
+        shouldActuallyStop: currentState === STATES.COMPLETE,
+        isProcessingAI: currentState === STATES.PROCESSING,
+        hasError: currentState === STATES.ERROR
+      };
+    },
+
+    // State change notification system
+    notifyStateChange: function(oldState, newState, data) {
+      // Notify modules that care about state changes
+      var modules = GlobalRegistry.getAllModules();
+      for (var moduleName in modules) {
+        var module = modules[moduleName];
+        if (module && typeof module.onStateChange === 'function') {
+          try {
+            module.onStateChange(oldState, newState, data);
+          } catch (error) {
+            Utils.Logger.error('StateManager', 'State change notification failed for ' + moduleName, error);
+          }
+        }
+      }
+    },
+
+    // Convenience methods for common transitions
+    setInitializing: function() {
+      return this.transition(STATES.INITIALIZING);
+    },
+
+    setReady: function() {
+      return this.transition(STATES.READY);
+    },
+
+    setRecording: function() {
+      GlobalRegistry.setState('recordingCount', GlobalRegistry.getState().recordingCount + 1);
+      return this.transition(STATES.RECORDING);
+    },
+
+    setProcessing: function() {
+      return this.transition(STATES.PROCESSING);
+    },
+
+    setConversationActive: function() {
+      GlobalRegistry.setState('conversationStartTime', performance.now());
+      return this.transition(STATES.CONVERSATION_ACTIVE);
+    },
+
+    setError: function(errorMessage) {
+      GlobalRegistry.setState('errorMessage', errorMessage);
+      return this.transition(STATES.ERROR, { error: errorMessage });
+    },
+
+    setComplete: function() {
+      return this.transition(STATES.COMPLETE);
+    },
+
+    // Check if in specific state
+    isInState: function(state) {
+      return currentState === state;
+    },
+
+    isRecording: function() {
+      return currentState === STATES.RECORDING;
+    },
+
+    isProcessing: function() {
+      return currentState === STATES.PROCESSING;
+    },
+
+    isConversationActive: function() {
+      return currentState === STATES.CONVERSATION_ACTIVE;
+    },
+
+    hasError: function() {
+      return currentState === STATES.ERROR;
+    },
+
+    // Reset state (for testing or recovery)
+    reset: function() {
+      currentState = STATES.INITIALIZING;
+      stateHistory = [];
+      Utils.Logger.info('StateManager', 'State reset to initial');
+    },
+
+    // Get performance metrics
+    getMetrics: function() {
+      var now = performance.now();
+      var registryState = GlobalRegistry.getState();
+
+      return {
+        currentState: currentState,
+        stateHistoryLength: stateHistory.length,
+        uptime: now - registryState.loadTime,
+        recordingCount: registryState.recordingCount,
+        conversationDuration: registryState.conversationStartTime ?
+          (now - registryState.conversationStartTime) / 1000 : 0
+      };
+    }
+  };
+
+  // Export StateManager
+  return StateManager;
+
+})();
+
+
+// === event-handler.js (173 lines) ===
+// Event Handler - Unified click event management and interception
+// No template literals used - only string concatenation
+
+var EventHandler = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  // Event handler storage
+  var handlers = {};
+  var capturePhaseHandler = null;
+
+  // Event Handler API
+  var EventHandler = {
+
+    // Initialize event system
+    initialize: function() {
+      Utils.Logger.info('EventHandler', 'Initializing event handler system');
+
+      // Set up capture phase handler for AddPipe button interception
+      this.setupCapturePhaseHandler();
+
+      Utils.Logger.info('EventHandler', 'Event handler system initialized');
+    },
+
+    // Set up capture phase handler (executes before AddPipe handlers)
+    setupCapturePhaseHandler: function() {
+      if (capturePhaseHandler) {
+        document.removeEventListener('click', capturePhaseHandler, true);
+      }
+
+      capturePhaseHandler = Utils.ErrorBoundary('EventHandler', function(e) {
+        // Only intercept clicks on AddPipe record buttons
+        if (!e.target || !e.target.id || !e.target.id.startsWith('pipeRec-')) {
+          return; // Not our button, ignore
+        }
+
+        var questionName = GlobalRegistry.getConfig().questionName;
+        var buttonId = e.target.id;
+
+        Utils.Logger.debug('EventHandler', 'Capture phase click on: ' + buttonId);
+
+        // Only intercept during active conversations
+        if (!StateManager.isConversationActive()) {
+          Utils.Logger.debug('EventHandler', 'No active conversation, allowing normal behavior');
+          return; // No conversation active, allow normal behavior
+        }
+
+        var isRecording = StateManager.isRecording();
+        var recorderState = null;
+
+        try {
+          var recorderObject = GlobalRegistry.get('pipeIntegration');
+          if (recorderObject && recorderObject.getState) {
+            recorderState = recorderObject.getState();
+          }
+        } catch (error) {
+          Utils.Logger.warn('EventHandler', 'Could not get recorder state', error);
+        }
+
+        Utils.Logger.debug('EventHandler', 'State check - Recording: ' + isRecording + ', Recorder: ' + recorderState);
+
+        // Determine click type and handle appropriately
+        if (isRecording && recorderState === 'recording') {
+          // STOP click - block AddPipe and do fake stop
+          Utils.Logger.info('EventHandler', 'STOP click intercepted - blocking AddPipe');
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          this.handleStopClick();
+          return false;
+
+        } else if (!isRecording && buttonId.indexOf(questionName) !== -1) {
+          // RECORD click for new segment - block AddPipe
+          Utils.Logger.info('EventHandler', 'RECORD click intercepted - blocking AddPipe');
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          this.handleRecordClick();
+          return false;
+
+        } else {
+          // First recording or legitimate action - allow AddPipe to handle
+          Utils.Logger.debug('EventHandler', 'Allowing AddPipe to handle this click');
+        }
+      });
+
+      // Attach in CAPTURE PHASE (executes before bubble phase handlers)
+      document.addEventListener('click', capturePhaseHandler, true);
+
+      Utils.Logger.info('EventHandler', 'Capture phase handler attached');
+    },
+
+    // Handle stop button click
+    handleStopClick: function() {
+      Utils.Logger.info('EventHandler', 'Processing STOP click');
+
+      try {
+        // Trigger pause for AI processing
+        var conversationManager = GlobalRegistry.get('conversationManager');
+        if (conversationManager && conversationManager.pauseForAIProcessing) {
+          conversationManager.pauseForAIProcessing();
+        } else {
+          Utils.Logger.error('EventHandler', 'Conversation manager not available for pause');
+        }
+      } catch (error) {
+        Utils.Logger.error('EventHandler', 'Stop click handling failed', error);
+        StateManager.setError('Failed to process stop click: ' + error.message);
+      }
+    },
+
+    // Handle record button click
+    handleRecordClick: function() {
+      Utils.Logger.info('EventHandler', 'Processing RECORD click');
+
+      try {
+        var conversationManager = GlobalRegistry.get('conversationManager');
+        if (conversationManager) {
+          // Start new recording segment
+          conversationManager.startNewSegment();
+        } else {
+          Utils.Logger.error('EventHandler', 'Conversation manager not available for record');
+        }
+      } catch (error) {
+        Utils.Logger.error('EventHandler', 'Record click handling failed', error);
+        StateManager.setError('Failed to process record click: ' + error.message);
+      }
+    },
+
+    // Clean up event handlers
+    cleanup: function() {
+      Utils.Logger.info('EventHandler', 'Cleaning up event handlers');
+
+      // Remove capture phase handler
+      if (capturePhaseHandler) {
+        document.removeEventListener('click', capturePhaseHandler, true);
+        capturePhaseHandler = null;
+      }
+
+      // Clear handler storage
+      handlers = {};
+
+      Utils.Logger.info('EventHandler', 'Event handler cleanup complete');
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('EventHandler', 'State change: ' + oldState + ' -> ' + newState);
+
+      // Re-setup handlers when conversation becomes active
+      if (newState === StateManager.getStates().CONVERSATION_ACTIVE) {
+        this.setupCapturePhaseHandler();
+      }
+    },
+
+    // Get event handler info for debugging
+    getHandlerInfo: function() {
+      return {
+        capturePhaseAttached: !!capturePhaseHandler,
+        handlerCount: Object.keys(handlers).length,
+        activeConversation: StateManager.isConversationActive()
+      };
+    }
+  };
+
+  // Export EventHandler
+  return EventHandler;
+
+})();
+
+
+// === element-controller.js (459 lines) ===
+// Element Controller - DOM element management and UI state control
+// No template literals used - only string concatenation
+
+var ElementController = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  // Element Controller API
+  var ElementController = {
+
+    // Initialize with question name
+    initialize: function(questionName) {
+      this.questionName = questionName;
+      this.selectors = this.buildSelectors();
+      this.elements = this.getElements();
+
+      Utils.Logger.info('ElementController', 'Initialized for question: ' + questionName);
+    },
+
+    // Build element selectors
+    buildSelectors: function() {
+      var qn = this.questionName;
+      return {
+        recordButton: '#pipeRec-' + qn,
+        nativePlayButton: '#pipePlay-' + qn,
+        customPlayButton: '.play-custom-btn',
+        timer: '.pipeTimer-custom',
+        nativeTimer: '.pipeTimer',
+        backButton: '.back-to-camera',
+        menu: '#pipeMenu-' + qn,
+        videoContainer: '#' + qn,
+        nextButton: '#NextButton-custom'
+      };
+    },
+
+    // Get DOM elements safely
+    getElements: function() {
+      var elements = {};
+      for (var selectorName in this.selectors) {
+        var selector = this.selectors[selectorName];
+        elements[selectorName] = Utils.DOM.select(selector);
+      }
+      return elements;
+    },
+
+    // Element visibility management
+    showElement: function(selectorName) {
+      var element = this.elements[selectorName];
+      if (element && element.length > 0) {
+        element.show().css('opacity', '1');
+        Utils.Logger.debug('ElementController', 'Showed element: ' + selectorName);
+      }
+    },
+
+    hideElement: function(selectorName) {
+      var element = this.elements[selectorName];
+      if (element && element.length > 0) {
+        element.hide();
+        Utils.Logger.debug('ElementController', 'Hid element: ' + selectorName);
+      }
+    },
+
+    removeElement: function(selectorName) {
+      var element = this.elements[selectorName];
+      if (element && element.length > 0) {
+        element.remove();
+        Utils.Logger.debug('ElementController', 'Removed element: ' + selectorName);
+      }
+    },
+
+    // Force hide with aggressive styling
+    forceHideElement: function(selectorName) {
+      var element = this.elements[selectorName];
+      if (element && element.length > 0) {
+        element.attr('style', 'display: none !important; opacity: 0 !important;');
+        Utils.Logger.debug('ElementController', 'Force hid element: ' + selectorName);
+      }
+    },
+
+    // UI State Management Methods
+    setReadyToRecordState: function() {
+      Utils.Logger.info('ElementController', 'Setting ready-to-record state');
+
+      this.showElement('recordButton');
+      this.forceHideElement('nativePlayButton');
+      this.removeElement('customPlayButton');
+      this.removeElement('backButton');
+      this.hideElement('timer');
+      this.hideElement('nativeTimer');
+
+      var menu = this.elements.menu;
+      if (menu && menu.length > 0) {
+        menu.removeClass('playback-state recording-state');
+      }
+
+      this.updateButtonState('record');
+    },
+
+    setReadyToRecordWithVideoState: function() {
+      Utils.Logger.info('ElementController', 'Setting ready-to-record-with-video state');
+
+      this.setReadyToRecordState();
+
+      // Add custom play button for existing video
+      var menu = this.elements.menu;
+      if (menu && menu.length > 0) {
+        var playButton = Utils.DOM.create('button', {
+          'class': 'play-custom-btn',
+          'id': 'time-span',
+          'onclick': 'playVideoCustom()',
+          'title': 'Preview existing recording'
         });
 
-        if (!response.ok) {
-          const errorData = await response.text();
-          throw new Error('OpenAI API error: ' + response.status + ' - ' + errorData);
-        }
+        var svg = Utils.DOM.create('svg', {
+          'width': '16',
+          'height': '16',
+          'viewBox': '0 0 24 24',
+          'fill': 'none',
+          'stroke': 'currentColor',
+          'stroke-width': '2',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round'
+        });
 
-        const data = await response.json();
-        const aiResponseText = data.choices[0].message.content;
-        
-        // Parse the response
-        const aiResponse = this.parseAIResponse(aiResponseText);
-        
-        console.log('🤖 AI Response:', aiResponse);
-        return aiResponse;
-        
-      } catch (error) {
-        console.error('❌ AI Service Error (attempt ' + attempt + '):', error);
-        lastError = error;
-        
-        // If not the last attempt, wait before retrying
-        if (attempt < this.maxRetries) {
-          console.log('⏳ Retrying in ' + this.retryDelay + 'ms...');
-          await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-        }
+        var polygon = Utils.DOM.create('polygon', {
+          'points': '5,3 19,12 5,21'
+        });
+
+        svg.append(polygon);
+        playButton.append(svg);
+
+        var span = Utils.DOM.create('span', {
+          'style': 'font-size: 0.75rem; margin-top: 0.25rem;'
+        });
+
+        playButton.append(span);
+        menu.append(playButton);
       }
-    }
-    
-    // All attempts failed
-    console.error('❌ All AI Service attempts failed:', lastError);
-    return { 
-      hasMoreQuestions: false, 
-      error: lastError.message,
-      shouldContinue: false 
-    };
-  }
+    },
 
-  parseAIResponse(responseText) {
-    try {
-      // Try to parse as JSON first
-      const parsed = JSON.parse(responseText);
-      
-      // Handle different response formats
-      if (parsed.isDone === true || parsed.done === true) {
-        return {
-          hasMoreQuestions: false,
-          question: null,
-          reasoning: parsed.reasoning || "Interview complete",
-          shouldContinue: false
-        };
+    setRecordingState: function() {
+      Utils.Logger.info('ElementController', 'Setting recording state');
+
+      var menu = this.elements.menu;
+      if (menu && menu.length > 0) {
+        menu.removeClass('ready-state').addClass('recording-state');
       }
-      
-      if (parsed.hasMoreQuestions === true && parsed.question) {
-        return {
-          hasMoreQuestions: true,
-          question: parsed.question.trim(),
-          reasoning: parsed.reasoning || null,
-          shouldContinue: true
-        };
+
+      this.updateButtonToStop();
+    },
+
+    setPlaybackState: function() {
+      Utils.Logger.info('ElementController', 'Setting playback state');
+
+      var menu = this.elements.menu;
+      if (menu && menu.length > 0) {
+        menu.removeClass('recording-state').addClass('playback-state');
       }
-      
-      // Fallback: if we have a question field, use it
-      if (parsed.question) {
-        return {
-          hasMoreQuestions: true,
-          question: parsed.question.trim(),
-          reasoning: parsed.reasoning || null,
-          shouldContinue: true
-        };
+
+      this.hideElement('recordButton');
+      this.showElement('nativePlayButton');
+    },
+
+    // Button state management
+    updateButtonState: function(state) {
+      var button = this.elements.recordButton;
+      if (!button || button.length === 0) return;
+
+      if (state === 'record') {
+        this.updateButtonToRecord();
+      } else if (state === 'stop') {
+        this.updateButtonToStop();
       }
-      
-    } catch (jsonError) {
-      console.warn('⚠️ Failed to parse AI response as JSON:', jsonError);
-      
-      // Fallback: treat as plain text question
-      const cleanText = responseText.trim();
-      if (cleanText.length > 0 && !this.isCompletionResponse(cleanText)) {
-        return {
-          hasMoreQuestions: true,
-          question: cleanText,
-          reasoning: "Parsed as plain text",
-          shouldContinue: true
-        };
-      }
-    }
-    
-    // Default: no more questions
-    return {
-      hasMoreQuestions: false,
-      question: null,
-      reasoning: "Could not parse response",
-      shouldContinue: false
-    };
-  }
+    },
 
-  isCompletionResponse(text) {
-    const lowerText = text.toLowerCase();
-    const completionKeywords = [
-      'no more questions',
-      'interview complete',
-      'sufficient information',
-      'thoroughly answered',
-      'done',
-      'finished',
-      'complete'
-    ];
-    
-    return completionKeywords.some(keyword => lowerText.includes(keyword));
-  }
+    updateButtonToRecord: function() {
+      var button = this.elements.recordButton;
+      if (!button || button.length === 0) return;
 
-  buildSystemPrompt(questionConfig, currentProbeCount) {
-    const systemPromptBase = window.probingSystemPrompts[questionConfig.probingAmount] || '';
-    const maxQuestions = window.maxProbesByLevel[questionConfig.probingAmount] || 0;
-    const remainingQuestions = maxQuestions - currentProbeCount;
-    
-    return systemPromptBase + '\n\n' +
-      'Original Question: "' + questionConfig.questionText + '"\n' +
-      'Probing Instructions: "' + questionConfig.probingInstructions + '"\n' +
-      'Questions asked so far: ' + currentProbeCount + '\n' +
-      'Maximum questions allowed: ' + maxQuestions + '\n' +
-      'Remaining questions: ' + remainingQuestions + '\n\n' +
-      'RESPONSE FORMAT: You must respond with valid JSON only. Use one of these formats:\n\n' +
-      '1. To ask a follow-up question:\n' +
-      '{\n' +
-      '  "hasMoreQuestions": true,\n' +
-      '  "question": "Your specific follow-up question here",\n' +
-      '  "reasoning": "Brief explanation of why this question is needed"\n' +
-      '}\n\n' +
-      '2. To end the interview:\n' +
-      '{\n' +
-      '  "isDone": true,\n' +
-      '  "reasoning": "Explanation of why the interview is complete"\n' +
-      '}\n\n' +
-      'DECISION CRITERIA:\n' +
-      '- If the user has thoroughly answered the original question AND satisfied the probing instructions → End interview\n' +
-      '- If you\'ve reached the maximum number of questions (' + maxQuestions + ') → End interview\n' +
-      '- If more information is needed AND questions remain → Ask follow-up\n' +
-      '- Be conversational and reference specific things the user said\n' +
-      '- Focus on the probing instructions: "' + questionConfig.probingInstructions + '"\n\n' +
-      'Remember: Respond with JSON only, no additional text.';
-  }
-
-  // Utility method to validate API key
-  isConfigured() {
-    return this.apiKey && this.apiKey !== 'sk-...' && this.apiKey.startsWith('sk-');
-  }
-
-  // Method to test API connectivity
-  async testConnection() {
-    if (!this.isConfigured()) {
-      throw new Error('OpenAI API key not configured');
-    }
-    
-    try {
-      const response = await fetch('https://api.openai.com/v1/models', {
-        headers: {
-          'Authorization': 'Bearer ' + this.apiKey
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('API test failed: ' + response.status);
-      }
-      
-      console.log('✅ OpenAI API connection successful');
-      return true;
-    } catch (error) {
-      console.error('❌ OpenAI API connection failed:', error);
-      throw error;
-    }
-  }
-}
-
-// Fake Stop Button Management
-function initializeFakeStopButton() {
-  console.log('🔴 Initializing fake stop button system');
-  
-  // Store reference to original Pipe stop handler
-  if (window.recorderObjectGlobal && window.recorderObjectGlobal.btStopRecordingPressed) {
-    window.originalStopHandler = window.recorderObjectGlobal.btStopRecordingPressed;
-  }
-  
-  // Create fake stop button
-  const fakeStopBtn = jQuery(
-    '<button class="fake-stop-button" id="fake-stop-' + questionName + '" style="display: none;">' +
-      '<svg viewBox="0 0 24 24">' +
-        '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>' +
-      '</svg>' +
-    '</button>'
-  );
-  
-  // Add to pipe menu
-  jQuery('#pipeMenu-' + questionName).append(fakeStopBtn);
-  
-  // Handle fake stop click
-  fakeStopBtn.on('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (window.conversationManager && window.conversationManager.conversationActive) {
-      console.log('🛑 Fake stop clicked - pausing for AI');
-      pauseForAIProcessing();
-    }
-  });
-  
-  // Override ALL button clicks during conversation - handle both record and stop
-  jQuery(document).on('click.conversation', '[id^="pipeRec-"]', function(e) {
-    console.log('🔍 Button clicked during conversation - analyzing state');
-    console.log('  - conversationManager exists:', !!window.conversationManager);
-    console.log('  - conversationActive:', window.conversationManager?.conversationActive);
-    console.log('  - isRecording:', window.isRecording);
-    console.log('  - recorderState:', window.recorderObjectGlobal?.getState?.());
-    
-    // Only intercept if conversation is active
-    if (window.conversationManager && window.conversationManager.conversationActive) {
-      
-      // If currently recording, this is a STOP click
-      if (window.isRecording && 
-          window.recorderObjectGlobal &&
-          window.recorderObjectGlobal.getState && 
-          window.recorderObjectGlobal.getState() === 'recording') {
-        console.log('🛑 Intercepting STOP click - doing fake stop');
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        pauseForAIProcessing();
-        return false;
-      }
-      
-      // If not recording, this is a RECORD click for next segment
-      else if (!window.isRecording) {
-        console.log('▶️ Intercepting RECORD click - starting new segment');
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        // Start new segment directly
-        startRecordingUIForSegment();
-        return false;
-      }
-    }
-    
-    console.log('✅ Allowing normal button behavior (not in conversation)');
-  });
-}
-
-// Function to show/hide fake stop button
-function toggleFakeStopButton(show) {
-  const fakeBtn = jQuery('#fake-stop-' + questionName);
-  const nativeBtn = jQuery('#pipeRec-' + questionName);
-  
-  if (show) {
-    // Hide native, show fake
-    nativeBtn.css({
-      'opacity': '0',
-      'pointer-events': 'none'
-    });
-    fakeBtn.show();
-  } else {
-    // Show native, hide fake
-    nativeBtn.css({
-      'opacity': '1',
-      'pointer-events': 'auto'
-    });
-    fakeBtn.hide();
-  }
-}
-
-// Pause recording for AI processing
-async function pauseForAIProcessing() {
-  console.log('⏸️ Pausing for AI processing');
-  
-  // Check if we have a meaningful recording (at least 1 second)
-  const currentDuration = window.conversationManager.segments.length === 0 ? 
-    (performance.now() - window.conversationManager.conversationStartTime) / 1000 :
-    (performance.now() - window.conversationManager.conversationStartTime) / 1000 - window.conversationManager.currentSegmentStartTime;
-    
-  if (currentDuration < 1) {
-    console.warn('⚠️ Recording too short, ignoring pause request');
-    return;
-  }
-  
-  // Mark segment end
-  const segment = window.conversationManager.markSegmentEnd();
-  
-  // Close transcription WebSocket
-  if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-    window.ws.close();
-  }
-  
-  // Stop MediaRecorder
-  if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
-    window.mediaRecorder.stop();
-  }
-  
-  // Clear recording interval
-  if (window.intervalID) {
-    clearInterval(window.intervalID);
-  }
-  
-  // Reset recording state
-  window.isRecording = false;
-  
-  // Hide fake stop button and reset its state
-  toggleFakeStopButton(false);
-  window.fakeStopButtonActive = false;
-  
-  // Update UI state
-  showAIProcessingUI();
-  
-  // Mark AI processing start
-  window.conversationManager.markAIProcessingStart();
-  
-  // Check if we should continue
-  if (!window.conversationManager.shouldContinueProbing()) {
-    console.log('📊 Max probes reached, ending conversation');
-    await window.conversationManager.endConversation();
-    return;
-  }
-  
-  try {
-    // Get AI response
-    const aiResponse = await safeAICall(window.conversationManager);
-    
-    if (aiResponse.error) {
-      console.error('❌ AI error, ending conversation:', aiResponse.error);
-      await window.conversationManager.endConversation();
-      return;
-    }
-    
-    if (!aiResponse.hasMoreQuestions) {
-      console.log('✅ AI satisfied with responses, ending conversation');
-      await window.conversationManager.endConversation();
-      return;
-    }
-    
-    // Mark AI processing end and show next question
-    window.conversationManager.markAIProcessingEnd(aiResponse.question);
-    
-    // Prepare for next segment
-    prepareForNextSegment();
-    
-    // Show the next question
-    showNextQuestion(aiResponse.question);
-    
-  } catch (error) {
-    console.error('❌ Error in AI processing:', error);
-    await window.conversationManager.endConversation();
-  }
-}
-
-// UI Helper Functions for Conversational AI
-function showAIProcessingUI() {
-  console.log('🤔 Showing AI processing UI');
-  
-  // Add AI processing overlay
-  const overlay = jQuery(
-    '<div class="ai-processing-overlay">' +
-      '<div class="ai-thinking-content">' +
-        '<div class="ai-thinking-spinner"></div>' +
-        '<h3>AI is thinking...</h3>' +
-        '<p>Analyzing your response and preparing a follow-up question</p>' +
-      '</div>' +
-    '</div>'
-  );
-  
-  jQuery('#pipeMenu-' + questionName).append(overlay);
-  
-  // Update state
-  jQuery('#pipeMenu-' + questionName).addClass('ai-processing-state');
-  
-  // Update question description
-  jQuery('#dynamic-question-description').text('Please wait while AI processes your response...');
-}
-
-function hideAIProcessingUI() {
-  console.log('✨ Hiding AI processing UI');
-  
-  // Remove overlay
-  jQuery('.ai-processing-overlay').fadeOut(300, function() {
-    jQuery(this).remove();
-  });
-  
-  // Update state
-  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state');
-}
-
-function showNextQuestion(question) {
-  console.log('❓ Showing next question:', question);
-  
-  // Hide AI processing UI
-  hideAIProcessingUI();
-  
-  // Update question display with fade effect
-  jQuery('#dynamic-question-title').fadeOut(200, function() {
-    jQuery(this).text(question).fadeIn(200);
-  });
-  
-  jQuery('#dynamic-question-description').text('Click record when ready to respond.');
-  
-  // CRITICAL: Reset AddPipe button state to record mode and ensure visibility
-  if (window.recorderObjectGlobal) {
-    try {
-      // Reset UI to record state with proper visibility
-      const recordButton = jQuery('#pipeRec-' + questionName);
-      
       // Remove all state classes
-      recordButton.removeClass('pipeRecStop pipeRecRec');
-      
-      // Set record button appearance using AddPipe's expected SVG
-      recordButton.html(
-        '<svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+      button.removeClass('pipeRecStop pipeRecRec');
+
+      // Set record button appearance
+      var svgHtml = '<svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
         '<circle cx="50" cy="50" r="30" fill="red"></circle>' +
         '<circle cx="50" cy="50" r="40" stroke="black" stroke-width="8" fill="none"></circle>' +
-        '</svg>'
-      );
-      
-      // Force visibility and enable
-      recordButton.css({
+        '</svg>';
+
+      button.html(svgHtml);
+      button.attr('title', 'record');
+      button.removeClass('pipeBtn').addClass('pipeBtn');
+
+      // Force visibility
+      button.css({
         'display': 'block',
         'visibility': 'visible',
         'opacity': '1',
         'pointer-events': 'auto'
       }).prop('disabled', false).show();
-      
-      // CRITICAL: Reset AddPipe's internal state and button attributes
-      recordButton.attr('title', 'record'); // Change from 'stop' to 'record'
-      recordButton.removeClass('pipeBtn').addClass('pipeBtn'); // Ensure proper class
-      
-      // Reset menu state
-      jQuery('#pipeMenu-' + questionName).removeClass('recording-state ai-processing-state').addClass('ready-state');
-      
-      // Ensure the button is in the DOM and visible
-      setTimeout(() => {
-        recordButton.show().css('display', 'block');
-        console.log('🔍 Button visibility check:', recordButton.is(':visible'), recordButton.css('display'));
-      }, 100);
-      
-      // CRITICAL FIX: Keep click interceptor active throughout conversation
-      // The interceptor will handle both record and stop clicks appropriately
-      console.log('🔒 Click interceptor remains active - will handle all button clicks');
-      
-      console.log('✅ Reset AddPipe button to record mode with forced visibility');
-    } catch (e) {
-      console.error('❌ Error resetting button state:', e);
-    }
-  }
-}
 
-function updateTimerDisplay() {
-  if (!window.conversationManager || !window.conversationManager.conversationStartTime) return;
-  
-  // Don't update if AI is processing
-  if (window.conversationManager.isProcessingAI) {
-    // Keep showing the paused time
-    if (window.conversationManager.timerPausedAt) {
-      jQuery('.pipeTimer-custom').text(window.conversationManager.timerPausedAt);
-    }
-    return;
-  }
-  
-  const elapsed = (performance.now() - window.conversationManager.conversationStartTime) / 1000;
-  const minutes = Math.floor(elapsed / 60);
-  const seconds = Math.floor(elapsed % 60);
-  
-  const timeString = (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
-  jQuery('.pipeTimer-custom').text(timeString);
-}
+      Utils.Logger.debug('ElementController', 'Button updated to record state');
+    },
 
-// Modified startRecordingClicked to work with conversation
-function startRecordingClicked() {
-  console.log('🎙️ Recording started');
-  
-  // Only do retake cleanup if not in conversation or if we have segments (not first recording)
-  if (!window.isConversationActive || (window.conversationManager && window.conversationManager.segments.length > 0)) {
-    retake();
-  }
-  
-  // Add timer if not exists
-  if (jQuery('.pipeTimer-custom').length === 0) {
-    jQuery('#pipeMenu-' + questionName).append('<div class="pipeTimer-custom">00:00</div>');
-  }
-  
-  jQuery('.pipeTimer-custom').show();
-  jQuery('#time-span').remove();
-  
-  // Use conversation-aware timer
-  if (window.conversationManager && window.isConversationActive) {
-    window.intervalID = setInterval(updateTimerDisplay, 1000);
-  } else {
-    // Fallback to original timer
-    window.intervalID = setInterval(function() {
-      getTime(recorderObjectGlobal);
-    }, 100);
-  }
-}
+    updateButtonToStop: function() {
+      var button = this.elements.recordButton;
+      if (!button || button.length === 0) return;
 
-// Start recording UI for conversation segments (without triggering AddPipe record)
-function startRecordingUIForSegment() {
-  console.log('🎬 Starting UI for new segment');
-  
-  // Update UI to recording state
-  jQuery('#pipeMenu-' + questionName).removeClass('ready-state').addClass('recording-state');
-  
-  // Change button appearance to stop using AddPipe's expected SVG
-  jQuery('#pipeRec-' + questionName).removeClass('pipeRecRec').addClass('pipeRecStop');
-  jQuery('#pipeRec-' + questionName + ' svg').remove();
-  jQuery('#pipeRec-' + questionName).html(
-    '<svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
-    '<rect x="25" y="25" width="50" height="50" fill="red"></rect>' +
-    '</svg>'
-  );
-  
-  // Update button title to stop
-  jQuery('#pipeRec-' + questionName).attr('title', 'stop');
-  
-  // Show timer
-  jQuery('.pipeTimer-custom').show();
-  
-  // Resume timer
-  window.intervalID = setInterval(updateTimerDisplay, 1000);
-  
-  // Mark as recording
-  window.isRecording = true;
-  
-  // Re-enable fake stop button
-  if (!window.fakeStopButtonActive) {
-    toggleFakeStopButton(true);
-    window.fakeStopButtonActive = true;
-  }
-  
-  // Note: Click interceptor is already active from initializeFakeStopButton()
-  // No need to add duplicate handlers
-  console.log('🔒 Click interceptor already active - ready for stop clicks');
-  
-  // Start new transcription session
-  startTranscriptionForSegment();
-}
+      // Change button appearance to stop
+      button.removeClass('pipeRecRec').addClass('pipeRecStop');
+      button.find('svg').remove();
 
-// Clean up conversation state
-function cleanupConversation() {
-  console.log('🧹 Cleaning up conversation state');
-  
-  // Reset global flags
-  window.isConversationActive = false;
-  window.shouldActuallyStop = false;
-  window.fakeStopButtonActive = false;
-  
-  // Remove fake stop button
-  jQuery('#fake-stop-' + questionName).remove();
-  
-  // Remove ALL conversation event listeners
-  jQuery(document).off('click.conversation');
-  jQuery('#fake-stop-' + questionName).off('click');
-  
-  // Reset UI
-  jQuery('#pipeMenu-' + questionName).removeClass('ai-processing-state conversation-active recording-state');
-  toggleFakeStopButton(false);
-  
-  // Clear timers
-  if (window.intervalID) {
-    clearInterval(window.intervalID);
-    window.intervalID = null;
-  }
-  
-  // Close any open WebSocket
-  if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-    window.ws.close();
-  }
-  
-  // Stop any active MediaRecorder
-  if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
-    window.mediaRecorder.stop();
-  }
-  
-  // Reset references
-  window.ws = null;
-  window.mediaRecorder = null;
-  
-  // Clear conversation manager references
-  window.conversationManager = null;
-  window.aiService = null;
-  
-  console.log('✅ Conversation cleanup complete');
-}
+      var stopSvgHtml = '<svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+        '<rect x="25" y="25" width="50" height="50" fill="red"></rect>' +
+        '</svg>';
 
-// Error handling for conversation
-function handleConversationError(error, context) {
-  console.error('❌ Conversation error in ' + context + ':', error);
-  
-  // Log to conversation metadata
-  if (window.conversationManager) {
-    window.conversationManager.metadata.errors.push({
-      context: context,
-      error: error.message || error,
-      timestamp: new Date().toISOString()
-    });
-  }
-  
-  // Show user-friendly error
-  const errorMessages = {
-    'ai_processing': 'AI service is temporarily unavailable. Completing your recording...',
-    'websocket': 'Transcription service interrupted. Your video is still being recorded.',
-    'recording': 'Recording error occurred. Please try again.',
-    'validation': 'Unable to validate recording. Please try again.'
-  };
-  
-  const message = errorMessages[context] || 'An error occurred. Completing your recording...';
-  
-  // Update UI
-  jQuery('#dynamic-question-description').text(message);
-  
-  // Force end conversation if critical error
-  if (context === 'ai_processing' || context === 'recording') {
-    setTimeout(async () => {
-      if (window.conversationManager && window.conversationManager.conversationActive) {
-        await window.conversationManager.endConversation();
+      button.html(stopSvgHtml);
+      button.attr('title', 'stop');
+
+      Utils.Logger.debug('ElementController', 'Button updated to stop state');
+    },
+
+    // Timer management
+    startTimer: function() {
+      var menu = this.elements.menu;
+      if (!menu || menu.length === 0) return;
+
+      // Add timer if not exists
+      if (Utils.DOM.select('.pipeTimer-custom').length === 0) {
+        var timerDiv = Utils.DOM.create('div', {
+          'class': 'pipeTimer-custom'
+        }, '00:00');
+        menu.append(timerDiv);
       }
-    }, 2000);
-  }
-}
 
-// Wrap AI calls with error handling
-async function safeAICall(conversationManager) {
-  try {
-    return await window.aiService.getFollowUpQuestion(conversationManager);
-  } catch (error) {
-    handleConversationError(error, 'ai_processing');
-    return { hasMoreQuestions: false, error: error.message };
-  }
-}
+      this.showElement('timer');
+      Utils.Logger.debug('ElementController', 'Timer started');
+    },
 
-// Prepare recorder for next segment without stopping the video
-function prepareForNextSegment() {
-  console.log('🔄 Preparing for next recording segment');
-  
-  // Reset recording flags
-  window.isRecording = false;
-  
-  // Clear any existing intervals
-  if (window.intervalID) {
-    clearInterval(window.intervalID);
-    window.intervalID = null;
-  }
-  
-  // Reset WebSocket and MediaRecorder references
-  window.ws = null;
-  window.mediaRecorder = null;
-  
-  // Ensure timer display shows paused time
-  if (window.conversationManager && window.conversationManager.timerPausedAt) {
-    jQuery('.pipeTimer-custom').text(window.conversationManager.timerPausedAt);
-  }
-  
-  console.log('✅ Ready for next segment');
-}
+    updateTimer: function(timeString) {
+      var timer = Utils.DOM.select('.pipeTimer-custom');
+      if (timer && timer.length > 0) {
+        timer.text(timeString);
+      }
+    },
 
-// Start transcription for a new conversation segment
-function startTranscriptionForSegment() {
-  console.log('🎤 Starting transcription for new segment');
-  
-  // Get the video element and stream
-  const videoEl = document.getElementById('pipeVideoInput-' + questionName);
-  getMobileOperatingSystem();
-  
-  if (videoEl.srcObject !== undefined) {
-    stream = videoEl.srcObject;
-  } else if (videoEl.mozSrcObject !== undefined) {
-    stream = videoEl.mozSrcObject;
-  } else if (videoEl.src !== undefined) {
-    stream = videoEl.src;
-  } else {
-    console.log('❌ Could not get stream from video element');
-    return;
-  }
-  
-  // Stop any existing MediaRecorder first
-  if (window.mediaRecorder && window.mediaRecorder.state !== 'inactive') {
-    console.log('🛑 Stopping existing MediaRecorder before creating new one');
-    window.mediaRecorder.stop();
-  }
-  
-  // Create MediaRecorder for audio transcription
-  const audioStream = new MediaStream(stream.getAudioTracks());
-  window.mediaRecorder = new MediaRecorder(audioStream, {
-    mimeType: 'audio/webm;codecs=opus',
-  });
-  
-  // Create DeepGram WebSocket connection
-  if (deepGramConfiguration.token && deepGramConfiguration.token !== 'YOUR_DEEPGRAM_API_KEY_HERE') {
-    console.log('🔗 Reconnecting to DeepGram for segment...');
-    
-    try {
-      window.ws = new WebSocket(
-        'wss://api.deepgram.com/v1/listen?model=nova-3&language=en-US&smart_format=true&interim_results=true', 
-        ['token', deepGramConfiguration.token]
-      );
-      console.log('✅ DeepGram WebSocket created for segment');
-    } catch (error) {
-      console.error('❌ Failed to create DeepGram WebSocket:', error);
-      window.ws = null;
-    }
-  }
-  
-  if (window.ws) {
-    window.ws.onopen = () => {
-      console.log('🎤 DeepGram WebSocket connected for segment');
-      
-      // Send keepalive message to prevent timeout
-      const keepAliveInterval = setInterval(() => {
-        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-          window.ws.send(JSON.stringify({ type: 'KeepAlive' }));
-          console.log('💓 Sent KeepAlive to DeepGram');
-        } else {
-          clearInterval(keepAliveInterval);
-        }
-      }, 8000); // Send every 8 seconds
-      
-      // Store interval reference for cleanup
-      window.ws.keepAliveInterval = keepAliveInterval;
-      
-      // Check MediaRecorder state before starting
-      if (window.mediaRecorder.state === 'inactive') {
-        const timeslice = 1000;
-        
-        window.mediaRecorder.addEventListener('dataavailable', (event) => {
-          if (event.data.size > 0 && window.ws && window.ws.readyState === WebSocket.OPEN) {
-            console.log('📤 Sending audio chunk to DeepGram:', event.data.size, 'bytes');
-            window.ws.send(event.data);
-          }
+    stopTimer: function() {
+      this.hideElement('timer');
+      Utils.Logger.debug('ElementController', 'Timer stopped');
+    },
+
+    // Question display management
+    showQuestion: function(question) {
+      var titleElement = Utils.DOM.select('#dynamic-question-title');
+      var descElement = Utils.DOM.select('#dynamic-question-description');
+
+      if (titleElement && titleElement.length > 0) {
+        titleElement.fadeOut(200, function() {
+          titleElement.text(question).fadeIn(200);
         });
-        
-        window.mediaRecorder.addEventListener('stop', () => {
-          console.log('🎙️ MediaRecorder stopped for segment');
-        });
-        
-        window.mediaRecorder.addEventListener('error', (event) => {
-          console.log('❌ MediaRecorder error:', event.error);
-        });
-        
-        window.mediaRecorder.start(timeslice);
-        console.log('✅ MediaRecorder started for segment');
+      }
+
+      if (descElement && descElement.length > 0) {
+        descElement.text('Click record when ready to respond.');
+      }
+
+      Utils.Logger.debug('ElementController', 'Question updated: ' + question);
+    },
+
+    // Processing state management
+    showProcessingState: function() {
+      var menu = this.elements.menu;
+      if (!menu || menu.length === 0) return;
+
+      var overlay = Utils.DOM.create('div', {
+        'class': 'ai-processing-overlay'
+      });
+
+      var content = Utils.DOM.create('div', {
+        'class': 'ai-thinking-content'
+      });
+
+      var spinner = Utils.DOM.create('div', {
+        'class': 'ai-thinking-spinner'
+      });
+
+      var title = Utils.DOM.create('h3', {}, 'AI is thinking...');
+      var subtitle = Utils.DOM.create('p', {}, 'Analyzing your response and preparing a follow-up question');
+
+      content.append(spinner);
+      content.append(title);
+      content.append(subtitle);
+      overlay.append(content);
+      menu.append(overlay);
+
+      menu.addClass('ai-processing-state');
+
+      var descElement = Utils.DOM.select('#dynamic-question-description');
+      if (descElement && descElement.length > 0) {
+        descElement.text('Please wait while AI processes your response...');
+      }
+
+      Utils.Logger.info('ElementController', 'Processing state shown');
+    },
+
+    hideProcessingState: function() {
+      Utils.DOM.select('.ai-processing-overlay').fadeOut(300, function() {
+        Utils.DOM.select(this).remove();
+      });
+
+      var menu = this.elements.menu;
+      if (menu && menu.length > 0) {
+        menu.removeClass('ai-processing-state');
+      }
+
+      Utils.Logger.info('ElementController', 'Processing state hidden');
+    },
+
+    // Modal management
+    showPermissionsModal: function() {
+      Utils.DOM.select('#permission').modal({
+        escapeClose: false,
+        clickClose: false,
+        showClose: false
+      });
+    },
+
+    showInstructionsModal: function() {
+      Utils.DOM.select('#recordInstruction').modal();
+    },
+
+    showSuccessModal: function(metadata) {
+      var title = Utils.DOM.select('#record-title');
+      var image = Utils.DOM.select('#image-sucess');
+      var result = Utils.DOM.select('#result');
+
+      title.empty();
+      image.empty();
+      result.empty();
+
+      if (metadata && metadata.segments && metadata.segments.length > 0) {
+        // Conversation success
+        title.append('Interview Completed Successfully!');
+
+        var totalQuestions = metadata.segments.length;
+        var duration = metadata.totalDuration;
+        var minutes = Math.floor(duration / 60);
+        var seconds = Math.round(duration % 60);
+
+        var successMessage = 'Great job! You answered ' + totalQuestions + ' question' +
+          (totalQuestions > 1 ? 's' : '') + ' in ' + minutes + ':' +
+          (seconds < 10 ? '0' : '') + seconds + '. Thank you for your thoughtful responses!';
+
+        result.addClass('success-feedback').append(successMessage);
       } else {
-        console.warn('⚠️ MediaRecorder not in inactive state:', window.mediaRecorder.state);
+        // Regular recording success
+        title.append('Perfect! Video Recorded Successfully');
+        var regularMessage = 'Your video response has been recorded successfully! You can now continue to the next question.';
+        result.addClass('success-feedback').append(regularMessage);
       }
-    };
-    
-    window.ws.onmessage = (msg) => {
-      try {
-        const data = JSON.parse(msg.data);
-        
-        if (data.type === 'Results') {
-          const transcript = data.channel.alternatives[0].transcript;
-          if (transcript) {
-            if (data.is_final) {
-              console.log('✅ Final transcript:', transcript);
-              global_transcript += transcript + ' ';
-            } else {
-              console.log('⏳ Interim transcript:', transcript);
-            }
-          }
-        } else if (data.type === 'Metadata') {
-          console.log('📊 DeepGram Metadata:', data);
+
+      // Add success icon
+      var successIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--success));"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>';
+      image.append(successIcon);
+
+      // Show modal buttons
+      Utils.DOM.select('#modal-buttons').show();
+
+      Utils.DOM.select('#error').modal({
+        escapeClose: true,
+        clickClose: true,
+        showClose: true,
+        onClose: function() {
+          Utils.DOM.select('#modal-buttons').hide();
+          ElementController.setReadyToRecordWithVideoState();
         }
-      } catch (error) {
-        console.error('❌ Error parsing DeepGram response:', error, msg.data);
+      });
+
+      Utils.Logger.info('ElementController', 'Success modal shown');
+    },
+
+    showErrorModal: function(errorMessage) {
+      var title = Utils.DOM.select('#record-title');
+      var image = Utils.DOM.select('#image-sucess');
+      var result = Utils.DOM.select('#result');
+
+      title.empty();
+      image.empty();
+      result.empty();
+
+      title.append('Recording needs improvement');
+
+      var errorIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--destructive));"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      image.append(errorIcon);
+
+      result.addClass('error-feedback');
+      result.append('<li style="font-size:15px;padding-left:5px;">Your video didn\'t meet our requirements</li>');
+      result.append('<li style="font-size:15px;padding-left:5px;">' + errorMessage + '</li>');
+
+      var retryButton = '<button class="btn btn-destructive" onClick="modalRetake()" style="margin-top: 1rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Try Again</button>';
+      result.append(retryButton);
+
+      Utils.DOM.select('#error').modal({
+        escapeClose: false,
+        clickClose: false,
+        showClose: false
+      });
+
+      Utils.Logger.info('ElementController', 'Error modal shown');
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('ElementController', 'State change: ' + oldState + ' -> ' + newState);
+
+      switch (newState) {
+        case StateManager.getStates().READY:
+          this.setReadyToRecordState();
+          break;
+        case StateManager.getStates().RECORDING:
+          this.setRecordingState();
+          this.startTimer();
+          break;
+        case StateManager.getStates().PROCESSING:
+          this.showProcessingState();
+          break;
+        case StateManager.getStates().CONVERSATION_ACTIVE:
+          // Handled by conversation manager
+          break;
+        case StateManager.getStates().COMPLETE:
+          // Success modal handled by recording service
+          break;
+        case StateManager.getStates().ERROR:
+          if (data && data.error) {
+            this.showErrorModal(data.error);
+          }
+          break;
       }
-    };
-    
-    window.ws.onerror = (error) => {
-      console.error('❌ DeepGram WebSocket error:', error);
-    };
-    
-    window.ws.onclose = (event) => {
-      console.log('🔌 DeepGram WebSocket closed for segment:', event.code, event.reason);
-      
-      // Clean up keepalive interval
-      if (window.ws && window.ws.keepAliveInterval) {
-        clearInterval(window.ws.keepAliveInterval);
-        console.log('🧹 Cleaned up KeepAlive interval');
+    },
+
+    // Cleanup
+    cleanup: function() {
+      Utils.Logger.info('ElementController', 'Cleaning up element controller');
+
+      // Remove any dynamic elements
+      this.removeElement('customPlayButton');
+      this.removeElement('backButton');
+      Utils.DOM.select('.ai-processing-overlay').remove();
+
+      Utils.Logger.info('ElementController', 'Element controller cleanup complete');
+    }
+  };
+
+  // Export ElementController
+  return ElementController;
+
+})();
+
+
+// === timer-manager.js (171 lines) ===
+// Timer Manager - Timer display and management
+// No template literals used - only string concatenation
+
+var TimerManager = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  var intervalId = null;
+  var startTime = 0;
+  var pausedTime = 0;
+  var isPaused = false;
+
+  // Timer Manager API
+  var TimerManager = {
+
+    // Initialize timer
+    initialize: function() {
+      Utils.Logger.info('TimerManager', 'Timer manager initialized');
+    },
+
+    // Start the timer
+    start: function() {
+      if (intervalId) {
+        this.stop();
       }
-    };
-  } else {
-    // Start MediaRecorder without DeepGram (only if inactive)
-    if (window.mediaRecorder.state === 'inactive') {
-      const timeslice = 1000;
-      window.mediaRecorder.start(timeslice);
-      
-      window.mediaRecorder.onstop = () => {
-        console.log('🛑 MediaRecorder stopped (no transcription)');
+
+      startTime = performance.now();
+      isPaused = false;
+      pausedTime = 0;
+
+      intervalId = setInterval(function() {
+        TimerManager.update();
+      }, 1000);
+
+      Utils.Logger.info('TimerManager', 'Timer started');
+    },
+
+    // Stop the timer
+    stop: function() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+
+      isPaused = false;
+      pausedTime = 0;
+
+      Utils.Logger.info('TimerManager', 'Timer stopped');
+    },
+
+    // Pause the timer
+    pause: function() {
+      if (intervalId && !isPaused) {
+        pausedTime = this.getCurrentTime();
+        isPaused = true;
+        Utils.Logger.info('TimerManager', 'Timer paused at: ' + pausedTime);
+      }
+    },
+
+    // Resume the timer
+    resume: function() {
+      if (isPaused) {
+        startTime = performance.now() - (pausedTime * 1000);
+        isPaused = false;
+        pausedTime = 0;
+        Utils.Logger.info('TimerManager', 'Timer resumed');
+      }
+    },
+
+    // Get current time in seconds
+    getCurrentTime: function() {
+      if (isPaused) {
+        return pausedTime;
+      }
+
+      if (!startTime) {
+        return 0;
+      }
+
+      return (performance.now() - startTime) / 1000;
+    },
+
+    // Update timer display
+    update: function() {
+      var currentTime = this.getCurrentTime();
+      var timeString = Utils.Helpers.formatTime(currentTime);
+
+      // Update element controller
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.updateTimer(timeString);
+      }
+
+      // Update global registry
+      GlobalRegistry.setState('currentTime', currentTime);
+
+      Utils.Logger.debug('TimerManager', 'Timer updated: ' + timeString);
+    },
+
+    // Reset timer
+    reset: function() {
+      this.stop();
+      startTime = 0;
+      pausedTime = 0;
+      isPaused = false;
+
+      // Clear display
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.updateTimer('00:00');
+      }
+
+      Utils.Logger.info('TimerManager', 'Timer reset');
+    },
+
+    // Get timer state for debugging
+    getState: function() {
+      return {
+        isRunning: !!intervalId,
+        isPaused: isPaused,
+        currentTime: this.getCurrentTime(),
+        startTime: startTime,
+        pausedTime: pausedTime
       };
-    }
-  }
-}
+    },
 
-var elementController;
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('TimerManager', 'State change: ' + oldState + ' -> ' + newState);
 
-/**
- * Skips question validation based on validationDetails.
- */
-function skipQuestionValidation() {
-  console.log('Validate Video::', validationDetails);
-  if (validationDetails.hasOwnProperty('required') && validationDetails.required) {
-    jQuery('#NextButton-custom').hide();
-  } else {
-    jQuery('#NextButton-custom').show();
-  }
-}
+      switch (newState) {
+        case StateManager.getStates().RECORDING:
+          this.start();
+          break;
 
-/**
- * Loads Pipe recorder and sets up event handlers.
- * @param {string} question_name
- * @param {object} pipeParams
- * @param {object} deepGramConfiguration
- */
-const loadPipe = async function (question_name, pipeParams, deepGramConfiguration) {
-  skipQuestionValidation();
-  console.log('questionName::', questionName);
-  
-  // Initialize element controller for clean UI management
-  elementController = new ElementController(question_name);
-  
-  // Initialize conversation components if probing is enabled
-  if (typeof questionConfig !== 'undefined') {
-    console.log('🎯 Initializing conversational AI components');
-    
-    // Always show question container and display the question
-    jQuery('.conversation-question-container').show();
-    jQuery('#dynamic-question-title').text(questionConfig.questionText);
-    jQuery('#dynamic-question-description').text('Click record when you\'re ready to begin.');
-    
-    if (questionConfig.probingAmount === "None") {
-      console.log('📝 No AI probing configured - single response only');
-    }
-  } else {
-    console.log('📝 Standard recording mode (no question config)');
-  }
-  
-  jQuery('#pipeDownload-' + questionName).hide();
-    PipeSDK.insert(question_name, pipeParams, function (recorderObject) {
-    // Store global reference
-    window.recorderObjectGlobal = recorderObject;
-    
-    // Initialize conversation manager and AI service after recorder is ready
-    if (typeof questionConfig !== 'undefined' && questionConfig.probingAmount !== "None") {
-      window.conversationManager = new ConversationManager(question_name, recorderObject, questionConfig);
-      window.aiService = new AIService(OPENAI_API_KEY, OPENAI_MODEL);
-      console.log('🤖 Conversation components initialized with recorder object');
-    }
-    /**
-     * Handler for when recorder is ready to record.
-     */
-    recorderObject.onReadyToRecord = async function (recorderId, recorderType) {
-      jQuery('.pipeTimer').hide();
-    };
-    
-    /**
-     * Handler for when recording actually starts
-     */
-    recorderObject.onRecordingStarted = function (recorderId) {
-      console.log('🔴 Recording actually started');
-      
-      // Set recording flag
-      window.isRecording = true;
-      
-      // Now initialize fake stop button for conversation
-      if (window.conversationManager && window.isConversationActive && !window.fakeStopButtonActive) {
-        initializeFakeStopButton();
-        toggleFakeStopButton(true);
-        window.fakeStopButtonActive = true;
-      }
-    };
+        case StateManager.getStates().PROCESSING:
+          this.pause();
+          break;
 
-    /**
-     * Handler for record button pressed.
-     */
-    recorderObject.btRecordPressed = function (recorderId) {
-      try {
-        console.log('▶️ Record button pressed');
-        
-        // Check if this is a conversation segment restart
-        if (window.conversationManager && window.isConversationActive && window.conversationManager.segments.length > 0) {
-          console.log('🔄 Starting new conversation segment');
-          
-          // Resume timer from paused state
-          if (window.conversationManager.timerPausedAt) {
-            console.log('⏱️ Resuming timer from:', window.conversationManager.timerPausedAt);
+        case StateManager.getStates().CONVERSATION_ACTIVE:
+          // Resume timer for new segment if we're in conversation
+          if (StateManager.isConversationActive()) {
+            this.resume();
           }
-          
-          // Don't call the native btRecordPressed - we're already recording
-          // Instead, just set up the UI and transcription
-          startRecordingUIForSegment();
-          
-          // CRITICAL: Return early to prevent AddPipe from starting a new recording
+          break;
+
+        case StateManager.getStates().READY:
+        case StateManager.getStates().COMPLETE:
+          this.stop();
+          break;
+
+        case StateManager.getStates().ERROR:
+          this.stop();
+          break;
+      }
+    },
+
+    // Cleanup
+    cleanup: function() {
+      this.stop();
+      Utils.Logger.info('TimerManager', 'Timer manager cleanup complete');
+    }
+  };
+
+  // Export TimerManager
+  return TimerManager;
+
+})();
+
+
+// === modal-manager.js (231 lines) ===
+// Modal Manager - Modal dialog management and flow control
+// No template literals used - only string concatenation
+
+var ModalManager = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  // Modal Manager API
+  var ModalManager = {
+
+    // Initialize modal manager
+    initialize: function() {
+      Utils.Logger.info('ModalManager', 'Modal manager initialized');
+    },
+
+    // Show permissions modal
+    showPermissions: function() {
+      Utils.Logger.info('ModalManager', 'Showing permissions modal');
+
+      var permissionsModal = Utils.DOM.select('#permission');
+      if (permissionsModal.length === 0) {
+        Utils.Logger.error('ModalManager', 'Permissions modal not found');
+        return;
+      }
+
+      permissionsModal.modal({
+        escapeClose: false,
+        clickClose: false,
+        showClose: false
+      });
+    },
+
+    // Show instructions modal
+    showInstructions: function() {
+      Utils.Logger.info('ModalManager', 'Showing instructions modal');
+
+      var instructionsModal = Utils.DOM.select('#recordInstruction');
+      if (instructionsModal.length === 0) {
+        Utils.Logger.error('ModalManager', 'Instructions modal not found');
+        return;
+      }
+
+      instructionsModal.modal();
+    },
+
+    // Show success modal
+    showSuccess: function(metadata) {
+      Utils.Logger.info('ModalManager', 'Showing success modal');
+
+      var errorModal = Utils.DOM.select('#error');
+      if (errorModal.length === 0) {
+        Utils.Logger.error('ModalManager', 'Error modal not found for success display');
+        return;
+      }
+
+      // Clear modal content
+      Utils.DOM.select('#record-title').empty();
+      Utils.DOM.select('#image-sucess').empty();
+      Utils.DOM.select('#result').empty();
+
+      // Set up success content
+      if (metadata && metadata.segments && metadata.segments.length > 0) {
+        // Conversation success
+        this.setupConversationSuccess(metadata);
+      } else {
+        // Regular recording success
+        this.setupRegularSuccess();
+      }
+
+      // Add success icon
+      var successIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--success));"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>';
+      Utils.DOM.select('#image-sucess').append(successIcon);
+
+      // Show modal buttons
+      Utils.DOM.select('#modal-buttons').show();
+
+      // Show modal with close handler
+      errorModal.modal({
+        escapeClose: true,
+        clickClose: true,
+        showClose: true,
+        onClose: function() {
+          Utils.DOM.select('#modal-buttons').hide();
+          var elementController = GlobalRegistry.get('elementController');
+          if (elementController) {
+            elementController.setReadyToRecordWithVideoState();
+          }
+        }
+      });
+    },
+
+    // Set up conversation success modal
+    setupConversationSuccess: function(metadata) {
+      var title = Utils.DOM.select('#record-title');
+      var result = Utils.DOM.select('#result');
+
+      title.append('Interview Completed Successfully!');
+
+      var totalQuestions = metadata.segments.length;
+      var duration = metadata.totalDuration;
+      var minutes = Math.floor(duration / 60);
+      var seconds = Math.round(duration % 60);
+
+      var successMessage = 'Great job! You answered ' + totalQuestions + ' question' +
+        (totalQuestions > 1 ? 's' : '') + ' in ' + minutes + ':' +
+        (seconds < 10 ? '0' : '') + seconds + '. Thank you for your thoughtful responses!';
+
+      result.addClass('success-feedback').append(successMessage);
+
+      Utils.Logger.info('ModalManager', 'Conversation success modal configured');
+    },
+
+    // Set up regular recording success modal
+    setupRegularSuccess: function() {
+      var title = Utils.DOM.select('#record-title');
+      var result = Utils.DOM.select('#result');
+
+      title.append('Perfect! Video Recorded Successfully');
+      var regularMessage = 'Your video response has been recorded successfully! You can now continue to the next question.';
+      result.addClass('success-feedback').append(regularMessage);
+
+      Utils.Logger.info('ModalManager', 'Regular success modal configured');
+    },
+
+    // Show error modal
+    showError: function(errorMessage) {
+      Utils.Logger.info('ModalManager', 'Showing error modal');
+
+      var errorModal = Utils.DOM.select('#error');
+      if (errorModal.length === 0) {
+        Utils.Logger.error('ModalManager', 'Error modal not found');
+        return;
+      }
+
+      // Clear modal content
+      Utils.DOM.select('#record-title').empty();
+      Utils.DOM.select('#image-sucess').empty();
+      Utils.DOM.select('#result').empty();
+
+      // Set up error content
+      Utils.DOM.select('#record-title').append('Recording needs improvement');
+
+      var errorIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--destructive));"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      Utils.DOM.select('#image-sucess').append(errorIcon);
+
+      var result = Utils.DOM.select('#result');
+      result.addClass('error-feedback');
+      result.append('<li style="font-size:15px;padding-left:5px;">Your video didn\'t meet our requirements</li>');
+      result.append('<li style="font-size:15px;padding-left:5px;">' + errorMessage + '</li>');
+
+      var retryButton = '<button class="btn btn-destructive" onClick="modalRetake()" style="margin-top: 1rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Try Again</button>';
+      result.append(retryButton);
+
+      errorModal.modal({
+        escapeClose: false,
+        clickClose: false,
+        showClose: false
+      });
+
+      Utils.Logger.info('ModalManager', 'Error modal shown');
+    },
+
+    // Close all modals
+    closeAll: function() {
+      Utils.Logger.info('ModalManager', 'Closing all modals');
+
+      // Close any open modals
+      jQuery.modal.close();
+
+      // Hide modal buttons
+      Utils.DOM.select('#modal-buttons').hide();
+    },
+
+    // Handle modal retake action
+    handleRetake: function() {
+      Utils.Logger.info('ModalManager', 'Processing modal retake');
+
+      // Prevent retake during conversation
+      if (StateManager.isConversationActive()) {
+        Utils.Logger.warn('ModalManager', 'Cannot retake during active conversation');
+        return;
+      }
+
+      // Hide modal buttons before closing
+      Utils.DOM.select('#modal-buttons').hide();
+
+      // Close the modal
+      jQuery.modal.close();
+
+      // Use element controller to set proper state
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.setReadyToRecordWithVideoState();
+      }
+    },
+
+    // Handle modal close action
+    handleClose: function() {
+      Utils.Logger.info('ModalManager', 'Processing modal close');
+
+      // Prevent close during conversation
+      if (StateManager.isConversationActive()) {
+        Utils.Logger.warn('ModalManager', 'Cannot close modal during active conversation');
+        return;
+      }
+
+      jQuery.modal.close();
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('ModalManager', 'State change: ' + oldState + ' -> ' + newState);
+
+      // Modal management is primarily driven by explicit calls
+      // rather than state changes, so most logic is handled elsewhere
+    },
+
+    // Cleanup
+    cleanup: function() {
+      this.closeAll();
+      Utils.Logger.info('ModalManager', 'Modal manager cleanup complete');
+    }
+  };
+
+  // Export ModalManager
+  return ModalManager;
+
+})();
+
+
+// === pipe-integration.js (401 lines) ===
+// Pipe Integration - AddPipe SDK wrapper and integration
+// No template literals used - only string concatenation
+
+var PipeIntegration = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  var recorderObject = null;
+  var questionName = null;
+  var pipeParams = null;
+  var isInitialized = false;
+
+  // Pipe Integration API
+  var PipeIntegration = {
+
+    // Initialize Pipe SDK
+    initialize: function(qName, params) {
+      return new Promise(function(resolve, reject) {
+        Utils.Logger.info('PipeIntegration', 'Initializing Pipe SDK for: ' + qName);
+
+        questionName = qName;
+        pipeParams = params;
+
+        // Check if PipeSDK is available
+        if (typeof PipeSDK === 'undefined') {
+          Utils.Logger.error('PipeIntegration', 'PipeSDK not loaded');
+          reject(new Error('PipeSDK not available'));
           return;
-          
-        } else {
-          // First recording - handle conversation initialization
-          if (window.conversationManager && !window.isConversationActive) {
-            console.log('🎬 Starting conversation');
-            window.conversationManager.startConversation();
-            window.isConversationActive = true;
-            
-            // Don't initialize fake stop button here - wait until recording actually starts
-            
-            // If no probing, mark for actual stop
-            if (questionConfig.probingAmount === "None") {
-              window.shouldActuallyStop = true;
-            }
-          }
-          
-          // Standard recording setup
-          startRecordingClicked();
-          jQuery('#NextButton-custom').hide();
-          // Don't set isRecording here - wait for actual recording to start
-          
-          // Don't reset global transcript during conversation
-          if (!window.isConversationActive) {
-            global_transcript = '';
-          }
         }
-        
-        // Existing WebSocket setup code...
-        const videoEl = document.getElementById('pipeVideoInput-' + question_name);
-        getMobileOperatingSystem();
-        if (videoEl.srcObject !== undefined) {
-          stream = videoEl.srcObject;
-        } else if (videoEl.mozSrcObject !== undefined) {
-          stream = videoEl.mozSrcObject;
-        } else if (videoEl.src !== undefined) {
-          stream = videoEl.src;
-        } else {
-          console.log('something went wrong');
-        }
-        
-        // Create MediaRecorder for audio transcription (extract audio from video stream)
-        const audioStream = new MediaStream(stream.getAudioTracks());
-        mediaRecorder = new MediaRecorder(audioStream, {
-          mimeType: 'audio/webm;codecs=opus', // Audio-only format for DeepGram
+
+        // Insert Pipe recorder
+        PipeSDK.insert(qName, params, function(recorder) {
+          recorderObject = recorder;
+          isInitialized = true;
+
+          Utils.Logger.info('PipeIntegration', 'Pipe SDK initialized successfully');
+
+          // Set up event handlers
+          PipeIntegration.setupEventHandlers();
+
+          resolve(recorder);
         });
-        
-        // Create DeepGram WebSocket connection using working method from test
-        if (deepGramConfiguration.token && deepGramConfiguration.token !== 'YOUR_DEEPGRAM_API_KEY_HERE') {
-          console.log('🔗 Connecting to DeepGram with working authentication...');
-          
-          try {
-            // Use protocol-based auth with modern API parameters (same as working test)
-            ws = new WebSocket(
-              'wss://api.deepgram.com/v1/listen?model=nova-3&language=en-US&smart_format=true&interim_results=true', 
-              ['token', deepGramConfiguration.token]
-            );
-            console.log('✅ DeepGram WebSocket created with protocol-based auth');
-          } catch (error) {
-            console.error('❌ Failed to create DeepGram WebSocket:', error);
-            ws = null;
+      });
+    },
+
+    // Set up event handlers for Pipe SDK
+    setupEventHandlers: function() {
+      if (!recorderObject) {
+        Utils.Logger.error('PipeIntegration', 'Cannot setup handlers - recorder not initialized');
+        return;
+      }
+
+      Utils.Logger.info('PipeIntegration', 'Setting up Pipe SDK event handlers');
+
+      // Handler for when recorder is ready to record
+      recorderObject.onReadyToRecord = function(recorderId, recorderType) {
+        Utils.Logger.info('PipeIntegration', 'Recorder ready to record');
+        Utils.DOM.select('.pipeTimer').hide();
+      };
+
+      // Handler for when recording actually starts
+      recorderObject.onRecordingStarted = function(recorderId) {
+        Utils.Logger.info('PipeIntegration', 'Recording actually started');
+        StateManager.setRecording();
+      };
+
+      // Handler for record button pressed
+      recorderObject.btRecordPressed = function(recorderId) {
+        Utils.Logger.info('PipeIntegration', 'Record button pressed');
+
+        // Check if this is a conversation segment restart
+        if (StateManager.isConversationActive()) {
+          var conversationManager = GlobalRegistry.get('conversationManager');
+          if (conversationManager && conversationManager.segments.length > 0) {
+            Utils.Logger.info('PipeIntegration', 'Starting new conversation segment');
+
+            // Don't call the native btRecordPressed - we're already recording
+            // Instead, just set up the UI and transcription
+            var elementController = GlobalRegistry.get('elementController');
+            if (elementController) {
+              elementController.setRecordingState();
+            }
+
+            // Start new transcription session
+            var transcriptionService = GlobalRegistry.get('transcriptionService');
+            if (transcriptionService) {
+              transcriptionService.startNewSegment();
+            }
+
+            // CRITICAL: Return early to prevent AddPipe from starting a new recording
+            return;
           }
-        } else {
-          console.warn('⚠️ DeepGram token not configured - transcription disabled');
-          console.log('💡 Add your DeepGram API key to enable real-time transcription');
         }
-        
-        if (ws) {
-          ws.onopen = () => {
-            console.log('🎤 DeepGram WebSocket connected');
-            
-            // Send keepalive message to prevent timeout
-            const keepAliveInterval = setInterval(() => {
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'KeepAlive' }));
-                console.log('💓 Sent KeepAlive to DeepGram');
-              } else {
-                clearInterval(keepAliveInterval);
-              }
-            }, 8000); // Send every 8 seconds
-            
-            // Store interval reference for cleanup
-            ws.keepAliveInterval = keepAliveInterval;
-            
-            // Start MediaRecorder when WebSocket is ready (same as working test)
-            const timeslice = 1000;
-            
-            mediaRecorder.addEventListener('dataavailable', (event) => {
-              if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
-                console.log('📤 Sending audio chunk to DeepGram:', event.data.size, 'bytes');
-                ws.send(event.data);
-              }
-            });
-            
-            mediaRecorder.addEventListener('stop', () => {
-              console.log('🎙️ MediaRecorder stopped');
-            });
-            
-            mediaRecorder.addEventListener('error', (event) => {
-              console.log('❌ MediaRecorder error:', event.error);
-            });
-            
-            mediaRecorder.start(timeslice);
-          };
-        } else {
-          // Start MediaRecorder without DeepGram
-          const timeslice = 1000;
-          mediaRecorder.start(timeslice);
-          
-          mediaRecorder.onstop = () => {
-            console.log('🛑 MediaRecorder stopped (no transcription)');
-          };
+
+        // First recording or standard recording
+        Utils.Logger.info('PipeIntegration', 'Starting initial recording');
+      };
+
+      // Handler for stop recording button pressed
+      recorderObject.btStopRecordingPressed = function(recorderId) {
+        Utils.Logger.info('PipeIntegration', 'Stop button pressed');
+
+        // CRITICAL FIX: If conversation is active, ALWAYS do fake stop
+        if (StateManager.isConversationActive() && !GlobalRegistry.getState().shouldActuallyStop) {
+          Utils.Logger.info('PipeIntegration', 'Conversation active - redirecting to fake stop');
+
+          var conversationManager = GlobalRegistry.get('conversationManager');
+          if (conversationManager && conversationManager.pauseForAIProcessing) {
+            conversationManager.pauseForAIProcessing();
+          }
+          return;
         }
-        
-        if (ws) {
-          ws.onmessage = (msg) => {
-            try {
-              const data = JSON.parse(msg.data);
-              
-              // Handle different response types (same as working test)
-              if (data.type === 'Results') {
-                const transcript = data.channel.alternatives[0].transcript;
-                if (transcript) {
-                  if (data.is_final) {
-                    console.log('✅ Final transcript:', transcript);
-                    global_transcript += transcript + ' ';
-                  } else {
-                    console.log('⏳ Interim transcript:', transcript);
-                  }
-                }
-              } else if (data.type === 'Metadata') {
-                console.log('📊 DeepGram Metadata:', data);
-              }
-            } catch (error) {
-              console.error('❌ Error parsing DeepGram response:', error, msg.data);
-            }
-          };
-          
-          ws.onerror = (error) => {
-            console.error('❌ DeepGram WebSocket error:', error);
-            console.log('🔍 Check your DeepGram token and connection');
-          };
-          
-          ws.onclose = (event) => {
-            console.log('🔌 DeepGram WebSocket closed:', event.code, event.reason);
-            
-            // Clean up keepalive interval
-            if (ws && ws.keepAliveInterval) {
-              clearInterval(ws.keepAliveInterval);
-              console.log('🧹 Cleaned up KeepAlive interval');
-            }
-          };
+
+        // Only reach here for legitimate stops (conversation ended, errors, etc.)
+        Utils.Logger.info('PipeIntegration', 'Actual stop - recording complete');
+
+        // Clear recording timer
+        var timerManager = GlobalRegistry.get('timerManager');
+        if (timerManager) {
+          timerManager.stop();
         }
-        
-      } catch (err) {
-        console.log(err.message);
-      }
-    };
 
-    /**
-     * Handler for stop recording button pressed.
-     */
-    recorderObject.btStopRecordingPressed = function (recorderId) {
-      console.log('⏹️ Stop button pressed');
-      
-      // CRITICAL FIX: If conversation is active, ALWAYS do fake stop
-      if (window.conversationManager && window.isConversationActive && !window.shouldActuallyStop) {
-        console.log('🔄 Conversation active - redirecting to fake stop');
-        pauseForAIProcessing();
-        return;
-      }
-      
-      // Only reach here for legitimate stops (conversation ended, errors, etc.)
-      console.log('🏁 Actual stop - recording complete');
-      
-      // Clear recording timer
-      if (window.intervalID) {
-        clearInterval(window.intervalID);
-      }
-      
-      // Close WebSocket
-      isRecording = false;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-      
-      // Hide fake stop button
-      if (window.conversationManager && window.isConversationActive) {
-        toggleFakeStopButton(false);
-      }
-      
-      stoppedVideo();
-      window.isConversationActive = false;
-      
-      // Clean up event listeners
-      jQuery(document).off('click.conversation');
-    };
-    
-    // CRITICAL: Store original AddPipe stop method to prevent it during conversations
-    const originalPipeStop = recorderObject.stop;
-    recorderObject.stop = function() {
-      if (window.conversationManager && window.isConversationActive && !window.shouldActuallyStop) {
-        console.log('🚫 Blocked AddPipe.stop() during conversation');
-        return;
-      }
-      console.log('✅ Allowing AddPipe.stop() - conversation ended');
-      return originalPipeStop.apply(this, arguments);
-    };
-
-    /**
-     * Handler for playback complete event.
-     */
-    recorderObject.onPlaybackComplete = function (recorderId, recorderObject) {
-      playBackPauseEvent(recorderId, recorderObject);
-    };
-
-    /**
-     * Handler for pause button pressed.
-     */
-    recorderObject.btPausePressed = function (recorderId) {
-      playBackPauseEvent(recorderId, recorderObject);
-      showGallary();
-    };
-
-    /**
-     * Handler for save ok event.
-     */
-    recorderObject.onSaveOk = function (
-      recorderId,
-      streamName,
-      streamDuration,
-      cameraName,
-      micName,
-      audioCodec,
-      videoCodec,
-      fileType,
-      videoId,
-      audioOnly,
-      location
-    ) {
-      console.log('💾 onSaveOk triggered');
-      
-      // Build video URL
-      const videoUrl = S3_BASE_URL + streamName + '.mp4';
-      
-      // Handle conversation metadata
-      if (window.conversationManager && window.conversationManager.segments.length > 0) {
-        const metadata = window.conversationManager.getMetadata(videoUrl);
-        
-        // Output metadata to console
-        console.log('\n=== 📊 CONVERSATION METADATA ===');
-        console.log(JSON.stringify(metadata, null, 2));
-        console.log('=================================\n');
-        
-        // Store metadata in sessionStorage for recovery
-        sessionStorage.setItem('conversation_metadata_' + questionName, JSON.stringify(metadata));
-        
-        // Update Qualtrics embedded data with metadata
-        if (typeof Qualtrics !== 'undefined') {
-          Qualtrics.SurveyEngine.setEmbeddedData('conversation_metadata', JSON.stringify(metadata));
-          Qualtrics.SurveyEngine.setEmbeddedData('conversation_segments', metadata.segments.length);
-          Qualtrics.SurveyEngine.setEmbeddedData('conversation_duration', Math.round(metadata.totalDuration));
+        // Close WebSocket
+        var transcriptionService = GlobalRegistry.get('transcriptionService');
+        if (transcriptionService) {
+          transcriptionService.stop();
         }
-      }
-      
-      // Continue with validation
-      const transcript_array = global_transcript.split(' ');
-      validateVideo(recorderObject, transcript_array, location, streamName);
-    };
 
-    /**
-     * Handler for video upload success event.
-     */
-    recorderObject.onVideoUploadSuccess = function (
-      recorderId,
-      filename,
-      filetype,
-      videoId,
-      audioOnly,
-      location
-    ) {
-      var args = Array.prototype.slice.call(arguments);
-      console.log('onVideoUploadSuccess(' + args.join(', ') + ')');
-      
-      // Clean up conversation if active
-      if (window.conversationManager) {
-        cleanupConversation();
-      }
-      
-      console.log(
-        'setEmbeddedDataToQuestion >>>>>> >>>>> >>>>onVideoUploadSuccess',
+        // Call original stopped video handler
+        if (typeof stoppedVideo === 'function') {
+          stoppedVideo();
+        }
+
+        StateManager.setComplete();
+      };
+
+      // CRITICAL: Store original AddPipe stop method to prevent it during conversations
+      var originalPipeStop = recorderObject.stop;
+      recorderObject.stop = function() {
+        if (StateManager.isConversationActive() && !GlobalRegistry.getState().shouldActuallyStop) {
+          Utils.Logger.info('PipeIntegration', 'Blocked AddPipe.stop() during conversation');
+          return;
+        }
+        Utils.Logger.info('PipeIntegration', 'Allowing AddPipe.stop() - conversation ended');
+        return originalPipeStop.apply(this, arguments);
+      };
+
+      // Handler for playback complete event
+      recorderObject.onPlaybackComplete = function(recorderId, recorderObject) {
+        if (typeof playBackPauseEvent === 'function') {
+          playBackPauseEvent(recorderId, recorderObject);
+        }
+      };
+
+      // Handler for pause button pressed
+      recorderObject.btPausePressed = function(recorderId) {
+        if (typeof playBackPauseEvent === 'function') {
+          playBackPauseEvent(recorderId, recorderObject);
+        }
+        if (typeof showGallary === 'function') {
+          showGallary();
+        }
+      };
+
+      // Handler for save ok event
+      recorderObject.onSaveOk = function(
+        recorderId,
+        streamName,
+        streamDuration,
+        cameraName,
+        micName,
+        audioCodec,
+        videoCodec,
+        fileType,
+        videoId,
+        audioOnly,
+        location
+      ) {
+        Utils.Logger.info('PipeIntegration', 'Save OK triggered');
+
+        // Build video URL
+        var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/';
+        var videoUrl = S3_BASE_URL + streamName + '.mp4';
+
+        // Handle conversation metadata
+        var conversationManager = GlobalRegistry.get('conversationManager');
+        if (conversationManager && conversationManager.segments.length > 0) {
+          var metadata = conversationManager.getMetadata(videoUrl);
+
+          // Output metadata to console
+          Utils.Logger.info('PipeIntegration', 'Conversation metadata:');
+          console.log('\n=== 📊 CONVERSATION METADATA ===');
+          console.log(JSON.stringify(metadata, null, 2));
+          console.log('=================================\n');
+
+          // Store metadata in sessionStorage for recovery
+          sessionStorage.setItem('conversation_metadata_' + questionName, JSON.stringify(metadata));
+
+          // Update Qualtrics embedded data with metadata
+          if (typeof Qualtrics !== 'undefined') {
+            Qualtrics.SurveyEngine.setEmbeddedData('conversation_metadata', JSON.stringify(metadata));
+            Qualtrics.SurveyEngine.setEmbeddedData('conversation_segments', metadata.segments.length);
+            Qualtrics.SurveyEngine.setEmbeddedData('conversation_duration', Math.round(metadata.totalDuration));
+          }
+        }
+
+        // Continue with validation
+        var transcript_array = (window.global_transcript || '').split(' ');
+        if (typeof validateVideo === 'function') {
+          validateVideo(recorderObject, transcript_array, location, streamName);
+        }
+      };
+
+      // Handler for video upload success event
+      recorderObject.onVideoUploadSuccess = function(
         recorderId,
         filename,
         filetype,
         videoId,
-        location,
-        recorderObject
-      );
-      const transcript_array = global_transcript.split(' ');
-      jQuery('#' + recorderId).attr('style', 'height:120px !important');
-      jQuery('#NextButton-custom').show();
-    };
+        audioOnly,
+        location
+      ) {
+        Utils.Logger.info('PipeIntegration', 'Video upload success');
 
-    /**
-     * Handler for play button pressed.
-     */
-    recorderObject.btPlayPressed = function (recorderId) {
-      playVideoEvent();
-    };
-  });
-};
+        // Clean up conversation if active
+        var conversationManager = GlobalRegistry.get('conversationManager');
+        if (conversationManager) {
+          conversationManager.cleanup();
+        }
 
+        var transcript_array = (window.global_transcript || '').split(' ');
+        Utils.DOM.select('#' + recorderId).attr('style', 'height:120px !important');
+        Utils.DOM.select('#NextButton-custom').show();
+      };
 
-/**
- * Handles retake logic and UI reset.
- */
-function retake() {
-  console.log('Retake--- (legacy function, delegating to new system)');
-  jQuery('#pipeDownload-' + questionName).hide();
-  try {
-    this.recorderObjectGlobal.pause();
-  } catch (err) {}
-  skipQuestionValidation();
-  jQuery('#SkinContent #Buttons').hide();
-  
-  // Delegate to the new element controller for consistent state management
-  if (elementController) {
-    elementController.setReadyToRecordWithVideoState();
-  } else {
-    console.warn('ElementController not initialized, falling back to legacy behavior');
-    // Fallback to old behavior if elementController not available
-    jQuery('.retake-button').remove();
-    jQuery('.play-custom-btn').remove();
-    jQuery('.pipeTimer').hide();
-    jQuery('.pipeTimer-custom').hide();
-    jQuery('.back-to-camera').remove();
-    jQuery('#time-span').remove();
-    jQuery('#pipeMenu-' + questionName).removeClass('playback-state recording-state');
-    jQuery('#pipeRec-' + questionName).show();
-    jQuery('#pipePlay-' + questionName).attr('style', 'display: none !important; opacity: 0 !important;');
-    jQuery('#pipeMenu-' + questionName).append(
-      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview existing recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
-    );
-  }
-}
+      // Handler for play button pressed
+      recorderObject.btPlayPressed = function(recorderId) {
+        if (typeof playVideoEvent === 'function') {
+          playVideoEvent();
+        }
+      };
 
-/**
- * Shows the video gallery UI.
- */
-function showGallary() {
-  console.log('Show Gallary--');
-  jQuery('#pipeDownload-' + questionName).hide();
-  jQuery('#time-span').remove();
-  jQuery('.pipeTimer-custom').hide();
-  jQuery('.pipeTimer').show();
-  if (isBackTOcamera) {
-    jQuery('#pipeMenu-' + questionName).append(
-      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;"></span></button>'
-    );
-    jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:0 !important');
-  } else {
-    jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:1 !important');
-  }
-  isBackTOcamera = false;
-}
-
-/**
- * Plays the custom video.
- */
-function playVideoCustom() {
-  console.log('playVideoCustom--');
-  jQuery('.pipeTimer-custom').hide();
-  jQuery('.pipeTimer').attr('style', 'display: block !important;');
-  jQuery('.pipeTimer').show();
-  jQuery('#time-span').remove();
-  recorderObjectGlobal.playVideo();
-}
-
-/**
- * Handles UI when video is stopped.
- */
-function stoppedVideo() {
-  jQuery('#pipePlay-' + questionName).show();
-  jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:0 !important');
-}
-
-/**
- * Handles play video event and UI update.
- */
-function playVideoEvent() {
-  isBackTOcamera = false;
-  jQuery('#time-span').remove();
-  jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:1 !important');
-  jQuery('#pipeMenu-' + questionName).append(
-    '<button class="back-to-camera" onClick="backToCamera()" title="Return to camera view"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span style="font-size: 0.75rem; margin-top: 0.25rem;">Camera</span></button>'
-  );
-  jQuery('.pipeTimer').show();
-  jQuery('#pipeRec-' + questionName).hide();
-  jQuery('#pipePlay-' + questionName).attr('style', 'display: block;right: auto;');
-}
-
-/**
- * Handles back to camera event and UI reset.
- */
-function backToCamera() {
-  jQuery('.time-span').remove();
-  jQuery('.pipeTimer').attr('style', 'display: none !important; ');
-  jQuery('.pipeTimer-custom').empty().append('00:00');
-  jQuery('.pipeTimer-custom').show();
-  jQuery('.pipeTimer').hide();
-  isBackTOcamera = true;
-  this.recorderObjectGlobal.pause();
-  retake();
-}
-
-/**
- * Handles modal retake event.
- */
-function modalRetake() {
-  console.log('Modal Retake - user clicked Record Again button');
-  
-  // Prevent retake during conversation
-  if (window.isConversationActive) {
-    console.warn('⚠️ Cannot retake during active conversation');
-    return;
-  }
-  
-  // Hide modal buttons before closing
-  jQuery('#modal-buttons').hide();
-  
-  // Close the modal
-  jQuery.modal.close();
-  
-  // Use element controller to set proper state
-  elementController.setReadyToRecordWithVideoState();
-}
-
-/**
- * Moves to the next question.
- */
-function nextQuestion() {
-  jQuery.modal.close();
-  document.querySelector('.NextButton').click();
-}
-
-/**
- * Handles playback pause event.
- * @param {string} recorderId
- * @param {object} recorderObject
- */
-function playBackPauseEvent(recorderId, recorderObject) {
-  jQuery('#pipePlay-' + questionName + ' svg').attr('style', 'opacity:1 !important');
-}
-
-/**
- * Closes the modal.
- */
-function modalClose() {
-  console.log('Modal close >>>');
-  
-  // Prevent modal actions during conversation
-  if (window.isConversationActive) {
-    console.warn('⚠️ Cannot close modal during active conversation');
-    return;
-  }
-  
-  jQuery.modal.close();
-  // Don't reinitialize pipe - it's already loaded
-  // loadPipe(questionName, pipeParams, deepGramConfiguration);
-}
-
-/**
- * Handles start recording click event and UI update.
- */
-function startRecordingClicked() {
-  retake();
-  jQuery('#pipeMenu-' + questionName).append(
-    '<div class="pipeTimer-custom">00:00</div>'
-  );
-  jQuery('.pipeTimer-custom').show();
-  jQuery('#time-span').remove();
-}
-
-
-/**
- * Requests camera and audio access (video and audio).
- */
-function getCamAccess() {
-  console.log('getCamAccess >>> Grant Acess');
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        jQuery.modal.close();
-        jQuery('#recordInstruction').modal();
-        loadPipe(questionName, pipeParams, deepGramConfiguration);
-        // Clean CSS-only styling - remove conflicting inline styles
-      })
-      .catch((err) => {
-        console.log('u got an error:' + err);
-        fetch('https://api.ipify.org?format=json')
-          .then((response) => response.json())
-          .then((responseData) => {
-            handleAPiCallForDeviceError(responseData.ip, err.toString());
-          })
-          .catch((error) => {
-            handleAPiCallForDeviceError(null, error.toString());
-            console.error('Error fetching IP address:', error);
-          });
-      });
-  } else {
-    jQuery.modal.close();
-    jQuery('#recordInstruction').modal();
-    loadPipe(questionName, pipeParams, deepGramConfiguration);
-    // Clean CSS-only styling - remove conflicting inline styles
-  }
-}
-
-/**
- * Handles API call for device error logging.
- * @param {string|null} IpAddress
- * @param {string} errorMessage
- */
-function handleAPiCallForDeviceError(IpAddress, errorMessage) {
-  const url = 'https://api.goknit.com/api/v1/stg/piperecorder/error';
-  const data = {
-    question_id: questionName,
-    url: window.location.href,
-    metadata: {
-      IpAddress: IpAddress,
-      errorMessage: errorMessage,
+      Utils.Logger.info('PipeIntegration', 'Pipe SDK event handlers configured');
     },
-  };
-  const options = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  };
-  fetch(url, options)
-    .then((response) => {
-      console.log('Response:', response);
-    })
-    .catch((error) => {
-      console.error('Error', error);
-    });
-}
 
-
-/**
- * Detects mobile operating system and sets mimetype.
- */
-function getMobileOperatingSystem() {
-  var userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  const ua = navigator.userAgent || navigator.vendor || window.opera;
-  if (/windows phone/i.test(userAgent)) {
-    mimetype = 'audio/webm';
-  } else if (/android/i.test(userAgent)) {
-    mimetype = 'audio/webm';
-  } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-    mimetype = 'audio/mp4';
-  } else {
-    mimetype = 'audio/webm';
-  }
-}
-
-/**
- * Validates the recorded video and updates the UI accordingly.
- * @param {object} recorderObject
- * @param {Array} transcript_array
- * @param {string} location
- * @param {string} streamName
- */
-function validateVideo(recorderObject, transcript_array, location, streamName) {
-  console.log('ValidateVideo >>>> ', recorderObject);
-  
-  // Skip validation during active conversation
-  if (window.conversationManager && window.isConversationActive && !window.shouldActuallyStop) {
-    console.log('⏭️ Skipping validation - conversation in progress');
-    return;
-  }
-  
-  // Check conversation minimum duration if applicable
-  if (window.conversationManager && window.conversationManager.segments.length > 0) {
-    const totalDuration = window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime;
-    if (totalDuration < validationDetails.min_streamtime) {
-      console.warn('⚠️ Conversation shorter than minimum duration');
-      // Continue with validation to show error
-    }
-  }
-  
-  var sucessModalDetails = '';
-
-  jQuery('#record-title').empty();
-  jQuery('#image-sucess').empty();
-  jQuery('#result').empty();
-
-  var isError = false;
-  this.recorderObjectGlobal = recorderObject;
-  if (validationDetails.hasOwnProperty('min_streamtime')) {
-    if (recorderObject.getStreamTime() < validationDetails.min_streamtime) {
-      isError = true;
-      sucessModalDetails +=
-        '<li > <img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/false.svg" style="margin-right:5px;">Record a  <span>' + validationDetails.min_streamtime + ' sec or longer </span> video</li>';
-    } else {
-      sucessModalDetails +=
-        '<li > <img src="https://d2kltgp8v5sml0.cloudfront.net/templates/svg/true.svg" style="margin-right:5px;">Record a  <span>' + validationDetails.min_streamtime + ' sec or longer </span> video</li>';
-    }
-  }
-
-  jQuery('#time-span').remove();
-  streamTime = recorderObject.getStreamTime();
-  if (isError) {
-    jQuery('#next-button-modal').remove();
-    jQuery('#SkinContent #Buttons').hide();
-    jQuery('.retake-previous').remove();
-
-    jQuery('#record-title').append('Recording needs improvement');
-    jQuery('#image-sucess').append(
-      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--destructive));"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
-    );
-    jQuery('#result').addClass('error-feedback');
-    jQuery('#result').append("<li style='font-size:15px;padding-left:5px;'>Your video didn't meet our requirements</li>");
-    jQuery('#result').append(sucessModalDetails);
-    jQuery('#result').append(
-      '<button class="btn btn-destructive" onClick="modalRetake()" style="margin-top: 1rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Try Again</button>'
-    );
-    jQuery('#error').modal({
-      escapeClose: false,
-      clickClose: false,
-      showClose: false,
-    });
-  } else {
-    console.log('streamName::', streamName);
-    const URL = S3_BASE_URL + streamName + '.mp4';
-    updateEmbeddedData(URL);
-    jQuery('#NextButton-custom').show();
-    jQuery('#next-button-modal').remove();
-    jQuery('.retake-button').remove();
-    // Check if this was a conversation
-    if (window.conversationManager && window.conversationManager.segments.length > 0) {
-      jQuery('#record-title').append('Interview Completed Successfully!');
-      
-      const totalQuestions = window.conversationManager.segments.length;
-      const totalMinutes = Math.floor(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime / 60);
-      const totalSeconds = Math.round(window.conversationManager.segments[window.conversationManager.segments.length - 1].endTime % 60);
-      
-      sucessModalDetails = 'Great job! You answered ' + totalQuestions + ' question' + (totalQuestions > 1 ? 's' : '') + ' in ' + totalMinutes + ':' + (totalSeconds < 10 ? '0' : '') + totalSeconds + '. Thank you for your thoughtful responses!';
-    } else {
-      jQuery('#record-title').append('Perfect! Video Recorded Successfully');
-      sucessModalDetails = 'Your video response has been recorded successfully! You can now continue to the next question.';
-    }
-    
-    // Set playback state for clean UI - simplified layout: Record center + Play right
-    jQuery('#pipeMenu-' + questionName).removeClass('recording-state').addClass('playback-state');
-    
-    // Hide record button in playback state (will be shown again after retake)
-    jQuery('#pipeRec-' + questionName).hide();
-    
-    // Only add play button on the right for playback
-    jQuery('#pipeMenu-' + questionName).append(
-      '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg></button>'
-    );
-    jQuery('#image-sucess').append(
-      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--success));"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>'
-    );
-    jQuery('#result').addClass('success-feedback');
-    jQuery('#result').append(sucessModalDetails);
-    jQuery('.retake-previous').remove();
-    
-    // Show the static modal buttons (no more dynamic injection!)
-    jQuery('#modal-buttons').show();
-    
-    jQuery('#error').modal({
-      escapeClose: true,
-      clickClose: true,
-      showClose: true,
-      // Ensure modal close triggers the same layout as "Record Again"
-      onClose: function() {
-        // Hide modal buttons and set up consistent state
-        jQuery('#modal-buttons').hide();
-        elementController.setReadyToRecordWithVideoState();
+    // Get recorder state
+    getState: function() {
+      if (!recorderObject || !recorderObject.getState) {
+        return null;
       }
-    });
-  }
-}
+      return recorderObject.getState();
+    },
 
-/**
- * Updates the timer UI with the current stream time.
- * @param {object} recorderObject
- */
-function getTime(recorderObject) {
-  // Use conversation timer if active
-  if (window.conversationManager && window.isConversationActive) {
-    updateTimerDisplay();
-    return;
-  }
-  
-  // Original timer logic for non-conversation recordings
-  if (!recorderObject) return;
-  
-  var totalSeconds = Math.round(recorderObject.getStreamTime());
-  var minutes = Math.floor(totalSeconds / 60);
-  var seconds = totalSeconds % 60;
-  
-  if (seconds < 10) {
-    seconds = '0' + seconds;
-  }
-  if (minutes < 10) {
-    minutes = '0' + minutes;
-  }
-  
-  jQuery('.pipeTimer-custom').text(minutes + ':' + seconds);
-}
+    // Get stream time
+    getStreamTime: function() {
+      if (!recorderObject || !recorderObject.getStreamTime) {
+        return 0;
+      }
+      return recorderObject.getStreamTime();
+    },
 
-/**
- * Pads a time value with leading zero if needed.
- * @param {number} val
- * @returns {string}
- */
-function arrengeTimeString(val) {
-  var valString = val + '';
-  if (valString.length < 2) {
-    return '0' + valString;
-  } else {
-    return valString;
-  }
-}
+    // Start recording
+    startRecording: function() {
+      if (!recorderObject || !recorderObject.start) {
+        Utils.Logger.error('PipeIntegration', 'Cannot start recording - recorder not ready');
+        return false;
+      }
+
+      try {
+        recorderObject.start();
+        Utils.Logger.info('PipeIntegration', 'Recording started via Pipe SDK');
+        return true;
+      } catch (error) {
+        Utils.Logger.error('PipeIntegration', 'Failed to start recording', error);
+        return false;
+      }
+    },
+
+    // Stop recording
+    stopRecording: function() {
+      if (!recorderObject || !recorderObject.stop) {
+        Utils.Logger.error('PipeIntegration', 'Cannot stop recording - recorder not ready');
+        return false;
+      }
+
+      try {
+        recorderObject.stop();
+        Utils.Logger.info('PipeIntegration', 'Recording stopped via Pipe SDK');
+        return true;
+      } catch (error) {
+        Utils.Logger.error('PipeIntegration', 'Failed to stop recording', error);
+        return false;
+      }
+    },
+
+    // Play video
+    playVideo: function() {
+      if (!recorderObject || !recorderObject.playVideo) {
+        Utils.Logger.error('PipeIntegration', 'Cannot play video - recorder not ready');
+        return false;
+      }
+
+      try {
+        recorderObject.playVideo();
+        Utils.Logger.info('PipeIntegration', 'Video playback started');
+        return true;
+      } catch (error) {
+        Utils.Logger.error('PipeIntegration', 'Failed to play video', error);
+        return false;
+      }
+    },
+
+    // Get recorder info for debugging
+    getInfo: function() {
+      return {
+        initialized: isInitialized,
+        questionName: questionName,
+        hasRecorder: !!recorderObject,
+        recorderState: this.getState(),
+        streamTime: this.getStreamTime()
+      };
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('PipeIntegration', 'State change: ' + oldState + ' -> ' + newState);
+
+      // Handle state-specific actions
+      switch (newState) {
+        case StateManager.getStates().READY:
+          // Recorder should be ready, hide any loading indicators
+          Utils.DOM.select('.pipeTimer').hide();
+          break;
+
+        case StateManager.getStates().RECORDING:
+          // Recording started - ensure UI is updated
+          var elementController = GlobalRegistry.get('elementController');
+          if (elementController) {
+            elementController.setRecordingState();
+          }
+          break;
+
+        case StateManager.getStates().COMPLETE:
+          // Recording completed - show success modal
+          var metadata = null;
+          var conversationManager = GlobalRegistry.get('conversationManager');
+          if (conversationManager) {
+            metadata = conversationManager.getMetadata();
+          }
+
+          var modalManager = GlobalRegistry.get('modalManager');
+          if (modalManager) {
+            modalManager.showSuccess(metadata);
+          }
+          break;
+      }
+    },
+
+    // Cleanup
+    cleanup: function() {
+      Utils.Logger.info('PipeIntegration', 'Cleaning up Pipe integration');
+
+      if (recorderObject) {
+        try {
+          // Stop any ongoing recording
+          if (recorderObject.getState && recorderObject.getState() === 'recording') {
+            recorderObject.stop();
+          }
+
+          // Clean up event handlers
+          if (recorderObject.onReadyToRecord) recorderObject.onReadyToRecord = null;
+          if (recorderObject.onRecordingStarted) recorderObject.onRecordingStarted = null;
+          if (recorderObject.btRecordPressed) recorderObject.btRecordPressed = null;
+          if (recorderObject.btStopRecordingPressed) recorderObject.btStopRecordingPressed = null;
+          if (recorderObject.onSaveOk) recorderObject.onSaveOk = null;
+          if (recorderObject.onVideoUploadSuccess) recorderObject.onVideoUploadSuccess = null;
+          if (recorderObject.btPlayPressed) recorderObject.btPlayPressed = null;
+
+          // Restore original stop method
+          if (recorderObject.stop) {
+            recorderObject.stop = null;
+          }
+        } catch (error) {
+          Utils.Logger.warn('PipeIntegration', 'Error during Pipe cleanup', error);
+        }
+      }
+
+      recorderObject = null;
+      isInitialized = false;
+
+      Utils.Logger.info('PipeIntegration', 'Pipe integration cleanup complete');
+    }
+  };
+
+  // Export PipeIntegration
+  return PipeIntegration;
+
+})();
+
+
+// === transcription.js (261 lines) ===
+// Transcription Service - DeepGram WebSocket integration
+// No template literals used - only string concatenation
+
+var TranscriptionService = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  var mediaRecorder = null;
+  var websocket = null;
+  var stream = null;
+  var keepAliveInterval = null;
+  var isInitialized = false;
+
+  // Transcription Service API
+  var TranscriptionService = {
+
+    // Initialize transcription service
+    initialize: function(config) {
+      Utils.Logger.info('TranscriptionService', 'Initializing transcription service');
+
+      if (!config || !config.token) {
+        Utils.Logger.warn('TranscriptionService', 'DeepGram token not configured - transcription disabled');
+        return false;
+      }
+
+      isInitialized = true;
+      Utils.Logger.info('TranscriptionService', 'Transcription service initialized');
+      return true;
+    },
+
+    // Start transcription for new segment
+    startNewSegment: function() {
+      Utils.Logger.info('TranscriptionService', 'Starting transcription for new segment');
+
+      var config = GlobalRegistry.getConfig();
+
+      // Get the video element and stream
+      var questionName = config.questionName;
+      var videoEl = document.getElementById('pipeVideoInput-' + questionName);
+
+      if (!videoEl) {
+        Utils.Logger.error('TranscriptionService', 'Video element not found: pipeVideoInput-' + questionName);
+        return;
+      }
+
+      // Get stream from video element
+      if (videoEl.srcObject !== undefined) {
+        stream = videoEl.srcObject;
+      } else if (videoEl.mozSrcObject !== undefined) {
+        stream = videoEl.mozSrcObject;
+      } else if (videoEl.src !== undefined) {
+        stream = videoEl.src;
+      } else {
+        Utils.Logger.error('TranscriptionService', 'Could not get stream from video element');
+        return;
+      }
+
+      // Stop any existing MediaRecorder first
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        Utils.Logger.info('TranscriptionService', 'Stopping existing MediaRecorder before creating new one');
+        mediaRecorder.stop();
+      }
+
+      // Create MediaRecorder for audio transcription
+      var audioStream = new MediaStream(stream.getAudioTracks());
+      mediaRecorder = new MediaRecorder(audioStream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+
+      // Set up MediaRecorder event handlers
+      mediaRecorder.addEventListener('dataavailable', function(event) {
+        if (event.data.size > 0 && websocket && websocket.readyState === WebSocket.OPEN) {
+          Utils.Logger.debug('TranscriptionService', 'Sending audio chunk to DeepGram: ' + event.data.size + ' bytes');
+          websocket.send(event.data);
+        }
+      });
+
+      mediaRecorder.addEventListener('stop', function() {
+        Utils.Logger.info('TranscriptionService', 'MediaRecorder stopped for segment');
+      });
+
+      mediaRecorder.addEventListener('error', function(event) {
+        Utils.Logger.error('TranscriptionService', 'MediaRecorder error: ' + event.error);
+      });
+
+      // Create DeepGram WebSocket connection
+      this.createWebSocket(config);
+
+      // Start MediaRecorder when WebSocket is ready
+      if (websocket) {
+        websocket.onopen = function() {
+          Utils.Logger.info('TranscriptionService', 'DeepGram WebSocket connected for segment');
+
+          // Send keepalive message to prevent timeout
+          keepAliveInterval = setInterval(function() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+              websocket.send(JSON.stringify({ type: 'KeepAlive' }));
+              Utils.Logger.debug('TranscriptionService', 'Sent KeepAlive to DeepGram');
+            } else {
+              if (keepAliveInterval) {
+                clearInterval(keepAliveInterval);
+                keepAliveInterval = null;
+              }
+            }
+          }, 8000); // Send every 8 seconds
+
+          // Start MediaRecorder when WebSocket is ready
+          var timeslice = 1000;
+          mediaRecorder.start(timeslice);
+          Utils.Logger.info('TranscriptionService', 'MediaRecorder started for segment');
+        };
+      }
+    },
+
+    // Create DeepGram WebSocket connection
+    createWebSocket: function(config) {
+      if (!config.deepgram.token) {
+        Utils.Logger.warn('TranscriptionService', 'DeepGram token not configured');
+        return null;
+      }
+
+      Utils.Logger.info('TranscriptionService', 'Creating DeepGram WebSocket connection');
+
+      try {
+        // Use protocol-based auth with modern API parameters
+        websocket = new WebSocket(
+          'wss://api.deepgram.com/v1/listen?model=nova-3&language=en-US&smart_format=true&interim_results=true',
+          ['token', config.deepgram.token]
+        );
+
+        websocket.onmessage = function(msg) {
+          try {
+            var data = JSON.parse(msg.data);
+
+            // Handle different response types
+            if (data.type === 'Results') {
+              var transcript = data.channel.alternatives[0].transcript;
+              if (transcript) {
+                if (data.is_final) {
+                  Utils.Logger.info('TranscriptionService', 'Final transcript: ' + transcript);
+                  window.global_transcript = (window.global_transcript || '') + transcript + ' ';
+                } else {
+                  Utils.Logger.debug('TranscriptionService', 'Interim transcript: ' + transcript);
+                }
+              }
+            } else if (data.type === 'Metadata') {
+              Utils.Logger.debug('TranscriptionService', 'DeepGram Metadata: ' + JSON.stringify(data));
+            }
+          } catch (error) {
+            Utils.Logger.error('TranscriptionService', 'Error parsing DeepGram response', error);
+          }
+        };
+
+        websocket.onerror = function(error) {
+          Utils.Logger.error('TranscriptionService', 'DeepGram WebSocket error', error);
+        };
+
+        websocket.onclose = function(event) {
+          Utils.Logger.info('TranscriptionService', 'DeepGram WebSocket closed: ' + event.code + ' ' + event.reason);
+
+          // Clean up keepalive interval
+          if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+          }
+        };
+
+        Utils.Logger.info('TranscriptionService', 'DeepGram WebSocket created successfully');
+        return websocket;
+
+      } catch (error) {
+        Utils.Logger.error('TranscriptionService', 'Failed to create DeepGram WebSocket', error);
+        websocket = null;
+        return null;
+      }
+    },
+
+    // Stop transcription
+    stop: function() {
+      Utils.Logger.info('TranscriptionService', 'Stopping transcription service');
+
+      // Stop MediaRecorder
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+
+      // Close WebSocket
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.close();
+      }
+
+      // Clear keepalive interval
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+      }
+
+      // Reset references
+      mediaRecorder = null;
+      websocket = null;
+      stream = null;
+
+      Utils.Logger.info('TranscriptionService', 'Transcription service stopped');
+    },
+
+    // Get current transcript
+    getTranscript: function() {
+      return window.global_transcript || '';
+    },
+
+    // Get transcription info for debugging
+    getInfo: function() {
+      return {
+        initialized: isInitialized,
+        hasMediaRecorder: !!mediaRecorder,
+        mediaRecorderState: mediaRecorder ? mediaRecorder.state : 'none',
+        hasWebSocket: !!websocket,
+        webSocketState: websocket ? websocket.readyState : 'none',
+        hasKeepAlive: !!keepAliveInterval,
+        transcriptLength: this.getTranscript().length
+      };
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('TranscriptionService', 'State change: ' + oldState + ' -> ' + newState);
+
+      switch (newState) {
+        case StateManager.getStates().PROCESSING:
+          // Stop transcription when AI processing starts
+          this.stop();
+          break;
+
+        case StateManager.getStates().CONVERSATION_ACTIVE:
+          // Start new segment transcription
+          this.startNewSegment();
+          break;
+
+        case StateManager.getStates().READY:
+        case StateManager.getStates().COMPLETE:
+          // Stop transcription
+          this.stop();
+          break;
+      }
+    },
+
+    // Cleanup
+    cleanup: function() {
+      Utils.Logger.info('TranscriptionService', 'Cleaning up transcription service');
+      this.stop();
+      Utils.Logger.info('TranscriptionService', 'Transcription service cleanup complete');
+    }
+  };
+
+  // Export TranscriptionService
+  return TranscriptionService;
+
+})();
+
+
+// === validation.js (208 lines) ===
+// Validation - Video/audio validation and error handling
+// No template literals used - only string concatenation
+
+var Validation = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  // Validation API
+  var Validation = {
+
+    // Validate video recording
+    validateVideo: function(recorderObject, transcript_array, location, streamName) {
+      Utils.Logger.info('Validation', 'Validating video recording');
+
+      // Skip validation during active conversation
+      if (StateManager.isConversationActive() && !GlobalRegistry.getState().shouldActuallyStop) {
+        Utils.Logger.info('Validation', 'Skipping validation - conversation in progress');
+        return;
+      }
+
+      var config = GlobalRegistry.getConfig();
+      var validationDetails = config.validationDetails;
+
+      // Check conversation minimum duration if applicable
+      var conversationManager = GlobalRegistry.get('conversationManager');
+      if (conversationManager && conversationManager.segments.length > 0) {
+        var totalDuration = conversationManager.segments[conversationManager.segments.length - 1].endTime;
+        if (totalDuration < validationDetails.min_streamtime) {
+          Utils.Logger.warn('Validation', 'Conversation shorter than minimum duration');
+          // Continue with validation to show error
+        }
+      }
+
+      var isError = false;
+      var errorMessages = [];
+
+      // Validate minimum duration
+      if (validationDetails.hasOwnProperty('min_streamtime')) {
+        var streamTime = recorderObject.getStreamTime();
+        if (streamTime < validationDetails.min_streamtime) {
+          isError = true;
+          errorMessages.push('Record a ' + validationDetails.min_streamtime + ' sec or longer video');
+        }
+      }
+
+      if (isError) {
+        this.showValidationError(errorMessages);
+      } else {
+        this.showValidationSuccess(streamName, conversationManager);
+      }
+    },
+
+    // Show validation error
+    showValidationError: function(errorMessages) {
+      Utils.Logger.info('Validation', 'Showing validation error');
+
+      var title = Utils.DOM.select('#record-title');
+      var image = Utils.DOM.select('#image-sucess');
+      var result = Utils.DOM.select('#result');
+
+      title.empty();
+      image.empty();
+      result.empty();
+
+      title.append('Recording needs improvement');
+
+      var errorIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--destructive));"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+      image.append(errorIcon);
+
+      result.addClass('error-feedback');
+      result.append('<li style="font-size:15px;padding-left:5px;">Your video didn\'t meet our requirements</li>');
+
+      // Add error messages
+      for (var i = 0; i < errorMessages.length; i++) {
+        result.append('<li style="font-size:15px;padding-left:5px;">' + errorMessages[i] + '</li>');
+      }
+
+      var retryButton = '<button class="btn btn-destructive" onClick="modalRetake()" style="margin-top: 1rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>Try Again</button>';
+      result.append(retryButton);
+
+      Utils.DOM.select('#error').modal({
+        escapeClose: false,
+        clickClose: false,
+        showClose: false
+      });
+
+      Utils.Logger.info('Validation', 'Validation error modal shown');
+    },
+
+    // Show validation success
+    showValidationSuccess: function(streamName, conversationManager) {
+      Utils.Logger.info('Validation', 'Showing validation success');
+
+      var title = Utils.DOM.select('#record-title');
+      var image = Utils.DOM.select('#image-sucess');
+      var result = Utils.DOM.select('#result');
+
+      title.empty();
+      image.empty();
+      result.empty();
+
+      var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/';
+      var videoUrl = S3_BASE_URL + streamName + '.mp4';
+
+      // Update Qualtrics embedded data
+      if (typeof Qualtrics !== 'undefined') {
+        Qualtrics.SurveyEngine.setEmbeddedData('VQ1_pipe_url', videoUrl);
+      }
+
+      Utils.DOM.select('#NextButton-custom').show();
+
+      // Check if this was a conversation
+      if (conversationManager && conversationManager.segments.length > 0) {
+        title.append('Interview Completed Successfully!');
+
+        var totalQuestions = conversationManager.segments.length;
+        var duration = conversationManager.getMetadata().totalDuration;
+        var minutes = Math.floor(duration / 60);
+        var seconds = Math.round(duration % 60);
+
+        var successMessage = 'Great job! You answered ' + totalQuestions + ' question' +
+          (totalQuestions > 1 ? 's' : '') + ' in ' + minutes + ':' +
+          (seconds < 10 ? '0' : '') + seconds + '. Thank you for your thoughtful responses!';
+
+        result.addClass('success-feedback').append(successMessage);
+      } else {
+        title.append('Perfect! Video Recorded Successfully');
+        var regularMessage = 'Your video response has been recorded successfully! You can now continue to the next question.';
+        result.addClass('success-feedback').append(regularMessage);
+      }
+
+      // Add success icon
+      var successIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: hsl(var(--success));"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>';
+      image.append(successIcon);
+
+      // Set playback state for clean UI
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.setPlaybackState();
+      }
+
+      // Only add play button on the right for playback
+      var menu = Utils.DOM.select('#pipeMenu-' + GlobalRegistry.getConfig().questionName);
+      if (menu && menu.length > 0) {
+        var playButton = '<button class="play-custom-btn" id="time-span" onClick="playVideoCustom()" title="Preview recording"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg></button>';
+        menu.append(playButton);
+      }
+
+      // Show modal buttons
+      Utils.DOM.select('#modal-buttons').show();
+
+      Utils.DOM.select('#error').modal({
+        escapeClose: true,
+        clickClose: true,
+        showClose: true,
+        onClose: function() {
+          Utils.DOM.select('#modal-buttons').hide();
+          if (elementController) {
+            elementController.setReadyToRecordWithVideoState();
+          }
+        }
+      });
+
+      Utils.Logger.info('Validation', 'Validation success modal shown');
+    },
+
+    // Skip validation (for testing)
+    skipValidation: function() {
+      Utils.Logger.info('Validation', 'Skipping validation');
+
+      var config = GlobalRegistry.getConfig();
+      if (config.validationDetails.hasOwnProperty('required') && config.validationDetails.required) {
+        Utils.DOM.select('#NextButton-custom').hide();
+      } else {
+        Utils.DOM.select('#NextButton-custom').show();
+      }
+    },
+
+    // Get validation info for debugging
+    getInfo: function() {
+      var config = GlobalRegistry.getConfig();
+      return {
+        minStreamTime: config.validationDetails.min_streamtime,
+        required: config.validationDetails.required,
+        hasConversation: !!GlobalRegistry.get('conversationManager')
+      };
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('Validation', 'State change: ' + oldState + ' -> ' + newState);
+
+      // Validation is primarily event-driven, not state-driven
+    },
+
+    // Cleanup
+    cleanup: function() {
+      Utils.Logger.info('Validation', 'Validation cleanup complete');
+    }
+  };
+
+  // Export Validation
+  return Validation;
+
+})();
+
+
+// === conversation-manager.js (460 lines) ===
+// Conversation Manager - AI-driven interview flow management
+// No template literals used - only string concatenation
+
+var ConversationManager = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  // Conversation Manager API
+  var ConversationManager = {
+
+    // Initialize conversation manager
+    initialize: function(questionName, recorderObject, config) {
+      this.questionName = questionName;
+      this.recorderObject = recorderObject;
+      this.config = config;
+      this.segments = [];
+      this.conversationThread = [];
+      this.currentProbeCount = 0;
+      this.maxProbes = this.getMaxProbes();
+      this.conversationStartTime = null;
+      this.currentSegmentStartTime = null;
+      this.isProcessingAI = false;
+      this.conversationActive = false;
+      this.conversationId = questionName + '_' + Date.now();
+      this.accumulatedTranscript = '';
+      this.currentAIQuestion = config.questionText;
+      this.timerPausedAt = null;
+
+      Utils.Logger.info('ConversationManager', 'Conversation manager initialized for: ' + questionName);
+    },
+
+    // Get maximum probes based on configuration
+    getMaxProbes: function() {
+      var probingAmount = this.config.probingAmount;
+      var maxProbesByLevel = {
+        'None': 0,
+        'Moderate': 3,
+        'Deep': 5
+      };
+
+      return maxProbesByLevel[probingAmount] || 0;
+    },
+
+    // Start conversation
+    startConversation: function() {
+      Utils.Logger.info('ConversationManager', 'Starting conversation');
+
+      this.conversationActive = true;
+      this.conversationStartTime = performance.now();
+      this.currentSegmentStartTime = 0;
+
+      // Add initial question to thread
+      this.conversationThread.push({
+        role: 'assistant',
+        content: this.config.questionText
+      });
+
+      // Display initial question in UI
+      this.displayQuestion(this.config.questionText);
+
+      Utils.Logger.info('ConversationManager', 'Conversation started: ' + this.conversationId);
+    },
+
+    // Display question in UI
+    displayQuestion: function(question) {
+      var titleElement = Utils.DOM.select('#dynamic-question-title');
+      var descElement = Utils.DOM.select('#dynamic-question-description');
+
+      if (titleElement && titleElement.length > 0) {
+        titleElement.fadeOut(200, function() {
+          titleElement.text(question).fadeIn(200);
+        });
+      }
+
+      if (descElement && descElement.length > 0) {
+        descElement.text('Click record when ready to respond.');
+      }
+
+      Utils.Logger.debug('ConversationManager', 'Question displayed: ' + question);
+    },
+
+    // Get current segment transcript
+    getCurrentSegmentTranscript: function() {
+      var fullTranscript = window.global_transcript || '';
+      var accumulatedLength = this.accumulatedTranscript.length;
+      return fullTranscript.substring(accumulatedLength).trim();
+    },
+
+    // Mark segment end and create segment data
+    markSegmentEnd: function() {
+      var now = performance.now();
+      var segmentEnd = (now - this.conversationStartTime) / 1000;
+      var segmentTranscript = this.getCurrentSegmentTranscript();
+
+      // Update accumulated transcript
+      this.accumulatedTranscript = window.global_transcript || '';
+
+      var segment = {
+        segmentId: this.segments.length + 1,
+        aiQuestion: this.currentAIQuestion,
+        startTime: this.currentSegmentStartTime,
+        endTime: segmentEnd,
+        duration: segmentEnd - this.currentSegmentStartTime,
+        transcript: segmentTranscript,
+        type: 'user_response'
+      };
+
+      this.segments.push(segment);
+      this.conversationThread.push({
+        role: 'user',
+        content: segmentTranscript
+      });
+
+      Utils.Logger.info('ConversationManager', 'Segment ' + segment.segmentId + ' recorded:', segment);
+      return segment;
+    },
+
+    // Mark AI processing start
+    markAIProcessingStart: function() {
+      this.isProcessingAI = true;
+      var now = performance.now();
+      var processingStartTime = (now - this.conversationStartTime) / 1000;
+
+      // Pause timer display
+      var timerManager = GlobalRegistry.get('timerManager');
+      if (timerManager) {
+        timerManager.pause();
+        this.timerPausedAt = Utils.DOM.select('.pipeTimer-custom').text();
+      }
+
+      Utils.Logger.info('ConversationManager', 'AI processing started');
+      return processingStartTime;
+    },
+
+    // Mark AI processing end and show next question
+    markAIProcessingEnd: function(nextQuestion) {
+      this.isProcessingAI = false;
+      var now = performance.now();
+      this.currentSegmentStartTime = (now - this.conversationStartTime) / 1000;
+
+      if (nextQuestion && nextQuestion !== 'DONE') {
+        this.currentAIQuestion = nextQuestion;
+        this.conversationThread.push({
+          role: 'assistant',
+          content: nextQuestion
+        });
+        this.currentProbeCount++;
+
+        // Display next question
+        this.displayQuestion(nextQuestion);
+      }
+
+      Utils.Logger.info('ConversationManager', 'AI processing ended, next question: ' + (nextQuestion || 'none'));
+    },
+
+    // Check if we should continue probing
+    shouldContinueProbing: function() {
+      if (this.config.probingAmount === 'None') return false;
+      return this.currentProbeCount < this.maxProbes;
+    },
+
+    // End conversation
+    endConversation: function() {
+      Utils.Logger.info('ConversationManager', 'Ending conversation');
+
+      this.conversationActive = false;
+      GlobalRegistry.setState('shouldActuallyStop', true);
+
+      // Show completion UI
+      this.showConversationComplete();
+
+      // Trigger the actual stop using the correct method
+      var pipeIntegration = GlobalRegistry.get('pipeIntegration');
+      if (pipeIntegration && pipeIntegration.stopRecording) {
+        pipeIntegration.stopRecording();
+      } else {
+        Utils.Logger.error('ConversationManager', 'Pipe integration not available for stop');
+      }
+    },
+
+    // Show conversation complete UI
+    showConversationComplete: function() {
+      Utils.DOM.select('#dynamic-question-title').text('Interview Complete!');
+      Utils.DOM.select('#dynamic-question-description').text('Thank you for your thoughtful responses. Finalizing your recording...');
+    },
+
+    // Pause recording for AI processing
+    pauseForAIProcessing: function() {
+      Utils.Logger.info('ConversationManager', 'Pausing for AI processing');
+
+      // Check if we have a meaningful recording (at least 1 second)
+      var currentDuration = this.segments.length === 0 ?
+        (performance.now() - this.conversationStartTime) / 1000 :
+        (performance.now() - this.conversationStartTime) / 1000 - this.currentSegmentStartTime;
+
+      if (currentDuration < 1) {
+        Utils.Logger.warn('ConversationManager', 'Recording too short, ignoring pause request');
+        return;
+      }
+
+      // Mark segment end
+      var segment = this.markSegmentEnd();
+
+      // Update UI to processing state
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.showProcessingState();
+      }
+
+      // Mark AI processing start
+      this.markAIProcessingStart();
+
+      // Check if we should continue
+      if (!this.shouldContinueProbing()) {
+        Utils.Logger.info('ConversationManager', 'Max probes reached, ending conversation');
+        this.endConversation();
+        return;
+      }
+
+      // Get AI response
+      this.processWithAI();
+    },
+
+    // Process response with AI
+    processWithAI: function() {
+      Utils.Logger.info('ConversationManager', 'Processing with AI');
+
+      try {
+        var aiService = GlobalRegistry.get('aiService');
+        if (!aiService) {
+          throw new Error('AI service not available');
+        }
+
+        // Get AI response
+        aiService.getFollowUpQuestion(this).then(function(aiResponse) {
+          if (aiResponse.error) {
+            Utils.Logger.error('ConversationManager', 'AI error, ending conversation', aiResponse.error);
+            ConversationManager.endConversation();
+            return;
+          }
+
+          if (!aiResponse.hasMoreQuestions) {
+            Utils.Logger.info('ConversationManager', 'AI satisfied with responses, ending conversation');
+            ConversationManager.endConversation();
+            return;
+          }
+
+          // Mark AI processing end and show next question
+          ConversationManager.markAIProcessingEnd(aiResponse.question);
+
+          // Prepare for next segment
+          ConversationManager.prepareForNextSegment();
+
+          // Show the next question
+          ConversationManager.showNextQuestion(aiResponse.question);
+
+        }).catch(function(error) {
+          Utils.Logger.error('ConversationManager', 'AI processing error', error);
+          ConversationManager.endConversation();
+        });
+
+      } catch (error) {
+        Utils.Logger.error('ConversationManager', 'Error in AI processing', error);
+        this.endConversation();
+      }
+    },
+
+    // Prepare for next segment
+    prepareForNextSegment: function() {
+      Utils.Logger.info('ConversationManager', 'Preparing for next recording segment');
+
+      // Reset recording flags
+      GlobalRegistry.setState('isRecording', false);
+
+      // Clear any existing intervals
+      var timerManager = GlobalRegistry.get('timerManager');
+      if (timerManager) {
+        timerManager.reset();
+      }
+
+      // Reset WebSocket and MediaRecorder references
+      GlobalRegistry.setState('ws', null);
+      GlobalRegistry.setState('mediaRecorder', null);
+
+      // Ensure timer display shows paused time
+      if (this.timerPausedAt) {
+        Utils.DOM.select('.pipeTimer-custom').text(this.timerPausedAt);
+      }
+
+      Utils.Logger.info('ConversationManager', 'Ready for next segment');
+    },
+
+    // Show next question
+    showNextQuestion: function(question) {
+      Utils.Logger.info('ConversationManager', 'Showing next question: ' + question);
+
+      // Hide AI processing UI
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.hideProcessingState();
+      }
+
+      // Update question display with fade effect
+      var titleElement = Utils.DOM.select('#dynamic-question-title');
+      if (titleElement && titleElement.length > 0) {
+        titleElement.fadeOut(200, function() {
+          titleElement.text(question).fadeIn(200);
+        });
+      }
+
+      Utils.DOM.select('#dynamic-question-description').text('Click record when ready to respond.');
+
+      // CRITICAL: Reset AddPipe button state to record mode and ensure visibility
+      var pipeIntegration = GlobalRegistry.get('pipeIntegration');
+      if (pipeIntegration) {
+        try {
+          var recordButton = Utils.DOM.select('#pipeRec-' + this.questionName);
+
+          // Remove all state classes
+          recordButton.removeClass('pipeRecStop pipeRecRec');
+
+          // Set record button appearance using AddPipe's expected SVG
+          var svgHtml = '<svg style="enable-background:new 0 0 16 16;" version="1.1" width="30" height="30" viewBox="0 0 100 100" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+            '<circle cx="50" cy="50" r="30" fill="red"></circle>' +
+            '<circle cx="50" cy="50" r="40" stroke="black" stroke-width="8" fill="none"></circle>' +
+            '</svg>';
+
+          recordButton.html(svgHtml);
+
+          // Force visibility and enable
+          recordButton.css({
+            'display': 'block',
+            'visibility': 'visible',
+            'opacity': '1',
+            'pointer-events': 'auto'
+          }).prop('disabled', false).show();
+
+          // CRITICAL: Reset AddPipe's internal state and button attributes
+          recordButton.attr('title', 'record');
+          recordButton.removeClass('pipeBtn').addClass('pipeBtn');
+
+          // Reset menu state
+          var menu = Utils.DOM.select('#pipeMenu-' + this.questionName);
+          if (menu && menu.length > 0) {
+            menu.removeClass('recording-state ai-processing-state').addClass('ready-state');
+          }
+
+          Utils.Logger.info('ConversationManager', 'AddPipe button reset to record mode');
+        } catch (e) {
+          Utils.Logger.error('ConversationManager', 'Error resetting button state', e);
+        }
+      }
+    },
+
+    // Start new recording segment
+    startNewSegment: function() {
+      Utils.Logger.info('ConversationManager', 'Starting new recording segment');
+
+      // Update UI to recording state
+      var elementController = GlobalRegistry.get('elementController');
+      if (elementController) {
+        elementController.setRecordingState();
+      }
+
+      // Start timer
+      var timerManager = GlobalRegistry.get('timerManager');
+      if (timerManager) {
+        timerManager.start();
+      }
+
+      // Start new transcription session
+      var transcriptionService = GlobalRegistry.get('transcriptionService');
+      if (transcriptionService) {
+        transcriptionService.startNewSegment();
+      }
+
+      Utils.Logger.info('ConversationManager', 'New segment started');
+    },
+
+    // Get conversation metadata
+    getMetadata: function(fullVideoUrl) {
+      var now = performance.now();
+      var totalDuration = (now - this.conversationStartTime) / 1000;
+
+      return {
+        conversationId: this.conversationId,
+        responseId: (typeof Qualtrics !== 'undefined') ? Qualtrics.SurveyEngine.getEmbeddedData('ResponseID') : 'preview',
+        questionConfig: this.config,
+        totalDuration: totalDuration,
+        recordingStartTime: new Date(Date.now() - (now - this.conversationStartTime)).toISOString(),
+        recordingEndTime: new Date().toISOString(),
+        fullVideoUrl: fullVideoUrl,
+        segments: this.segments,
+        aiProcessingGaps: this.calculateProcessingGaps(),
+        totalProbes: this.currentProbeCount,
+        completionReason: this.currentProbeCount >= this.maxProbes ? 'max_probes_reached' : 'ai_satisfied',
+        accumulatedTranscript: this.accumulatedTranscript,
+        conversationThread: this.conversationThread,
+        errors: []
+      };
+    },
+
+    // Calculate AI processing gaps
+    calculateProcessingGaps: function() {
+      var gaps = [];
+      for (var i = 0; i < this.segments.length - 1; i++) {
+        gaps.push({
+          gapId: i + 1,
+          afterSegment: this.segments[i].segmentId,
+          startTime: this.segments[i].endTime,
+          endTime: this.segments[i + 1].startTime,
+          duration: this.segments[i + 1].startTime - this.segments[i].endTime,
+          type: 'ai_processing'
+        });
+      }
+      return gaps;
+    },
+
+    // Get conversation info for debugging
+    getInfo: function() {
+      return {
+        conversationId: this.conversationId,
+        active: this.conversationActive,
+        segments: this.segments.length,
+        currentProbeCount: this.currentProbeCount,
+        maxProbes: this.maxProbes,
+        currentQuestion: this.currentAIQuestion,
+        isProcessing: this.isProcessingAI,
+        transcriptLength: this.accumulatedTranscript.length
+      };
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('ConversationManager', 'State change: ' + oldState + ' -> ' + newState);
+
+      // Conversation manager is primarily event-driven
+    },
+
+    // Cleanup
+    cleanup: function() {
+      Utils.Logger.info('ConversationManager', 'Cleaning up conversation manager');
+
+      this.conversationActive = false;
+      this.segments = [];
+      this.conversationThread = [];
+      this.currentProbeCount = 0;
+      this.isProcessingAI = false;
+
+      Utils.Logger.info('ConversationManager', 'Conversation manager cleanup complete');
+    }
+  };
+
+  // Export ConversationManager
+  return ConversationManager;
+
+})();
+
+
+// === ai-service.js (284 lines) ===
+// AI Service - OpenAI integration for conversation management
+// No template literals used - only string concatenation
+
+var AIService = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+
+  // AI Service API
+  var AIService = {
+
+    // Initialize AI service
+    initialize: function(apiKey, model) {
+      this.apiKey = apiKey;
+      this.model = model || 'gpt-4o';
+      this.maxRetries = 2;
+      this.retryDelay = 1000; // 1 second
+
+      Utils.Logger.info('AIService', 'AI service initialized with model: ' + this.model);
+    },
+
+    // Get follow-up question from AI
+    getFollowUpQuestion: function(conversationManager) {
+      var self = this;
+      var lastError = null;
+
+      Utils.Logger.info('AIService', 'Getting follow-up question from AI');
+
+      // Retry logic for API calls
+      return new Promise(function(resolve, reject) {
+        var attempt = 0;
+
+        function tryRequest() {
+          attempt++;
+          Utils.Logger.info('AIService', 'Attempt ' + attempt + '/' + self.maxRetries);
+
+          try {
+            var systemPrompt = self.buildSystemPrompt(conversationManager.config, conversationManager.currentProbeCount);
+
+            fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + self.apiKey
+              },
+              body: JSON.stringify({
+                model: self.model,
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  ...conversationManager.conversationThread
+                ],
+                temperature: 0.7,
+                max_tokens: 200,
+                response_format: { type: 'json_object' }
+              })
+            })
+            .then(function(response) {
+              if (!response.ok) {
+                return response.text().then(function(errorData) {
+                  throw new Error('OpenAI API error: ' + response.status + ' - ' + errorData);
+                });
+              }
+              return response.json();
+            })
+            .then(function(data) {
+              var aiResponseText = data.choices[0].message.content;
+
+              // Parse the response
+              var aiResponse = self.parseAIResponse(aiResponseText);
+
+              Utils.Logger.info('AIService', 'AI response received:', aiResponse);
+              resolve(aiResponse);
+            })
+            .catch(function(error) {
+              Utils.Logger.error('AIService', 'API request failed (attempt ' + attempt + ')', error);
+              lastError = error;
+
+              // If not the last attempt, wait before retrying
+              if (attempt < self.maxRetries) {
+                Utils.Logger.info('AIService', 'Retrying in ' + self.retryDelay + 'ms...');
+                setTimeout(tryRequest, self.retryDelay);
+              } else {
+                // All attempts failed
+                Utils.Logger.error('AIService', 'All AI service attempts failed', lastError);
+                resolve({
+                  hasMoreQuestions: false,
+                  error: lastError.message,
+                  shouldContinue: false
+                });
+              }
+            });
+          } catch (error) {
+            Utils.Logger.error('AIService', 'Request setup failed', error);
+            lastError = error;
+
+            if (attempt < self.maxRetries) {
+              setTimeout(tryRequest, self.retryDelay);
+            } else {
+              resolve({
+                hasMoreQuestions: false,
+                error: lastError.message,
+                shouldContinue: false
+              });
+            }
+          }
+        }
+
+        tryRequest();
+      });
+    },
+
+    // Parse AI response
+    parseAIResponse: function(responseText) {
+      try {
+        // Try to parse as JSON first
+        var parsed = JSON.parse(responseText);
+
+        // Handle different response formats
+        if (parsed.isDone === true || parsed.done === true) {
+          return {
+            hasMoreQuestions: false,
+            question: null,
+            reasoning: parsed.reasoning || 'Interview complete',
+            shouldContinue: false
+          };
+        }
+
+        if (parsed.hasMoreQuestions === true && parsed.question) {
+          return {
+            hasMoreQuestions: true,
+            question: parsed.question.trim(),
+            reasoning: parsed.reasoning || null,
+            shouldContinue: true
+          };
+        }
+
+        // Fallback: if we have a question field, use it
+        if (parsed.question) {
+          return {
+            hasMoreQuestions: true,
+            question: parsed.question.trim(),
+            reasoning: parsed.reasoning || null,
+            shouldContinue: true
+          };
+        }
+
+      } catch (jsonError) {
+        Utils.Logger.warn('AIService', 'Failed to parse AI response as JSON', jsonError);
+
+        // Fallback: treat as plain text question
+        var cleanText = responseText.trim();
+        if (cleanText.length > 0 && !this.isCompletionResponse(cleanText)) {
+          return {
+            hasMoreQuestions: true,
+            question: cleanText,
+            reasoning: 'Parsed as plain text',
+            shouldContinue: true
+          };
+        }
+      }
+
+      // Default: no more questions
+      return {
+        hasMoreQuestions: false,
+        question: null,
+        reasoning: 'Could not parse response',
+        shouldContinue: false
+      };
+    },
+
+    // Check if response indicates completion
+    isCompletionResponse: function(text) {
+      var lowerText = text.toLowerCase();
+      var completionKeywords = [
+        'no more questions',
+        'interview complete',
+        'sufficient information',
+        'thoroughly answered',
+        'done',
+        'finished',
+        'complete'
+      ];
+
+      return completionKeywords.some(function(keyword) {
+        return lowerText.includes(keyword);
+      });
+    },
+
+    // Build system prompt
+    buildSystemPrompt: function(questionConfig, currentProbeCount) {
+      var systemPromptBase = window.probingSystemPrompts[questionConfig.probingAmount] || '';
+      var maxQuestions = window.maxProbesByLevel[questionConfig.probingAmount] || 0;
+      var remainingQuestions = maxQuestions - currentProbeCount;
+
+      return systemPromptBase + '\n\n' +
+        'Original Question: "' + questionConfig.questionText + '"\n' +
+        'Probing Instructions: "' + questionConfig.probingInstructions + '"\n' +
+        'Questions asked so far: ' + currentProbeCount + '\n' +
+        'Maximum questions allowed: ' + maxQuestions + '\n' +
+        'Remaining questions: ' + remainingQuestions + '\n\n' +
+        'RESPONSE FORMAT: You must respond with valid JSON only. Use one of these formats:\n\n' +
+        '1. To ask a follow-up question:\n' +
+        '{\n' +
+        '  "hasMoreQuestions": true,\n' +
+        '  "question": "Your specific follow-up question here",\n' +
+        '  "reasoning": "Brief explanation of why this question is needed"\n' +
+        '}\n\n' +
+        '2. To end the interview:\n' +
+        '{\n' +
+        '  "isDone": true,\n' +
+        '  "reasoning": "Explanation of why the interview is complete"\n' +
+        '}\n\n' +
+        'DECISION CRITERIA:\n' +
+        '- If the user has thoroughly answered the original question AND satisfied the probing instructions → End interview\n' +
+        '- If you\'ve reached the maximum number of questions (' + maxQuestions + ') → End interview\n' +
+        '- If more information is needed AND questions remain → Ask follow-up\n' +
+        '- Be conversational and reference specific things the user said\n' +
+        '- Focus on the probing instructions: "' + questionConfig.probingInstructions + '"\n\n' +
+        'Remember: Respond with JSON only, no additional text.';
+    },
+
+    // Test API connectivity
+    testConnection: function() {
+      var self = this;
+
+      return new Promise(function(resolve, reject) {
+        if (!self.isConfigured()) {
+          reject(new Error('OpenAI API key not configured'));
+          return;
+        }
+
+        fetch('https://api.openai.com/v1/models', {
+          headers: {
+            'Authorization': 'Bearer ' + self.apiKey
+          }
+        })
+        .then(function(response) {
+          if (!response.ok) {
+            throw new Error('API test failed: ' + response.status);
+          }
+          Utils.Logger.info('AIService', 'OpenAI API connection successful');
+          resolve(true);
+        })
+        .catch(function(error) {
+          Utils.Logger.error('AIService', 'OpenAI API connection failed', error);
+          reject(error);
+        });
+      });
+    },
+
+    // Check if service is configured
+    isConfigured: function() {
+      return this.apiKey && this.apiKey !== 'sk-...' && this.apiKey.startsWith('sk-');
+    },
+
+    // Get AI service info for debugging
+    getInfo: function() {
+      return {
+        configured: this.isConfigured(),
+        model: this.model,
+        maxRetries: this.maxRetries,
+        retryDelay: this.retryDelay,
+        apiKeyPrefix: this.apiKey ? this.apiKey.substring(0, 7) + '...' : 'none'
+      };
+    },
+
+    // State change handler
+    onStateChange: function(oldState, newState, data) {
+      Utils.Logger.debug('AIService', 'State change: ' + oldState + ' -> ' + newState);
+
+      // AI service is primarily event-driven
+    },
+
+    // Cleanup
+    cleanup: function() {
+      Utils.Logger.info('AIService', 'AI service cleanup complete');
+    }
+  };
+
+  // Export AIService
+  return AIService;
+
+})();
+
+
+// === main.js (384 lines) ===
+// Main Application Orchestrator - Coordinates all modules
+// No template literals used - only string concatenation
+
+var VideoRecorderApp = (function() {
+
+  var Utils = window.Utils;
+  var GlobalRegistry = window.GlobalRegistry;
+  var StateManager = window.StateManager;
+
+  // Application state
+  var isInitialized = false;
+  var initializationPromise = null;
+
+  // Main Application API
+  var VideoRecorderApp = {
+
+    // Initialize the entire application
+    initialize: function() {
+      if (isInitialized) {
+        Utils.Logger.warn('VideoRecorderApp', 'Application already initialized');
+        return Promise.resolve();
+      }
+
+      if (initializationPromise) {
+        return initializationPromise;
+      }
+
+      initializationPromise = this._initializeAsync();
+      return initializationPromise;
+    },
+
+    // Internal initialization
+    _initializeAsync: function() {
+      return new Promise(function(resolve, reject) {
+        Utils.Logger.info('VideoRecorderApp', 'Starting application initialization');
+
+        try {
+          // Step 1: Initialize global registry
+          GlobalRegistry.initialize();
+          Utils.Logger.info('VideoRecorderApp', 'Global registry initialized');
+
+          // Step 2: Initialize core modules
+          VideoRecorderApp._initializeCoreModules();
+          Utils.Logger.info('VideoRecorderApp', 'Core modules initialized');
+
+          // Step 3: Initialize UI modules
+          VideoRecorderApp._initializeUIModules();
+          Utils.Logger.info('VideoRecorderApp', 'UI modules initialized');
+
+          // Step 4: Initialize recording services
+          VideoRecorderApp._initializeRecordingServices();
+          Utils.Logger.info('VideoRecorderApp', 'Recording services initialized');
+
+          // Step 5: Initialize AI services
+          VideoRecorderApp._initializeAIServices();
+          Utils.Logger.info('VideoRecorderApp', 'AI services initialized');
+
+          // Step 6: Set up main application flow
+          VideoRecorderApp._setupApplicationFlow();
+          Utils.Logger.info('VideoRecorderApp', 'Application flow configured');
+
+          isInitialized = true;
+          Utils.Logger.info('VideoRecorderApp', 'Application initialization complete');
+
+          resolve();
+
+        } catch (error) {
+          Utils.Logger.error('VideoRecorderApp', 'Initialization failed', error);
+          reject(error);
+        }
+      });
+    },
+
+    // Initialize core modules
+    _initializeCoreModules: function() {
+      Utils.Logger.info('VideoRecorderApp', 'Initializing core modules');
+
+      // Initialize state manager
+      StateManager.initialize();
+      GlobalRegistry.register('stateManager', StateManager);
+
+      // Initialize event handler
+      var eventHandler = window.EventHandler;
+      eventHandler.initialize();
+      GlobalRegistry.register('eventHandler', eventHandler);
+
+      Utils.Logger.info('VideoRecorderApp', 'Core modules registered');
+    },
+
+    // Initialize UI modules
+    _initializeUIModules: function() {
+      Utils.Logger.info('VideoRecorderApp', 'Initializing UI modules');
+
+      var config = GlobalRegistry.getConfig();
+      var questionName = config.questionName;
+
+      // Initialize element controller
+      var elementController = window.ElementController;
+      elementController.initialize(questionName);
+      GlobalRegistry.register('elementController', elementController);
+
+      // Initialize timer manager
+      var timerManager = window.TimerManager;
+      timerManager.initialize();
+      GlobalRegistry.register('timerManager', timerManager);
+
+      // Initialize modal manager
+      var modalManager = window.ModalManager;
+      modalManager.initialize();
+      GlobalRegistry.register('modalManager', modalManager);
+
+      Utils.Logger.info('VideoRecorderApp', 'UI modules registered');
+    },
+
+    // Initialize recording services
+    _initializeRecordingServices: function() {
+      Utils.Logger.info('VideoRecorderApp', 'Initializing recording services');
+
+      var config = GlobalRegistry.getConfig();
+
+      // Initialize Pipe integration
+      var pipeIntegration = window.PipeIntegration;
+      pipeIntegration.initialize(config.questionName, config.pipeParams)
+        .then(function() {
+          GlobalRegistry.register('pipeIntegration', pipeIntegration);
+          Utils.Logger.info('VideoRecorderApp', 'Pipe integration registered');
+        })
+        .catch(function(error) {
+          Utils.Logger.error('VideoRecorderApp', 'Pipe integration initialization failed', error);
+        });
+
+      // Initialize transcription service
+      var transcriptionService = window.TranscriptionService;
+      transcriptionService.initialize(config.deepgram);
+      GlobalRegistry.register('transcriptionService', transcriptionService);
+
+      // Initialize validation
+      var validation = window.Validation;
+      GlobalRegistry.register('validation', validation);
+
+      Utils.Logger.info('VideoRecorderApp', 'Recording services registered');
+    },
+
+    // Initialize AI services
+    _initializeAIServices: function() {
+      Utils.Logger.info('VideoRecorderApp', 'Initializing AI services');
+
+      var config = GlobalRegistry.getConfig();
+
+      // Initialize conversation manager
+      var conversationManager = window.ConversationManager;
+      conversationManager.initialize(config.questionName, null, config.questionConfig);
+      GlobalRegistry.register('conversationManager', conversationManager);
+
+      // Initialize AI service
+      var aiService = window.AIService;
+      aiService.initialize(config.openai.apiKey, config.openai.model);
+      GlobalRegistry.register('aiService', aiService);
+
+      Utils.Logger.info('VideoRecorderApp', 'AI services registered');
+    },
+
+    // Set up main application flow
+    _setupApplicationFlow: function() {
+      Utils.Logger.info('VideoRecorderApp', 'Setting up application flow');
+
+      // Set up global functions for backward compatibility
+      this._setupGlobalFunctions();
+
+      // Set up permissions and instructions flow
+      this._setupModalFlow();
+
+      Utils.Logger.info('VideoRecorderApp', 'Application flow configured');
+    },
+
+    // Set up global functions for compatibility
+    _setupGlobalFunctions: function() {
+      var self = this;
+
+      // Global functions that need to be available
+      window.getCamAccess = function() {
+        Utils.Logger.info('VideoRecorderApp', 'Camera access requested');
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices
+            .getUserMedia({ video: true, audio: true })
+            .then(function(stream) {
+              Utils.Logger.info('VideoRecorderApp', 'Camera access granted');
+
+              // Close permissions modal and show instructions
+              var modalManager = GlobalRegistry.get('modalManager');
+              if (modalManager) {
+                jQuery.modal.close();
+                modalManager.showInstructions();
+              }
+
+              // Start the main application
+              self.start();
+            })
+            .catch(function(err) {
+              Utils.Logger.error('VideoRecorderApp', 'Camera access denied', err);
+              // Still proceed to instructions
+              var modalManager = GlobalRegistry.get('modalManager');
+              if (modalManager) {
+                jQuery.modal.close();
+                modalManager.showInstructions();
+              }
+              self.start();
+            });
+        } else {
+          Utils.Logger.warn('VideoRecorderApp', 'MediaDevices not available');
+          var modalManager = GlobalRegistry.get('modalManager');
+          if (modalManager) {
+            jQuery.modal.close();
+            modalManager.showInstructions();
+          }
+          self.start();
+        }
+      };
+
+      window.modalClose = function() {
+        Utils.Logger.info('VideoRecorderApp', 'Modal close triggered');
+        var modalManager = GlobalRegistry.get('modalManager');
+        if (modalManager) {
+          modalManager.handleClose();
+        }
+      };
+
+      window.modalRetake = function() {
+        Utils.Logger.info('VideoRecorderApp', 'Modal retake triggered');
+        var modalManager = GlobalRegistry.get('modalManager');
+        if (modalManager) {
+          modalManager.handleRetake();
+        }
+      };
+
+      window.nextQuestion = function() {
+        Utils.Logger.info('VideoRecorderApp', 'Next question triggered');
+        jQuery.modal.close();
+        if (typeof document.querySelector('.NextButton') !== 'undefined') {
+          document.querySelector('.NextButton').click();
+        }
+      };
+
+      // Legacy functions for compatibility
+      window.playVideoCustom = function() {
+        var pipeIntegration = GlobalRegistry.get('pipeIntegration');
+        if (pipeIntegration) {
+          pipeIntegration.playVideo();
+        }
+      };
+
+      window.playVideoEvent = function() {
+        var pipeIntegration = GlobalRegistry.get('pipeIntegration');
+        if (pipeIntegration) {
+          pipeIntegration.playVideo();
+        }
+      };
+
+      window.stoppedVideo = function() {
+        var elementController = GlobalRegistry.get('elementController');
+        if (elementController) {
+          elementController.setPlaybackState();
+        }
+      };
+
+      window.showGallary = function() {
+        Utils.Logger.info('VideoRecorderApp', 'Gallery view requested');
+        // Gallery functionality would be implemented here if needed
+      };
+
+      window.backToCamera = function() {
+        Utils.Logger.info('VideoRecorderApp', 'Back to camera requested');
+        var elementController = GlobalRegistry.get('elementController');
+        if (elementController) {
+          elementController.setReadyToRecordWithVideoState();
+        }
+      };
+
+      Utils.Logger.info('VideoRecorderApp', 'Global functions configured');
+    },
+
+    // Set up modal flow
+    _setupModalFlow: function() {
+      // Set up permissions modal on page load
+      jQuery(function() {
+        Utils.Logger.info('VideoRecorderApp', 'Setting up initial modal flow');
+
+        jQuery('#SkinContent #Buttons').hide();
+        jQuery('#NextButton-custom').hide();
+
+        var modalManager = GlobalRegistry.get('modalManager');
+        if (modalManager) {
+          modalManager.showPermissions();
+        }
+      });
+
+      Utils.Logger.info('VideoRecorderApp', 'Modal flow configured');
+    },
+
+    // Start the main application
+    start: function() {
+      Utils.Logger.info('VideoRecorderApp', 'Starting main application');
+
+      // Initialize the application if not already done
+      return this.initialize().then(function() {
+        Utils.Logger.info('VideoRecorderApp', 'Application started successfully');
+      }).catch(function(error) {
+        Utils.Logger.error('VideoRecorderApp', 'Application start failed', error);
+        StateManager.setError('Application initialization failed: ' + error.message);
+      });
+    },
+
+    // Get application status
+    getStatus: function() {
+      var registryState = GlobalRegistry.getState();
+      var stateManagerState = StateManager.getState();
+      var performanceMetrics = GlobalRegistry.getPerformanceMetrics();
+
+      return {
+        initialized: isInitialized,
+        currentState: stateManagerState.current,
+        modulesRegistered: Object.keys(GlobalRegistry.getAllModules()).length,
+        performance: performanceMetrics,
+        config: GlobalRegistry.getConfig(),
+        errors: registryState.hasError ? registryState.errorMessage : null
+      };
+    },
+
+    // Cleanup application
+    cleanup: function() {
+      Utils.Logger.info('VideoRecorderApp', 'Cleaning up application');
+
+      // Cleanup all modules
+      var modules = GlobalRegistry.getAllModules();
+      for (var moduleName in modules) {
+        var module = modules[moduleName];
+        if (module && typeof module.cleanup === 'function') {
+          try {
+            module.cleanup();
+          } catch (error) {
+            Utils.Logger.error('VideoRecorderApp', 'Cleanup failed for ' + moduleName, error);
+          }
+        }
+      }
+
+      // Cleanup global registry
+      GlobalRegistry.cleanup();
+
+      isInitialized = false;
+      initializationPromise = null;
+
+      Utils.Logger.info('VideoRecorderApp', 'Application cleanup complete');
+    },
+
+    // Debug information
+    debug: function() {
+      var status = this.getStatus();
+      var modules = GlobalRegistry.getAllModules();
+
+      var debugInfo = {
+        status: status,
+        modules: {}
+      };
+
+      for (var moduleName in modules) {
+        var module = modules[moduleName];
+        if (module && typeof module.getInfo === 'function') {
+          debugInfo.modules[moduleName] = module.getInfo();
+        }
+      }
+
+      Utils.Logger.info('VideoRecorderApp', 'Debug information:');
+      console.log(JSON.stringify(debugInfo, null, 2));
+
+      return debugInfo;
+    }
+  };
+
+  // Export VideoRecorderApp
+  return VideoRecorderApp;
+
+})();
+
+

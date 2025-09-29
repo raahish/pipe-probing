@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T21:47:08.392Z
+// Generated: 2025-09-29T21:57:44.921Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -2267,7 +2267,7 @@ var PipeIntegration = (function() {
 })();
 
 
-// === transcription.js (261 lines) ===
+// === transcription.js (257 lines) ===
 // Transcription Service - DeepGram WebSocket integration
 // No template literals used - only string concatenation
 
@@ -2302,7 +2302,11 @@ var TranscriptionService = (function() {
 
     // Start transcription for new segment
     startNewSegment: function() {
-      Utils.Logger.info('TranscriptionService', 'Starting transcription for new segment');
+      Utils.Logger.info('TranscriptionService', 'Starting fresh transcription for new segment');
+
+      // CRITICAL: Ensure clean state by stopping any existing transcription
+      this.stop();
+      Utils.Logger.info('TranscriptionService', 'Previous transcription cleaned up');
 
       var config = GlobalRegistry.getConfig();
 
@@ -2327,11 +2331,7 @@ var TranscriptionService = (function() {
         return;
       }
 
-      // Stop any existing MediaRecorder first
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        Utils.Logger.info('TranscriptionService', 'Stopping existing MediaRecorder before creating new one');
-        mediaRecorder.stop();
-      }
+      Utils.Logger.info('TranscriptionService', 'Creating fresh MediaRecorder and WebSocket for segment');
 
       // Create MediaRecorder for audio transcription
       var audioStream = new MediaStream(stream.getAudioTracks());
@@ -2451,20 +2451,25 @@ var TranscriptionService = (function() {
     stop: function() {
       Utils.Logger.info('TranscriptionService', 'Stopping transcription service');
 
+      var stoppedComponents = [];
+
       // Stop MediaRecorder
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
+        stoppedComponents.push('MediaRecorder');
       }
 
       // Close WebSocket
       if (websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.close();
+        stoppedComponents.push('WebSocket');
       }
 
       // Clear keepalive interval
       if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
+        stoppedComponents.push('KeepAlive');
       }
 
       // Reset references
@@ -2472,7 +2477,7 @@ var TranscriptionService = (function() {
       websocket = null;
       stream = null;
 
-      Utils.Logger.info('TranscriptionService', 'Transcription service stopped');
+      Utils.Logger.info('TranscriptionService', 'Transcription stopped - cleaned up: ' + stoppedComponents.join(', '));
     },
 
     // Get current transcript
@@ -2493,24 +2498,15 @@ var TranscriptionService = (function() {
       };
     },
 
-    // State change handler
+    // State change handler (simplified - no longer managing transcription via state)
     onStateChange: function(oldState, newState, data) {
       Utils.Logger.debug('TranscriptionService', 'State change: ' + oldState + ' -> ' + newState);
-
+      
+      // Transcription is now managed explicitly by ConversationManager
+      // No automatic start/stop based on state changes
       switch (newState) {
-        case StateManager.getStates().PROCESSING:
-          // Stop transcription when AI processing starts
-          this.stop();
-          break;
-
-        case StateManager.getStates().CONVERSATION_ACTIVE:
-          // Start new segment transcription
-          this.startNewSegment();
-          break;
-
-        case StateManager.getStates().READY:
         case StateManager.getStates().COMPLETE:
-          // Stop transcription
+          // Only stop on final completion
           this.stop();
           break;
       }
@@ -2740,7 +2736,7 @@ var Validation = (function() {
 })();
 
 
-// === conversation-manager.js (471 lines) ===
+// === conversation-manager.js (485 lines) ===
 // Conversation Manager - AI-driven interview flow management
 // No template literals used - only string concatenation
 
@@ -2915,6 +2911,13 @@ var ConversationManager = (function() {
       Utils.Logger.debug('ConversationManager', 'Current segments: ' + this.segments.length);
       Utils.Logger.debug('ConversationManager', 'Current probe count: ' + this.currentProbeCount + '/' + this.maxProbes);
 
+      // CRITICAL: Stop transcription for final time
+      var transcriptionService = GlobalRegistry.get('transcriptionService');
+      if (transcriptionService) {
+        transcriptionService.stop();
+        Utils.Logger.info('ConversationManager', 'Final transcription stop - conversation ending');
+      }
+
       // CRITICAL: Clear conversation state FIRST
       Utils.Logger.info('ConversationManager', 'Clearing conversation active state');
       this.conversationActive = false;
@@ -2952,6 +2955,13 @@ var ConversationManager = (function() {
       if (currentDuration < 1) {
         Utils.Logger.warn('ConversationManager', 'Recording too short, ignoring pause request');
         return;
+      }
+
+      // CRITICAL: Stop transcription for this segment
+      var transcriptionService = GlobalRegistry.get('transcriptionService');
+      if (transcriptionService) {
+        transcriptionService.stop();
+        Utils.Logger.info('ConversationManager', 'Transcription stopped for AI processing');
       }
 
       // Mark segment end

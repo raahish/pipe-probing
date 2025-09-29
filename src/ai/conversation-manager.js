@@ -172,6 +172,13 @@ var ConversationManager = (function() {
       Utils.Logger.debug('ConversationManager', 'Current segments: ' + this.segments.length);
       Utils.Logger.debug('ConversationManager', 'Current probe count: ' + this.currentProbeCount + '/' + this.maxProbes);
 
+      // CRITICAL: Stop transcription for final time
+      var transcriptionService = GlobalRegistry.get('transcriptionService');
+      if (transcriptionService) {
+        transcriptionService.stop();
+        Utils.Logger.info('ConversationManager', 'Final transcription stop - conversation ending');
+      }
+
       // CRITICAL: Clear conversation state FIRST
       Utils.Logger.info('ConversationManager', 'Clearing conversation active state');
       this.conversationActive = false;
@@ -209,6 +216,13 @@ var ConversationManager = (function() {
       if (currentDuration < 1) {
         Utils.Logger.warn('ConversationManager', 'Recording too short, ignoring pause request');
         return;
+      }
+
+      // CRITICAL: Stop transcription for this segment
+      var transcriptionService = GlobalRegistry.get('transcriptionService');
+      if (transcriptionService) {
+        transcriptionService.stop();
+        Utils.Logger.info('ConversationManager', 'Transcription stopped for AI processing');
       }
 
       // Mark segment end

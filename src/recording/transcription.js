@@ -32,7 +32,11 @@ var TranscriptionService = (function() {
 
     // Start transcription for new segment
     startNewSegment: function() {
-      Utils.Logger.info('TranscriptionService', 'Starting transcription for new segment');
+      Utils.Logger.info('TranscriptionService', 'Starting fresh transcription for new segment');
+
+      // CRITICAL: Ensure clean state by stopping any existing transcription
+      this.stop();
+      Utils.Logger.info('TranscriptionService', 'Previous transcription cleaned up');
 
       var config = GlobalRegistry.getConfig();
 
@@ -57,11 +61,7 @@ var TranscriptionService = (function() {
         return;
       }
 
-      // Stop any existing MediaRecorder first
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        Utils.Logger.info('TranscriptionService', 'Stopping existing MediaRecorder before creating new one');
-        mediaRecorder.stop();
-      }
+      Utils.Logger.info('TranscriptionService', 'Creating fresh MediaRecorder and WebSocket for segment');
 
       // Create MediaRecorder for audio transcription
       var audioStream = new MediaStream(stream.getAudioTracks());
@@ -181,20 +181,25 @@ var TranscriptionService = (function() {
     stop: function() {
       Utils.Logger.info('TranscriptionService', 'Stopping transcription service');
 
+      var stoppedComponents = [];
+
       // Stop MediaRecorder
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
+        stoppedComponents.push('MediaRecorder');
       }
 
       // Close WebSocket
       if (websocket && websocket.readyState === WebSocket.OPEN) {
         websocket.close();
+        stoppedComponents.push('WebSocket');
       }
 
       // Clear keepalive interval
       if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
+        stoppedComponents.push('KeepAlive');
       }
 
       // Reset references
@@ -202,7 +207,7 @@ var TranscriptionService = (function() {
       websocket = null;
       stream = null;
 
-      Utils.Logger.info('TranscriptionService', 'Transcription service stopped');
+      Utils.Logger.info('TranscriptionService', 'Transcription stopped - cleaned up: ' + stoppedComponents.join(', '));
     },
 
     // Get current transcript
@@ -223,24 +228,15 @@ var TranscriptionService = (function() {
       };
     },
 
-    // State change handler
+    // State change handler (simplified - no longer managing transcription via state)
     onStateChange: function(oldState, newState, data) {
       Utils.Logger.debug('TranscriptionService', 'State change: ' + oldState + ' -> ' + newState);
-
+      
+      // Transcription is now managed explicitly by ConversationManager
+      // No automatic start/stop based on state changes
       switch (newState) {
-        case StateManager.getStates().PROCESSING:
-          // Stop transcription when AI processing starts
-          this.stop();
-          break;
-
-        case StateManager.getStates().CONVERSATION_ACTIVE:
-          // Start new segment transcription
-          this.startNewSegment();
-          break;
-
-        case StateManager.getStates().READY:
         case StateManager.getStates().COMPLETE:
-          // Stop transcription
+          // Only stop on final completion
           this.stop();
           break;
       }

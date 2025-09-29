@@ -234,14 +234,6 @@ var VideoRecorderApp = (function() {
         }
       };
 
-      window.modalRetake = function() {
-        Utils.Logger.info('VideoRecorderApp', 'Modal retake triggered');
-        var modalManager = GlobalRegistry.get('modalManager');
-        if (modalManager) {
-          modalManager.handleRetake();
-        }
-      };
-
       window.nextQuestion = function() {
         Utils.Logger.info('VideoRecorderApp', 'Next question triggered');
         jQuery.modal.close();

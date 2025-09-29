@@ -64,6 +64,24 @@ var PipeIntegration = (function() {
       recorderObject.onRecordingStarted = function(recorderId) {
         Utils.Logger.info('PipeIntegration', 'Recording actually started');
         StateManager.setRecording();
+        
+        // Start conversation and transcription for initial recording
+        if (!StateManager.isConversationActive()) {
+          Utils.Logger.info('PipeIntegration', 'Starting conversation and transcription for initial recording');
+          
+          var conversationManager = GlobalRegistry.get('conversationManager');
+          if (conversationManager) {
+            conversationManager.startConversation();
+            StateManager.setConversationActive();
+            Utils.Logger.info('PipeIntegration', 'Conversation started');
+          }
+          
+          var transcriptionService = GlobalRegistry.get('transcriptionService');
+          if (transcriptionService) {
+            transcriptionService.startNewSegment();
+            Utils.Logger.info('PipeIntegration', 'Transcription started for initial recording');
+          }
+        }
       };
 
       // Handler for record button pressed

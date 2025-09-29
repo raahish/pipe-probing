@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T18:02:18.295Z
+// Generated: 2025-09-29T20:49:22.702Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -1746,7 +1746,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (401 lines) ===
+// === pipe-integration.js (419 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -1813,6 +1813,24 @@ var PipeIntegration = (function() {
       recorderObject.onRecordingStarted = function(recorderId) {
         Utils.Logger.info('PipeIntegration', 'Recording actually started');
         StateManager.setRecording();
+        
+        // Start conversation and transcription for initial recording
+        if (!StateManager.isConversationActive()) {
+          Utils.Logger.info('PipeIntegration', 'Starting conversation and transcription for initial recording');
+          
+          var conversationManager = GlobalRegistry.get('conversationManager');
+          if (conversationManager) {
+            conversationManager.startConversation();
+            StateManager.setConversationActive();
+            Utils.Logger.info('PipeIntegration', 'Conversation started');
+          }
+          
+          var transcriptionService = GlobalRegistry.get('transcriptionService');
+          if (transcriptionService) {
+            transcriptionService.startNewSegment();
+            Utils.Logger.info('PipeIntegration', 'Transcription started for initial recording');
+          }
+        }
       };
 
       // Handler for record button pressed

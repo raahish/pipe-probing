@@ -46,6 +46,7 @@ var GlobalRegistry = (function() {
     mediaRecorder: null,
     stream: null,
     S3_BASE_URL: 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/',
+    mimetype: 'audio/webm', // Default mimetype for MediaRecorder
 
     // Conversation state variables
     isConversationActive: false,
@@ -126,6 +127,13 @@ var GlobalRegistry = (function() {
       return config;
     },
 
+    // Update mimetype for MediaRecorder compatibility
+    updateMimetype: function() {
+      if (typeof window.getMobileOperatingSystem === 'function') {
+        window.getMobileOperatingSystem();
+      }
+    },
+
     // Global variable synchronization
     syncGlobalVars: function() {
       // Sync state to global variables for backward compatibility
@@ -151,6 +159,9 @@ var GlobalRegistry = (function() {
       // Load and validate configuration
       config = Utils.Config.load();
       Utils.Config.validate(config);
+
+      // Update mimetype for MediaRecorder compatibility
+      this.updateMimetype();
 
       // Initialize global variables
       this.syncGlobalVars();
@@ -193,6 +204,7 @@ var GlobalRegistry = (function() {
         mediaRecorder: null,
         stream: null,
         S3_BASE_URL: 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/',
+        mimetype: 'audio/webm', // Default mimetype for MediaRecorder
         isConversationActive: false,
         shouldActuallyStop: false,
         conversationManager: null,

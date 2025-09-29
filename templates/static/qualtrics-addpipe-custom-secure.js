@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T00:36:07.878Z
+// Generated: 2025-09-29T12:58:11.995Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -269,7 +269,7 @@ var Utils = (function() {
 })();
 
 
-// === global-registry.js (241 lines) ===
+// === global-registry.js (253 lines) ===
 // Global Registry - Centralized state and module management
 // No template literals used - only string concatenation
 
@@ -318,6 +318,7 @@ var GlobalRegistry = (function() {
     mediaRecorder: null,
     stream: null,
     S3_BASE_URL: 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/',
+    mimetype: 'audio/webm', // Default mimetype for MediaRecorder
 
     // Conversation state variables
     isConversationActive: false,
@@ -398,6 +399,13 @@ var GlobalRegistry = (function() {
       return config;
     },
 
+    // Update mimetype for MediaRecorder compatibility
+    updateMimetype: function() {
+      if (typeof window.getMobileOperatingSystem === 'function') {
+        window.getMobileOperatingSystem();
+      }
+    },
+
     // Global variable synchronization
     syncGlobalVars: function() {
       // Sync state to global variables for backward compatibility
@@ -423,6 +431,9 @@ var GlobalRegistry = (function() {
       // Load and validate configuration
       config = Utils.Config.load();
       Utils.Config.validate(config);
+
+      // Update mimetype for MediaRecorder compatibility
+      this.updateMimetype();
 
       // Initialize global variables
       this.syncGlobalVars();
@@ -465,6 +476,7 @@ var GlobalRegistry = (function() {
         mediaRecorder: null,
         stream: null,
         S3_BASE_URL: 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/',
+        mimetype: 'audio/webm', // Default mimetype for MediaRecorder
         isConversationActive: false,
         shouldActuallyStop: false,
         conversationManager: null,
@@ -3359,7 +3371,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (384 lines) ===
+// === main.js (402 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -3603,6 +3615,24 @@ var VideoRecorderApp = (function() {
           document.querySelector('.NextButton').click();
         }
       };
+
+      // Mobile OS detection for MediaRecorder compatibility
+      window.getMobileOperatingSystem = function() {
+        var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        if (/windows phone/i.test(userAgent)) {
+          window.mimetype = 'audio/webm';
+        } else if (/android/i.test(userAgent)) {
+          window.mimetype = 'audio/webm';
+        } else if (/iPad|iPhone|iPod/.test(userAgent)) {
+          window.mimetype = 'audio/mp4';
+        } else {
+          window.mimetype = 'audio/webm';
+        }
+        Utils.Logger.debug('VideoRecorderApp', 'Mobile OS detected, mimetype set to: ' + window.mimetype);
+      };
+
+      // Initialize mimetype on load
+      window.getMobileOperatingSystem();
 
       // Legacy functions for compatibility
       window.playVideoCustom = function() {

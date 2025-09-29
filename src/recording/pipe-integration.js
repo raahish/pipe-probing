@@ -86,53 +86,61 @@ var PipeIntegration = (function() {
 
       // Handler for record button pressed
       recorderObject.btRecordPressed = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', 'Record button pressed');
+        Utils.Logger.info('PipeIntegration', 'DECISION POINT: Record button pressed');
+        Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
 
-        // Check if this is a conversation segment restart
+        // CRITICAL: ALWAYS fake record during conversations, regardless of segment count
         if (StateManager.isConversationActive()) {
+          Utils.Logger.info('PipeIntegration', 'Conversation active - ALWAYS fake record (continuous recording)');
+          
           var conversationManager = GlobalRegistry.get('conversationManager');
-          if (conversationManager && conversationManager.segments.length > 0) {
-            Utils.Logger.info('PipeIntegration', 'Starting new conversation segment');
-
-            // Don't call the native btRecordPressed - we're already recording
-            // Instead, just set up the UI and transcription
-            var elementController = GlobalRegistry.get('elementController');
-            if (elementController) {
-              elementController.setRecordingState();
-            }
-
-            // Start new transcription session
-            var transcriptionService = GlobalRegistry.get('transcriptionService');
-            if (transcriptionService) {
-              transcriptionService.startNewSegment();
-            }
-
-            // CRITICAL: Return early to prevent AddPipe from starting a new recording
-            return;
+          Utils.Logger.debug('PipeIntegration', 'Current segments: ' + (conversationManager ? conversationManager.segments.length : 0));
+          
+          // Update UI to recording state
+          var elementController = GlobalRegistry.get('elementController');
+          if (elementController) {
+            elementController.setRecordingState();
+            Utils.Logger.debug('PipeIntegration', 'UI updated to recording state');
           }
+          
+          // Restart transcription for new segment
+          var transcriptionService = GlobalRegistry.get('transcriptionService');
+          if (transcriptionService) {
+            transcriptionService.startNewSegment();
+            Utils.Logger.debug('PipeIntegration', 'Transcription restarted for new segment');
+          }
+          
+          // CRITICAL: Always return early, never allow new AddPipe recording
+          return;
         }
 
-        // First recording or standard recording
-        Utils.Logger.info('PipeIntegration', 'Starting initial recording');
+        // Only reach here for the very first recording
+        Utils.Logger.info('PipeIntegration', 'Starting initial AddPipe recording (first time only)');
       };
 
       // Handler for stop recording button pressed
       recorderObject.btStopRecordingPressed = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', 'Stop button pressed');
+        Utils.Logger.info('PipeIntegration', 'DECISION POINT: Stop button pressed');
+        Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
 
-        // CRITICAL FIX: If conversation is active, ALWAYS do fake stop
-        if (StateManager.isConversationActive() && !GlobalRegistry.getState().shouldActuallyStop) {
-          Utils.Logger.info('PipeIntegration', 'Conversation active - redirecting to fake stop');
-
+        // CRITICAL: ALWAYS fake stop during conversations, NEVER real stop
+        if (StateManager.isConversationActive()) {
+          Utils.Logger.info('PipeIntegration', 'Conversation active - ALWAYS fake stop (continuous recording)');
+          
           var conversationManager = GlobalRegistry.get('conversationManager');
           if (conversationManager && conversationManager.pauseForAIProcessing) {
+            Utils.Logger.debug('PipeIntegration', 'Triggering AI processing for segment');
             conversationManager.pauseForAIProcessing();
+          } else {
+            Utils.Logger.error('PipeIntegration', 'Conversation manager not available for fake stop');
           }
+          
+          // CRITICAL: Always return early, never allow real stop during conversation
           return;
         }
 
-        // Only reach here for legitimate stops (conversation ended, errors, etc.)
-        Utils.Logger.info('PipeIntegration', 'Actual stop - recording complete');
+        // Only reach here when NO conversation is active (initial stop or error cases)
+        Utils.Logger.info('PipeIntegration', 'No active conversation - allowing real stop');
 
         // Clear recording timer
         var timerManager = GlobalRegistry.get('timerManager');
@@ -157,11 +165,17 @@ var PipeIntegration = (function() {
       // CRITICAL: Store original AddPipe stop method to prevent it during conversations
       var originalPipeStop = recorderObject.stop;
       recorderObject.stop = function() {
-        if (StateManager.isConversationActive() && !GlobalRegistry.getState().shouldActuallyStop) {
-          Utils.Logger.info('PipeIntegration', 'Blocked AddPipe.stop() during conversation');
-          return;
+        Utils.Logger.info('PipeIntegration', 'DECISION POINT: AddPipe.stop() called internally');
+        Utils.Logger.debug('PipeIntegration', 'Conversation active: ' + StateManager.isConversationActive());
+        
+        // NEW: Simplified - block ALL stops during conversation
+        if (StateManager.isConversationActive()) {
+          Utils.Logger.info('PipeIntegration', 'BLOCKED: AddPipe.stop() during active conversation');
+          Utils.Logger.debug('PipeIntegration', 'Conversation must end before allowing real stop');
+          return; // Always block, no exceptions
         }
-        Utils.Logger.info('PipeIntegration', 'Allowing AddPipe.stop() - conversation ended');
+        
+        Utils.Logger.info('PipeIntegration', 'ALLOWED: AddPipe.stop() - no active conversation');
         return originalPipeStop.apply(this, arguments);
       };
 

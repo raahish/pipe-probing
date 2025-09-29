@@ -45,11 +45,16 @@ var ConversationManager = (function() {
 
     // Start conversation
     startConversation: function() {
-      Utils.Logger.info('ConversationManager', 'Starting conversation');
+      Utils.Logger.info('ConversationManager', 'DECISION POINT: Starting conversation');
 
+      // CRITICAL: Set conversation state in both places
       this.conversationActive = true;
+      StateManager.setConversationActive();
       this.conversationStartTime = performance.now();
       this.currentSegmentStartTime = 0;
+
+      Utils.Logger.info('ConversationManager', 'Conversation state activated for continuous recording');
+      Utils.Logger.debug('ConversationManager', 'Max probes allowed: ' + this.maxProbes);
 
       // Add initial question to thread
       this.conversationThread.push({
@@ -163,18 +168,24 @@ var ConversationManager = (function() {
 
     // End conversation
     endConversation: function() {
-      Utils.Logger.info('ConversationManager', 'Ending conversation');
+      Utils.Logger.info('ConversationManager', 'DECISION POINT: Ending conversation');
+      Utils.Logger.debug('ConversationManager', 'Current segments: ' + this.segments.length);
+      Utils.Logger.debug('ConversationManager', 'Current probe count: ' + this.currentProbeCount + '/' + this.maxProbes);
 
+      // CRITICAL: Clear conversation state FIRST
+      Utils.Logger.info('ConversationManager', 'Clearing conversation active state');
       this.conversationActive = false;
-      GlobalRegistry.setState('shouldActuallyStop', true);
-
+      StateManager.setState('isConversationActive', false);
+      
       // Show completion UI
       this.showConversationComplete();
-
-      // Trigger the actual stop using the correct method
+      
+      // NOW AddPipe stop will be allowed (conversation no longer active)
+      Utils.Logger.info('ConversationManager', 'Triggering real AddPipe stop (continuous recording complete)');
       var pipeIntegration = GlobalRegistry.get('pipeIntegration');
       if (pipeIntegration && pipeIntegration.stopRecording) {
         pipeIntegration.stopRecording();
+        Utils.Logger.info('ConversationManager', 'Real stop triggered successfully');
       } else {
         Utils.Logger.error('ConversationManager', 'Pipe integration not available for stop');
       }

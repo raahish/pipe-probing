@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T21:28:11.724Z
+// Generated: 2025-09-29T21:47:08.392Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -908,7 +908,7 @@ var EventHandler = (function() {
 })();
 
 
-// === element-controller.js (476 lines) ===
+// === element-controller.js (527 lines) ===
 // Element Controller - DOM element management and UI state control
 // No template literals used - only string concatenation
 
@@ -954,6 +954,21 @@ var ElementController = (function() {
         elements[selectorName] = Utils.DOM.select(selector);
       }
       return elements;
+    },
+
+    // Refresh element cache (for when DOM changes after initialization)
+    refreshElements: function() {
+      Utils.Logger.debug('ElementController', 'Refreshing element cache');
+      this.elements = this.getElements();
+      
+      // Log what we found
+      for (var selectorName in this.elements) {
+        var element = this.elements[selectorName];
+        var exists = element && element.length > 0;
+        Utils.Logger.debug('ElementController', 'Element ' + selectorName + ': ' + (exists ? 'found' : 'not found'));
+      }
+      
+      Utils.Logger.info('ElementController', 'Element cache refreshed');
     },
 
     // Element visibility management
@@ -1018,9 +1033,17 @@ var ElementController = (function() {
       this.hideElement('timer');
       this.hideElement('nativeTimer');
 
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
       if (menu && menu.length > 0) {
-        menu.removeClass('playback-state recording-state');
+        menu.removeClass('playback-state recording-state ai-processing-state').addClass('ready-state');
+        Utils.Logger.debug('ElementController', 'Added ready-state class to menu');
       }
 
       this.updateButtonState('record');
@@ -1071,9 +1094,19 @@ var ElementController = (function() {
     setRecordingState: function() {
       Utils.Logger.info('ElementController', 'Setting recording state');
 
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
       if (menu && menu.length > 0) {
-        menu.removeClass('ready-state').addClass('recording-state');
+        menu.removeClass('ready-state playback-state ai-processing-state').addClass('recording-state');
+        Utils.Logger.debug('ElementController', 'Added recording-state class to menu');
+      } else {
+        Utils.Logger.error('ElementController', 'Still cannot find menu element after refresh');
       }
 
       this.updateButtonToStop();
@@ -1082,9 +1115,17 @@ var ElementController = (function() {
     setPlaybackState: function() {
       Utils.Logger.info('ElementController', 'Setting playback state');
 
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
       if (menu && menu.length > 0) {
-        menu.removeClass('recording-state').addClass('playback-state');
+        menu.removeClass('recording-state ready-state ai-processing-state').addClass('playback-state');
+        Utils.Logger.debug('ElementController', 'Added playback-state class to menu');
       }
 
       this.hideElement('recordButton');
@@ -1198,8 +1239,18 @@ var ElementController = (function() {
 
     // Processing state management
     showProcessingState: function() {
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
-      if (!menu || menu.length === 0) return;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+      
+      if (!menu || menu.length === 0) {
+        Utils.Logger.error('ElementController', 'Still cannot find menu element for processing state');
+        return;
+      }
 
       var overlay = Utils.DOM.create('div', {
         'class': 'ai-processing-overlay'
@@ -1386,7 +1437,7 @@ var ElementController = (function() {
 })();
 
 
-// === timer-manager.js (176 lines) ===
+// === timer-manager.js (183 lines) ===
 // Timer Manager - Timer display and management
 // No template literals used - only string concatenation
 
@@ -1412,6 +1463,7 @@ var TimerManager = (function() {
     // Start the timer
     start: function() {
       if (intervalId) {
+        Utils.Logger.debug('TimerManager', 'Stopping existing timer before starting new one');
         this.stop();
       }
 
@@ -1423,11 +1475,14 @@ var TimerManager = (function() {
         TimerManager.update();
       }, 1000);
 
-      Utils.Logger.info('TimerManager', 'Timer started');
+      Utils.Logger.info('TimerManager', 'Timer started - startTime: ' + startTime + ', intervalId: ' + intervalId);
+      Utils.Logger.debug('TimerManager', 'Timer state after start: ' + JSON.stringify(TimerManager.getState()));
     },
 
     // Stop the timer
     stop: function() {
+      Utils.Logger.debug('TimerManager', 'Stop called - current intervalId: ' + intervalId);
+      
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
@@ -1437,6 +1492,7 @@ var TimerManager = (function() {
       pausedTime = 0;
 
       Utils.Logger.info('TimerManager', 'Timer stopped');
+      Utils.Logger.debug('TimerManager', 'Timer state after stop: ' + JSON.stringify(TimerManager.getState()));
     },
 
     // Pause the timer
@@ -1506,7 +1562,9 @@ var TimerManager = (function() {
 
     // Check if timer is running
     isRunning: function() {
-      return !!intervalId && !isPaused;
+      var running = !!intervalId && !isPaused && startTime > 0;
+      Utils.Logger.debug('TimerManager', 'isRunning check - intervalId: ' + !!intervalId + ', isPaused: ' + isPaused + ', startTime: ' + startTime + ', result: ' + running);
+      return running;
     },
 
     // Get timer state for debugging
@@ -1797,7 +1855,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (403 lines) ===
+// === pipe-integration.js (410 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -1836,6 +1894,13 @@ var PipeIntegration = (function() {
           isInitialized = true;
 
           Utils.Logger.info('PipeIntegration', 'Pipe SDK initialized successfully');
+
+          // Refresh ElementController cache now that AddPipe created DOM elements
+          var elementController = GlobalRegistry.get('elementController');
+          if (elementController && elementController.refreshElements) {
+            elementController.refreshElements();
+            Utils.Logger.info('PipeIntegration', 'ElementController cache refreshed after AddPipe load');
+          }
 
           // Set up event handlers
           PipeIntegration.setupEventHandlers();

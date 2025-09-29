@@ -23,6 +23,7 @@ var TimerManager = (function() {
     // Start the timer
     start: function() {
       if (intervalId) {
+        Utils.Logger.debug('TimerManager', 'Stopping existing timer before starting new one');
         this.stop();
       }
 
@@ -34,11 +35,14 @@ var TimerManager = (function() {
         TimerManager.update();
       }, 1000);
 
-      Utils.Logger.info('TimerManager', 'Timer started');
+      Utils.Logger.info('TimerManager', 'Timer started - startTime: ' + startTime + ', intervalId: ' + intervalId);
+      Utils.Logger.debug('TimerManager', 'Timer state after start: ' + JSON.stringify(TimerManager.getState()));
     },
 
     // Stop the timer
     stop: function() {
+      Utils.Logger.debug('TimerManager', 'Stop called - current intervalId: ' + intervalId);
+      
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
@@ -48,6 +52,7 @@ var TimerManager = (function() {
       pausedTime = 0;
 
       Utils.Logger.info('TimerManager', 'Timer stopped');
+      Utils.Logger.debug('TimerManager', 'Timer state after stop: ' + JSON.stringify(TimerManager.getState()));
     },
 
     // Pause the timer
@@ -117,7 +122,9 @@ var TimerManager = (function() {
 
     // Check if timer is running
     isRunning: function() {
-      return !!intervalId && !isPaused;
+      var running = !!intervalId && !isPaused && startTime > 0;
+      Utils.Logger.debug('TimerManager', 'isRunning check - intervalId: ' + !!intervalId + ', isPaused: ' + isPaused + ', startTime: ' + startTime + ', result: ' + running);
+      return running;
     },
 
     // Get timer state for debugging

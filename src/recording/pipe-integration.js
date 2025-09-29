@@ -37,6 +37,13 @@ var PipeIntegration = (function() {
 
           Utils.Logger.info('PipeIntegration', 'Pipe SDK initialized successfully');
 
+          // Refresh ElementController cache now that AddPipe created DOM elements
+          var elementController = GlobalRegistry.get('elementController');
+          if (elementController && elementController.refreshElements) {
+            elementController.refreshElements();
+            Utils.Logger.info('PipeIntegration', 'ElementController cache refreshed after AddPipe load');
+          }
+
           // Set up event handlers
           PipeIntegration.setupEventHandlers();
 

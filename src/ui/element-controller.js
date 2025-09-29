@@ -45,6 +45,21 @@ var ElementController = (function() {
       return elements;
     },
 
+    // Refresh element cache (for when DOM changes after initialization)
+    refreshElements: function() {
+      Utils.Logger.debug('ElementController', 'Refreshing element cache');
+      this.elements = this.getElements();
+      
+      // Log what we found
+      for (var selectorName in this.elements) {
+        var element = this.elements[selectorName];
+        var exists = element && element.length > 0;
+        Utils.Logger.debug('ElementController', 'Element ' + selectorName + ': ' + (exists ? 'found' : 'not found'));
+      }
+      
+      Utils.Logger.info('ElementController', 'Element cache refreshed');
+    },
+
     // Element visibility management
     showElement: function(selectorName) {
       var element = this.elements[selectorName];
@@ -107,9 +122,17 @@ var ElementController = (function() {
       this.hideElement('timer');
       this.hideElement('nativeTimer');
 
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
       if (menu && menu.length > 0) {
-        menu.removeClass('playback-state recording-state');
+        menu.removeClass('playback-state recording-state ai-processing-state').addClass('ready-state');
+        Utils.Logger.debug('ElementController', 'Added ready-state class to menu');
       }
 
       this.updateButtonState('record');
@@ -160,9 +183,19 @@ var ElementController = (function() {
     setRecordingState: function() {
       Utils.Logger.info('ElementController', 'Setting recording state');
 
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
       if (menu && menu.length > 0) {
-        menu.removeClass('ready-state').addClass('recording-state');
+        menu.removeClass('ready-state playback-state ai-processing-state').addClass('recording-state');
+        Utils.Logger.debug('ElementController', 'Added recording-state class to menu');
+      } else {
+        Utils.Logger.error('ElementController', 'Still cannot find menu element after refresh');
       }
 
       this.updateButtonToStop();
@@ -171,9 +204,17 @@ var ElementController = (function() {
     setPlaybackState: function() {
       Utils.Logger.info('ElementController', 'Setting playback state');
 
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+
       if (menu && menu.length > 0) {
-        menu.removeClass('recording-state').addClass('playback-state');
+        menu.removeClass('recording-state ready-state ai-processing-state').addClass('playback-state');
+        Utils.Logger.debug('ElementController', 'Added playback-state class to menu');
       }
 
       this.hideElement('recordButton');
@@ -287,8 +328,18 @@ var ElementController = (function() {
 
     // Processing state management
     showProcessingState: function() {
+      // Ensure we have fresh element references
       var menu = this.elements.menu;
-      if (!menu || menu.length === 0) return;
+      if (!menu || menu.length === 0) {
+        Utils.Logger.warn('ElementController', 'Menu element not found, refreshing cache');
+        this.refreshElements();
+        menu = this.elements.menu;
+      }
+      
+      if (!menu || menu.length === 0) {
+        Utils.Logger.error('ElementController', 'Still cannot find menu element for processing state');
+        return;
+      }
 
       var overlay = Utils.DOM.create('div', {
         'class': 'ai-processing-overlay'

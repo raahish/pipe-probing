@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-29T23:30:44.080Z
+// Generated: 2025-09-30T15:31:55.425Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -921,7 +921,7 @@ var EventHandler = (function() {
 })();
 
 
-// === element-controller.js (563 lines) ===
+// === element-controller.js (562 lines) ===
 // Element Controller - DOM element management and UI state control
 // No template literals used - only string concatenation
 
@@ -1314,7 +1314,6 @@ var ElementController = (function() {
       });
 
       var title = Utils.DOM.create('h3', {}, 'AI is thinking...');
-      var subtitle = Utils.DOM.create('p', {}, 'Analyzing your response and preparing a follow-up question');
 
       content.append(spinner);
       content.append(title);

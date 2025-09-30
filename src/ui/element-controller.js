@@ -390,7 +390,6 @@ var ElementController = (function() {
       });
 
       var title = Utils.DOM.create('h3', {}, 'AI is thinking...');
-      var subtitle = Utils.DOM.create('p', {}, 'Analyzing your response and preparing a follow-up question');
 
       content.append(spinner);
       content.append(title);

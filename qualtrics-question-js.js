@@ -10,7 +10,7 @@ var pipeParams = {
     qualityurl: "avq/480p.xml",
     accountHash: "fb6878ab6bdc0a6bc55c2a6b3f695e05",
     eid: "KCfFkj",
-    mrt: 120,
+    mrt: 300,
     avrec: 1,
     sis: 1,
     mimetype: mimetype,

@@ -1020,7 +1020,7 @@ align-items: center;
 }
 
 .ai-thinking-content {
-  background: hsl(var(--card));
+  background: black;
   padding: 2rem;
   border-radius: 12px;
   text-align: center;
@@ -1183,8 +1183,8 @@ cursor: pointer;
 /* Dark Mode Support for AI States */
 @media (prefers-color-scheme: dark) {
   .ai-thinking-content {
-    background: hsl(var(--card));
-    color: hsl(var(--card-foreground));
+    background: black;
+    color: black;
   }
   
   .ai-thinking-content h3 {

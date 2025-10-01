@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-09-30T15:31:55.425Z
+// Generated: 2025-10-01T16:22:03.304Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -531,7 +531,7 @@ var GlobalRegistry = (function() {
 })();
 
 
-// === state-manager.js (179 lines) ===
+// === state-manager.js (190 lines) ===
 // State Manager - Single source of truth for application state
 // No template literals used - only string concatenation
 
@@ -593,6 +593,17 @@ var StateManager = (function() {
       }
 
       Utils.Logger.info('StateManager', 'State transition: ' + oldState + ' -> ' + newState);
+
+      // 🔍 SAFARI DEBUG: Log detailed state information
+      if (newState === STATES.CONVERSATION_ACTIVE || newState === STATES.RECORDING) {
+        Utils.Logger.info('StateManager', '🔍 SAFARI DEBUG - State Transition Details:');
+        Utils.Logger.info('StateManager', '  📊 Old state: ' + oldState);
+        Utils.Logger.info('StateManager', '  📊 New state: ' + newState);
+        Utils.Logger.info('StateManager', '  📊 Is conversation active: ' + (newState === STATES.CONVERSATION_ACTIVE));
+        Utils.Logger.info('StateManager', '  📊 Is recording: ' + (newState === STATES.RECORDING));
+        Utils.Logger.info('StateManager', '  📊 Should actually stop: ' + (newState === STATES.COMPLETE));
+        Utils.Logger.info('StateManager', '  📊 Timestamp: ' + new Date().toISOString());
+      }
 
       // Update global registry
       GlobalRegistry.updateState(this.getStateFlags());
@@ -712,7 +723,7 @@ var StateManager = (function() {
 })();
 
 
-// === event-handler.js (207 lines) ===
+// === event-handler.js (269 lines) ===
 // Event Handler - Unified click event management and interception
 // No template literals used - only string concatenation
 
@@ -757,6 +768,47 @@ var EventHandler = (function() {
         Utils.Logger.debug('EventHandler', 'Target element: ' + (e.target.id || e.target.className || e.target.tagName));
         Utils.Logger.debug('EventHandler', 'Conversation active: ' + StateManager.isConversationActive());
 
+        // 🔍 SAFARI DEBUG: Comprehensive event analysis
+        Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Event Details:');
+        Utils.Logger.info('EventHandler', '  📱 Event type: ' + e.type);
+        Utils.Logger.info('EventHandler', '  📱 Event phase: ' + e.eventPhase + ' (1=capture, 2=target, 3=bubble)');
+        Utils.Logger.info('EventHandler', '  📱 Timestamp: ' + e.timeStamp);
+        Utils.Logger.info('EventHandler', '  📱 IsTrusted: ' + e.isTrusted);
+        Utils.Logger.info('EventHandler', '  📱 User agent: ' + navigator.userAgent.substring(0, 100));
+        
+        // Check if this is a touch-generated event
+        var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        Utils.Logger.info('EventHandler', '  📱 Touch device detected: ' + isTouchDevice);
+        Utils.Logger.info('EventHandler', '  📱 Max touch points: ' + (navigator.maxTouchPoints || 'unknown'));
+        
+        // Target element analysis
+        var targetButton = EventHandler.findAddPipeButton(e.target);
+        if (targetButton) {
+          var computedStyle = window.getComputedStyle(targetButton);
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Button CSS State:');
+          Utils.Logger.info('EventHandler', '  🎨 Display: ' + computedStyle.display);
+          Utils.Logger.info('EventHandler', '  🎨 Pointer events: ' + computedStyle.pointerEvents);
+          Utils.Logger.info('EventHandler', '  🎨 Z-index: ' + computedStyle.zIndex);
+          Utils.Logger.info('EventHandler', '  🎨 Position: ' + computedStyle.position);
+          Utils.Logger.info('EventHandler', '  🎨 Visibility: ' + computedStyle.visibility);
+          Utils.Logger.info('EventHandler', '  🎨 Opacity: ' + computedStyle.opacity);
+          Utils.Logger.info('EventHandler', '  🎨 Transform: ' + computedStyle.transform);
+          
+          // Button properties
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Button Properties:');
+          Utils.Logger.info('EventHandler', '  🔘 ID: ' + targetButton.id);
+          Utils.Logger.info('EventHandler', '  🔘 Title: "' + targetButton.title + '"');
+          Utils.Logger.info('EventHandler', '  🔘 Disabled: ' + targetButton.disabled);
+          Utils.Logger.info('EventHandler', '  🔘 Class list: ' + targetButton.className);
+          Utils.Logger.info('EventHandler', '  🔘 Tab index: ' + targetButton.tabIndex);
+          
+          // Check for overlapping elements
+          var rect = targetButton.getBoundingClientRect();
+          var elementAtPoint = document.elementFromPoint(rect.left + rect.width/2, rect.top + rect.height/2);
+          Utils.Logger.info('EventHandler', '  🎯 Element at center point: ' + (elementAtPoint ? elementAtPoint.id || elementAtPoint.tagName : 'null'));
+          Utils.Logger.info('EventHandler', '  🎯 Is same element: ' + (elementAtPoint === targetButton));
+        }
+
         // CRITICAL: Always intercept AddPipe buttons during conversations
         if (StateManager.isConversationActive()) {
           Utils.Logger.info('EventHandler', 'INTERCEPTING: Blocking AddPipe button during active conversation');
@@ -800,8 +852,29 @@ var EventHandler = (function() {
 
       // Attach in CAPTURE PHASE (executes before bubble phase handlers)
       document.addEventListener('click', capturePhaseHandler, true);
+      
+      // 🔍 SAFARI DEBUG: Also listen for touch events to test Safari touch handling
+      document.addEventListener('touchstart', function(e) {
+        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+        if (isAddPipeButton) {
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - TouchStart detected on AddPipe button');
+          Utils.Logger.info('EventHandler', '  📱 Touch event target: ' + (e.target.id || e.target.tagName));
+          Utils.Logger.info('EventHandler', '  📱 Touches length: ' + e.touches.length);
+          Utils.Logger.info('EventHandler', '  📱 Changed touches: ' + e.changedTouches.length);
+        }
+      }, true);
+      
+      document.addEventListener('touchend', function(e) {
+        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+        if (isAddPipeButton) {
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - TouchEnd detected on AddPipe button');
+          Utils.Logger.info('EventHandler', '  📱 Touch event target: ' + (e.target.id || e.target.tagName));
+          Utils.Logger.info('EventHandler', '  📱 Changed touches: ' + e.changedTouches.length);
+        }
+      }, true);
 
       Utils.Logger.info('EventHandler', 'DOM capture phase handler attached - ready to intercept AddPipe');
+      Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Touch event listeners also attached for debugging');
     },
 
     // Robust AddPipe button detection with multiple strategies
@@ -921,7 +994,7 @@ var EventHandler = (function() {
 })();
 
 
-// === element-controller.js (562 lines) ===
+// === element-controller.js (587 lines) ===
 // Element Controller - DOM element management and UI state control
 // No template literals used - only string concatenation
 
@@ -1225,6 +1298,14 @@ var ElementController = (function() {
       var button = this.elements.recordButton;
       if (!button || button.length === 0) return;
 
+      // 🔍 SAFARI DEBUG: Log button state before transformation
+      Utils.Logger.info('ElementController', '🔍 SAFARI DEBUG - BEFORE Stop Transformation:');
+      var beforeComputedStyle = window.getComputedStyle(button[0]);
+      Utils.Logger.info('ElementController', '  🔘 Before - Display: ' + beforeComputedStyle.display);
+      Utils.Logger.info('ElementController', '  🔘 Before - Pointer events: ' + beforeComputedStyle.pointerEvents);
+      Utils.Logger.info('ElementController', '  🔘 Before - Title: "' + button.attr('title') + '"');
+      Utils.Logger.info('ElementController', '  🔘 Before - Disabled: ' + button.prop('disabled'));
+
       // Change button appearance to stop
       button.removeClass('pipeRecRec').addClass('pipeRecStop');
       button.find('svg').remove();
@@ -1235,6 +1316,23 @@ var ElementController = (function() {
 
       button.html(stopSvgHtml);
       button.attr('title', 'stop');
+
+      // 🔍 SAFARI DEBUG: Log button state after transformation
+      Utils.Logger.info('ElementController', '🔍 SAFARI DEBUG - AFTER Stop Transformation:');
+      var afterComputedStyle = window.getComputedStyle(button[0]);
+      Utils.Logger.info('ElementController', '  🔘 After - Display: ' + afterComputedStyle.display);
+      Utils.Logger.info('ElementController', '  🔘 After - Pointer events: ' + afterComputedStyle.pointerEvents);
+      Utils.Logger.info('ElementController', '  🔘 After - Z-index: ' + afterComputedStyle.zIndex);
+      Utils.Logger.info('ElementController', '  🔘 After - Position: ' + afterComputedStyle.position);
+      Utils.Logger.info('ElementController', '  🔘 After - Title: "' + button.attr('title') + '"');
+      Utils.Logger.info('ElementController', '  🔘 After - Disabled: ' + button.prop('disabled'));
+      Utils.Logger.info('ElementController', '  🔘 After - Class list: ' + button[0].className);
+      
+      // Check if any event listeners are attached
+      var hasClickHandler = !!button[0].onclick;
+      var hasEventListeners = button[0].addEventListener !== undefined;
+      Utils.Logger.info('ElementController', '  🔘 After - Has onclick: ' + hasClickHandler);
+      Utils.Logger.info('ElementController', '  🔘 After - Supports addEventListener: ' + hasEventListeners);
 
       Utils.Logger.debug('ElementController', 'Button updated to stop state');
     },
@@ -1903,7 +2001,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (491 lines) ===
+// === pipe-integration.js (506 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -1980,6 +2078,21 @@ var PipeIntegration = (function() {
         Utils.Logger.info('PipeIntegration', '  • Recorder ID: ' + recorderId);
         Utils.Logger.info('PipeIntegration', '  • Start Time: ' + new Date().toISOString());
         Utils.Logger.info('PipeIntegration', '  • This is the CONTINUOUS recording that will capture the entire conversation');
+        
+        // 🔍 SAFARI DEBUG: Log AddPipe internal state
+        Utils.Logger.info('PipeIntegration', '🔍 SAFARI DEBUG - AddPipe State on Recording Start:');
+        Utils.Logger.info('PipeIntegration', '  🎬 Recorder state: ' + (recorderObject.getState ? recorderObject.getState() : 'getState not available'));
+        Utils.Logger.info('PipeIntegration', '  🎬 Recorder object exists: ' + !!recorderObject);
+        
+        // Check button state after AddPipe starts
+        var config = GlobalRegistry.getConfig();
+        var buttonElement = document.getElementById('pipeRec-' + config.questionName);
+        if (buttonElement) {
+          Utils.Logger.info('PipeIntegration', '  🔘 Button title after start: "' + buttonElement.title + '"');
+          Utils.Logger.info('PipeIntegration', '  🔘 Button disabled after start: ' + buttonElement.disabled);
+          var buttonStyle = window.getComputedStyle(buttonElement);
+          Utils.Logger.info('PipeIntegration', '  🔘 Button pointer-events after start: ' + buttonStyle.pointerEvents);
+        }
         
         StateManager.setRecording();
         

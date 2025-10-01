@@ -73,14 +73,31 @@ var maxProbesByLevel = {
 // Essential functions that must be available immediately
 function getMobileOperatingSystem() {
     var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    
+    // 🔍 SAFARI DEBUG: Comprehensive mobile detection logging
+    console.log('🔍 SAFARI DEBUG - Mobile OS Detection:');
+    console.log('  📱 Full User Agent: ' + userAgent);
+    console.log('  📱 Navigator vendor: ' + (navigator.vendor || 'not available'));
+    console.log('  📱 Platform: ' + (navigator.platform || 'not available'));
+    console.log('  📱 Touch support: ' + ('ontouchstart' in window));
+    console.log('  📱 Max touch points: ' + (navigator.maxTouchPoints || 'not available'));
+    console.log('  📱 Is mobile: ' + /Mobi|Android/i.test(userAgent));
+    console.log('  📱 Is iOS: ' + /iPad|iPhone|iPod/.test(userAgent));
+    console.log('  📱 Is Safari: ' + (/Safari/.test(userAgent) && !/Chrome/.test(userAgent)));
+    console.log('  📱 Is Chrome: ' + /Chrome/.test(userAgent));
+    
     if (/windows phone/i.test(userAgent)) {
         window.mimetype = 'audio/webm';
+        console.log('  📱 Detected: Windows Phone');
     } else if (/android/i.test(userAgent)) {
         window.mimetype = 'audio/webm';
+        console.log('  📱 Detected: Android');
     } else if (/iPad|iPhone|iPod/.test(userAgent)) {
         window.mimetype = 'audio/mp4';
+        console.log('  📱 Detected: iOS Device');
     } else {
         window.mimetype = 'audio/webm';
+        console.log('  📱 Detected: Desktop/Other');
     }
     console.log('Mobile OS detected, mimetype set to: ' + window.mimetype);
 }

@@ -75,6 +75,21 @@ var PipeIntegration = (function() {
         Utils.Logger.info('PipeIntegration', '  • Start Time: ' + new Date().toISOString());
         Utils.Logger.info('PipeIntegration', '  • This is the CONTINUOUS recording that will capture the entire conversation');
         
+        // 🔍 SAFARI DEBUG: Log AddPipe internal state
+        Utils.Logger.info('PipeIntegration', '🔍 SAFARI DEBUG - AddPipe State on Recording Start:');
+        Utils.Logger.info('PipeIntegration', '  🎬 Recorder state: ' + (recorderObject.getState ? recorderObject.getState() : 'getState not available'));
+        Utils.Logger.info('PipeIntegration', '  🎬 Recorder object exists: ' + !!recorderObject);
+        
+        // Check button state after AddPipe starts
+        var config = GlobalRegistry.getConfig();
+        var buttonElement = document.getElementById('pipeRec-' + config.questionName);
+        if (buttonElement) {
+          Utils.Logger.info('PipeIntegration', '  🔘 Button title after start: "' + buttonElement.title + '"');
+          Utils.Logger.info('PipeIntegration', '  🔘 Button disabled after start: ' + buttonElement.disabled);
+          var buttonStyle = window.getComputedStyle(buttonElement);
+          Utils.Logger.info('PipeIntegration', '  🔘 Button pointer-events after start: ' + buttonStyle.pointerEvents);
+        }
+        
         StateManager.setRecording();
         
         // Start conversation and transcription for initial recording

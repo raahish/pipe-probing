@@ -42,6 +42,47 @@ var EventHandler = (function() {
         Utils.Logger.debug('EventHandler', 'Target element: ' + (e.target.id || e.target.className || e.target.tagName));
         Utils.Logger.debug('EventHandler', 'Conversation active: ' + StateManager.isConversationActive());
 
+        // 🔍 SAFARI DEBUG: Comprehensive event analysis
+        Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Event Details:');
+        Utils.Logger.info('EventHandler', '  📱 Event type: ' + e.type);
+        Utils.Logger.info('EventHandler', '  📱 Event phase: ' + e.eventPhase + ' (1=capture, 2=target, 3=bubble)');
+        Utils.Logger.info('EventHandler', '  📱 Timestamp: ' + e.timeStamp);
+        Utils.Logger.info('EventHandler', '  📱 IsTrusted: ' + e.isTrusted);
+        Utils.Logger.info('EventHandler', '  📱 User agent: ' + navigator.userAgent.substring(0, 100));
+        
+        // Check if this is a touch-generated event
+        var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        Utils.Logger.info('EventHandler', '  📱 Touch device detected: ' + isTouchDevice);
+        Utils.Logger.info('EventHandler', '  📱 Max touch points: ' + (navigator.maxTouchPoints || 'unknown'));
+        
+        // Target element analysis
+        var targetButton = EventHandler.findAddPipeButton(e.target);
+        if (targetButton) {
+          var computedStyle = window.getComputedStyle(targetButton);
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Button CSS State:');
+          Utils.Logger.info('EventHandler', '  🎨 Display: ' + computedStyle.display);
+          Utils.Logger.info('EventHandler', '  🎨 Pointer events: ' + computedStyle.pointerEvents);
+          Utils.Logger.info('EventHandler', '  🎨 Z-index: ' + computedStyle.zIndex);
+          Utils.Logger.info('EventHandler', '  🎨 Position: ' + computedStyle.position);
+          Utils.Logger.info('EventHandler', '  🎨 Visibility: ' + computedStyle.visibility);
+          Utils.Logger.info('EventHandler', '  🎨 Opacity: ' + computedStyle.opacity);
+          Utils.Logger.info('EventHandler', '  🎨 Transform: ' + computedStyle.transform);
+          
+          // Button properties
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Button Properties:');
+          Utils.Logger.info('EventHandler', '  🔘 ID: ' + targetButton.id);
+          Utils.Logger.info('EventHandler', '  🔘 Title: "' + targetButton.title + '"');
+          Utils.Logger.info('EventHandler', '  🔘 Disabled: ' + targetButton.disabled);
+          Utils.Logger.info('EventHandler', '  🔘 Class list: ' + targetButton.className);
+          Utils.Logger.info('EventHandler', '  🔘 Tab index: ' + targetButton.tabIndex);
+          
+          // Check for overlapping elements
+          var rect = targetButton.getBoundingClientRect();
+          var elementAtPoint = document.elementFromPoint(rect.left + rect.width/2, rect.top + rect.height/2);
+          Utils.Logger.info('EventHandler', '  🎯 Element at center point: ' + (elementAtPoint ? elementAtPoint.id || elementAtPoint.tagName : 'null'));
+          Utils.Logger.info('EventHandler', '  🎯 Is same element: ' + (elementAtPoint === targetButton));
+        }
+
         // CRITICAL: Always intercept AddPipe buttons during conversations
         if (StateManager.isConversationActive()) {
           Utils.Logger.info('EventHandler', 'INTERCEPTING: Blocking AddPipe button during active conversation');
@@ -85,8 +126,29 @@ var EventHandler = (function() {
 
       // Attach in CAPTURE PHASE (executes before bubble phase handlers)
       document.addEventListener('click', capturePhaseHandler, true);
+      
+      // 🔍 SAFARI DEBUG: Also listen for touch events to test Safari touch handling
+      document.addEventListener('touchstart', function(e) {
+        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+        if (isAddPipeButton) {
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - TouchStart detected on AddPipe button');
+          Utils.Logger.info('EventHandler', '  📱 Touch event target: ' + (e.target.id || e.target.tagName));
+          Utils.Logger.info('EventHandler', '  📱 Touches length: ' + e.touches.length);
+          Utils.Logger.info('EventHandler', '  📱 Changed touches: ' + e.changedTouches.length);
+        }
+      }, true);
+      
+      document.addEventListener('touchend', function(e) {
+        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+        if (isAddPipeButton) {
+          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - TouchEnd detected on AddPipe button');
+          Utils.Logger.info('EventHandler', '  📱 Touch event target: ' + (e.target.id || e.target.tagName));
+          Utils.Logger.info('EventHandler', '  📱 Changed touches: ' + e.changedTouches.length);
+        }
+      }, true);
 
       Utils.Logger.info('EventHandler', 'DOM capture phase handler attached - ready to intercept AddPipe');
+      Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Touch event listeners also attached for debugging');
     },
 
     // Robust AddPipe button detection with multiple strategies

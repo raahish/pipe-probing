@@ -301,6 +301,14 @@ var ElementController = (function() {
       var button = this.elements.recordButton;
       if (!button || button.length === 0) return;
 
+      // 🔍 SAFARI DEBUG: Log button state before transformation
+      Utils.Logger.info('ElementController', '🔍 SAFARI DEBUG - BEFORE Stop Transformation:');
+      var beforeComputedStyle = window.getComputedStyle(button[0]);
+      Utils.Logger.info('ElementController', '  🔘 Before - Display: ' + beforeComputedStyle.display);
+      Utils.Logger.info('ElementController', '  🔘 Before - Pointer events: ' + beforeComputedStyle.pointerEvents);
+      Utils.Logger.info('ElementController', '  🔘 Before - Title: "' + button.attr('title') + '"');
+      Utils.Logger.info('ElementController', '  🔘 Before - Disabled: ' + button.prop('disabled'));
+
       // Change button appearance to stop
       button.removeClass('pipeRecRec').addClass('pipeRecStop');
       button.find('svg').remove();
@@ -311,6 +319,23 @@ var ElementController = (function() {
 
       button.html(stopSvgHtml);
       button.attr('title', 'stop');
+
+      // 🔍 SAFARI DEBUG: Log button state after transformation
+      Utils.Logger.info('ElementController', '🔍 SAFARI DEBUG - AFTER Stop Transformation:');
+      var afterComputedStyle = window.getComputedStyle(button[0]);
+      Utils.Logger.info('ElementController', '  🔘 After - Display: ' + afterComputedStyle.display);
+      Utils.Logger.info('ElementController', '  🔘 After - Pointer events: ' + afterComputedStyle.pointerEvents);
+      Utils.Logger.info('ElementController', '  🔘 After - Z-index: ' + afterComputedStyle.zIndex);
+      Utils.Logger.info('ElementController', '  🔘 After - Position: ' + afterComputedStyle.position);
+      Utils.Logger.info('ElementController', '  🔘 After - Title: "' + button.attr('title') + '"');
+      Utils.Logger.info('ElementController', '  🔘 After - Disabled: ' + button.prop('disabled'));
+      Utils.Logger.info('ElementController', '  🔘 After - Class list: ' + button[0].className);
+      
+      // Check if any event listeners are attached
+      var hasClickHandler = !!button[0].onclick;
+      var hasEventListeners = button[0].addEventListener !== undefined;
+      Utils.Logger.info('ElementController', '  🔘 After - Has onclick: ' + hasClickHandler);
+      Utils.Logger.info('ElementController', '  🔘 After - Supports addEventListener: ' + hasEventListeners);
 
       Utils.Logger.debug('ElementController', 'Button updated to stop state');
     },

@@ -418,7 +418,6 @@ var ElementController = (function() {
 
       content.append(spinner);
       content.append(title);
-      content.append(subtitle);
       overlay.append(content);
       menu.append(overlay);
 

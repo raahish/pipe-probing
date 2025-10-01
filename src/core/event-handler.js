@@ -95,7 +95,7 @@ var EventHandler = (function() {
           // IMPROVED: Determine click type using button title (most reliable)
           var targetButton = EventHandler.findAddPipeButton(e.target);
           var buttonTitle = targetButton ? targetButton.title : '';
-          var isCurrentlyRecording = (buttonTitle === 'stop');
+          var isCurrentlyRecording = (buttonTitle.toLowerCase() === 'stop');
           
           // DEBUG: Log detection details
           Utils.Logger.info('EventHandler', '🔍 DETECTION DEBUG:');

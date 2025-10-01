@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-10-01T16:59:00.142Z
+// Generated: 2025-10-01T17:26:15.660Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -821,7 +821,7 @@ var EventHandler = (function() {
           // IMPROVED: Determine click type using button title (most reliable)
           var targetButton = EventHandler.findAddPipeButton(e.target);
           var buttonTitle = targetButton ? targetButton.title : '';
-          var isCurrentlyRecording = (buttonTitle === 'stop');
+          var isCurrentlyRecording = (buttonTitle.toLowerCase() === 'stop');
           
           // DEBUG: Log detection details
           Utils.Logger.info('EventHandler', '🔍 DETECTION DEBUG:');

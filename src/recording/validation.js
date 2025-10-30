@@ -106,7 +106,9 @@ var Validation = (function() {
 
       // Update Qualtrics embedded data
       if (typeof Qualtrics !== 'undefined') {
-        Qualtrics.SurveyEngine.setEmbeddedData('VQ1_pipe_url', videoUrl);
+        var config = GlobalRegistry.getConfig();
+        Qualtrics.SurveyEngine.setEmbeddedData(config.videoURL, videoUrl);
+        Utils.Logger.info('Validation', 'Video URL saved to Qualtrics embedded data: ' + config.videoURL);
       }
 
       // Check if this was a conversation

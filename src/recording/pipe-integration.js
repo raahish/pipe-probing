@@ -266,7 +266,8 @@ var PipeIntegration = (function() {
         var videoUrl = S3_BASE_URL + streamName + '.mp4';
         
         Utils.Logger.info('PipeIntegration', '🔗 FINAL VIDEO URL: ' + videoUrl);
-        Utils.Logger.info('PipeIntegration', '📋 This URL will be saved to Qualtrics embedded data as VQ1_pipe_url');
+        var config = GlobalRegistry.getConfig();
+        Utils.Logger.info('PipeIntegration', '📋 This URL will be saved to Qualtrics embedded data as ' + config.videoURL);
 
         // Handle conversation metadata
         var conversationManager = GlobalRegistry.get('conversationManager');

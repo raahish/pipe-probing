@@ -150,6 +150,7 @@ var Utils = (function() {
     load: function() {
       return {
         questionName: window.questionName || 'VQ1',
+        videoURL: window.videoURL || 'VQ1_pipe_url',
         deepgram: window.deepGramConfiguration || {},
         openai: {
           apiKey: window.OPENAI_API_KEY || '',

@@ -1,11 +1,11 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-10-01T17:26:15.660Z
+// Generated: 2025-10-30T21:25:48.878Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
 
-// === utils.js (262 lines) ===
+// === utils.js (263 lines) ===
 // Core Utilities Module - Foundation for all other modules
 // No template literals used - only string concatenation
 
@@ -158,6 +158,7 @@ var Utils = (function() {
     load: function() {
       return {
         questionName: window.questionName || 'VQ1',
+        videoURL: window.videoURL || 'VQ1_pipe_url',
         deepgram: window.deepGramConfiguration || {},
         openai: {
           apiKey: window.OPENAI_API_KEY || '',
@@ -2000,7 +2001,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (506 lines) ===
+// === pipe-integration.js (507 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -2269,7 +2270,8 @@ var PipeIntegration = (function() {
         var videoUrl = S3_BASE_URL + streamName + '.mp4';
         
         Utils.Logger.info('PipeIntegration', '🔗 FINAL VIDEO URL: ' + videoUrl);
-        Utils.Logger.info('PipeIntegration', '📋 This URL will be saved to Qualtrics embedded data as VQ1_pipe_url');
+        var config = GlobalRegistry.getConfig();
+        Utils.Logger.info('PipeIntegration', '📋 This URL will be saved to Qualtrics embedded data as ' + config.videoURL);
 
         // Handle conversation metadata
         var conversationManager = GlobalRegistry.get('conversationManager');
@@ -2780,7 +2782,7 @@ var TranscriptionService = (function() {
 })();
 
 
-// === validation.js (216 lines) ===
+// === validation.js (218 lines) ===
 // Validation - Video/audio validation and error handling
 // No template literals used - only string concatenation
 
@@ -2889,7 +2891,9 @@ var Validation = (function() {
 
       // Update Qualtrics embedded data
       if (typeof Qualtrics !== 'undefined') {
-        Qualtrics.SurveyEngine.setEmbeddedData('VQ1_pipe_url', videoUrl);
+        var config = GlobalRegistry.getConfig();
+        Qualtrics.SurveyEngine.setEmbeddedData(config.videoURL, videoUrl);
+        Utils.Logger.info('Validation', 'Video URL saved to Qualtrics embedded data: ' + config.videoURL);
       }
 
       // Check if this was a conversation

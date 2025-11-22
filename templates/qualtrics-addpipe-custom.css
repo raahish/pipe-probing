@@ -522,13 +522,17 @@ border-radius: 50%;
   background: none !important;
   border: none !important;
   padding: 0 !important;
-  margin: 0 auto !important;
+  margin: 0 !important;
   border-radius: 50% !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
   cursor: pointer !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
 }
 
 [id^="pipeRec-"]:hover {
@@ -876,7 +880,8 @@ text-align: left;
   overflow: hidden !important;
   box-shadow: var(--shadow-md) !important;
   z-index: 1000 !important;
-
+  gap: 0 !important;
+  padding-inline: 0 !important;
 }
 
 /* Recording Interface Layout States - Consistent Background */

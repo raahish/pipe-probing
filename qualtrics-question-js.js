@@ -1,5 +1,5 @@
 var questionName = "VQ1";
-var videoURL = "VQ1_pipe_url";
+window.videoURL = "VQ1_pipe_url"; // Make global for modules
 var mimetype = 'audio/webm';
 var Q_CHL = "${e://Field/Q_CHL}";
 var pipeParams = {
@@ -35,36 +35,36 @@ var deepGramConfiguration = {
 };
 
 // Question configuration for AI probing
-var questionConfig = {
+window.questionConfig = {
     questionText: "What are your current nutritional goals you're trying to achieve? Why?",
     probingInstructions: "Make sure to understand what motivates them to choose their goals. Explore both the practical and emotional reasons behind their choices.",
     probingAmount: "Moderate" // Options: "None", "Moderate", "Deep"
 };
 
 // OpenAI Configuration (temporary client-side)
-var OPENAI_API_KEY = "sk-proj-..."; // Replace with actual key
-var OPENAI_MODEL = "gpt-4o"; // Using gpt-4 for better JSON responses
+window.OPENAI_API_KEY = "sk-proj-..."; // Replace with actual key
+window.OPENAI_MODEL = "gpt-4o"; // Using gpt-4 for better JSON responses
 
 // System prompts for each probing level
-var probingSystemPrompts = {
+window.probingSystemPrompts = {
     "None": "You should not ask any follow-up questions.",
     "Moderate": "You are an expert qualitative researcher. Ask 1-3 thoughtful follow-up questions to better understand the participant's response. " +
     "Focus on: " +
-    "- Clarifying vague statements " +
-    "- Exploring key motivations " +
-    "- Understanding context " +
+    " - Clarifying vague statements " +
+    " - Exploring key motivations " +
+    " - Understanding context " +
     "Stop when you have sufficient depth or reach 3 questions total.",
     "Deep": "You are an expert qualitative researcher conducting an in-depth interview. Ask 3-5 probing follow-up questions to thoroughly explore the participant's response. " +
     "Focus on: " +
-    "- Uncovering underlying motivations and emotions " +
-    "- Exploring contradictions or interesting points " +
-    "- Getting specific examples and stories " +
-    "- Understanding the full context and implications " +
+    " - Uncovering underlying motivations and emotions " +
+    " - Exploring contradictions or interesting points " +
+    " - Getting specific examples and stories " +
+    " - Understanding the full context and implications " +
     "Continue until you have comprehensive understanding or reach 5 questions total."
 };
 
 // Probing limits
-var maxProbesByLevel = {
+window.maxProbesByLevel = {
     "None": 0,
     "Moderate": 3,
     "Deep": 5
@@ -122,7 +122,7 @@ function nextQuestion() {
 }
 
 function updateEmbeddedData(data){
-    Qualtrics.SurveyEngine.setEmbeddedData(videoURL, data);
+    Qualtrics.SurveyEngine.setEmbeddedData(window.videoURL, data);
 }
 
 // Initialize mimetype immediately

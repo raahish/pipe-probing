@@ -24,7 +24,7 @@ var AIService = (function() {
       var self = this;
       var lastError = null;
 
-      Utils.Logger.info('AIService', 'Getting follow-up question from AI');
+      Utils.Logger.info('AIService', '🤖 Getting follow-up question from AI');
 
       // Retry logic for API calls
       return new Promise(function(resolve, reject) {
@@ -32,7 +32,7 @@ var AIService = (function() {
 
         function tryRequest() {
           attempt++;
-          Utils.Logger.info('AIService', 'Attempt ' + attempt + '/' + self.maxRetries);
+          Utils.Logger.info('AIService', '🤖 API Call Attempt ' + attempt + '/' + self.maxRetries);
 
           try {
             var systemPrompt = self.buildSystemPrompt(conversationManager.config, conversationManager.currentProbeCount);
@@ -68,20 +68,20 @@ var AIService = (function() {
               // Parse the response
               var aiResponse = self.parseAIResponse(aiResponseText);
 
-              Utils.Logger.info('AIService', 'AI response received:', aiResponse);
+              Utils.Logger.info('AIService', '🤖 AI Response: hasMore=' + aiResponse.hasMoreQuestions + ', question=' + (aiResponse.question || 'none'));
               resolve(aiResponse);
             })
             .catch(function(error) {
-              Utils.Logger.error('AIService', 'API request failed (attempt ' + attempt + ')', error);
+              Utils.Logger.error('AIService', '🤖 API request failed (attempt ' + attempt + '): ' + error.message);
               lastError = error;
 
               // If not the last attempt, wait before retrying
               if (attempt < self.maxRetries) {
-                Utils.Logger.info('AIService', 'Retrying in ' + self.retryDelay + 'ms...');
+                Utils.Logger.info('AIService', '🤖 Retrying in ' + self.retryDelay + 'ms...');
                 setTimeout(tryRequest, self.retryDelay);
               } else {
                 // All attempts failed
-                Utils.Logger.error('AIService', 'All AI service attempts failed', lastError);
+                Utils.Logger.error('AIService', '🤖 All AI service attempts failed: ' + lastError.message);
                 resolve({
                   hasMoreQuestions: false,
                   error: lastError.message,

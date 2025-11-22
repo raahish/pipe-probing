@@ -107,12 +107,12 @@ var Validation = (function() {
       // Update Qualtrics embedded data
       if (typeof window.updateEmbeddedData === 'function') {
         window.updateEmbeddedData(videoUrl);
-        Utils.Logger.info('Validation', 'Video URL saved via global bridge function');
+        Utils.Logger.info('Validation', '✅ Video URL saved to Qualtrics embedded data via bridge function');
       } else if (typeof Qualtrics !== 'undefined') {
         // Fallback if bridge function is missing
         var config = GlobalRegistry.getConfig();
         Qualtrics.SurveyEngine.setEmbeddedData(config.videoURL, videoUrl);
-        Utils.Logger.info('Validation', 'Video URL saved to Qualtrics embedded data: ' + config.videoURL);
+        Utils.Logger.info('Validation', '✅ Video URL saved to Qualtrics embedded data: ' + config.videoURL);
       }
 
       // Check if this was a conversation

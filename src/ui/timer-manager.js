@@ -101,7 +101,7 @@ var TimerManager = (function() {
       // Update global registry
       GlobalRegistry.setState('currentTime', currentTime);
 
-      Utils.Logger.debug('TimerManager', 'Timer updated: ' + timeString);
+      // Utils.Logger.debug('TimerManager', 'Timer updated: ' + timeString);
     },
 
     // Reset timer

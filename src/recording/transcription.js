@@ -34,16 +34,8 @@ var TranscriptionService = (function() {
     startNewSegment: function() {
       Utils.Logger.info('TranscriptionService', 'Starting fresh transcription for new segment');
       
-      // DEBUG: Check global transcript before stopping
-      var transcriptBefore = window.global_transcript || '';
-      Utils.Logger.info('TranscriptionService', '🔍 BEFORE STOP - global_transcript: "' + transcriptBefore + '" (length: ' + transcriptBefore.length + ')');
-
       // CRITICAL: Ensure clean state by stopping any existing transcription
       this.stop();
-      
-      // DEBUG: Check global transcript after stopping
-      var transcriptAfter = window.global_transcript || '';
-      Utils.Logger.info('TranscriptionService', '🔍 AFTER STOP - global_transcript: "' + transcriptAfter + '" (length: ' + transcriptAfter.length + ')');
       
       Utils.Logger.info('TranscriptionService', 'Previous transcription cleaned up');
 
@@ -71,10 +63,6 @@ var TranscriptionService = (function() {
       }
 
       Utils.Logger.info('TranscriptionService', 'Creating fresh MediaRecorder and WebSocket for segment');
-      
-      // DEBUG: Check global transcript before creating WebSocket
-      var transcriptBeforeWS = window.global_transcript || '';
-      Utils.Logger.info('TranscriptionService', '🔍 BEFORE WEBSOCKET - global_transcript: "' + transcriptBeforeWS + '" (length: ' + transcriptBeforeWS.length + ')');
 
       // Create MediaRecorder for audio transcription
       var audioStream = new MediaStream(stream.getAudioTracks());
@@ -85,7 +73,7 @@ var TranscriptionService = (function() {
       // Set up MediaRecorder event handlers
       mediaRecorder.addEventListener('dataavailable', function(event) {
         if (event.data.size > 0 && websocket && websocket.readyState === WebSocket.OPEN) {
-          Utils.Logger.debug('TranscriptionService', 'Sending audio chunk to DeepGram: ' + event.data.size + ' bytes');
+          // Utils.Logger.debug('TranscriptionService', 'Sending audio chunk to DeepGram: ' + event.data.size + ' bytes');
           websocket.send(event.data);
         }
       });
@@ -110,7 +98,7 @@ var TranscriptionService = (function() {
           keepAliveInterval = setInterval(function() {
             if (websocket && websocket.readyState === WebSocket.OPEN) {
               websocket.send(JSON.stringify({ type: 'KeepAlive' }));
-              Utils.Logger.debug('TranscriptionService', 'Sent KeepAlive to DeepGram');
+              // Utils.Logger.debug('TranscriptionService', 'Sent KeepAlive to DeepGram');
             } else {
               if (keepAliveInterval) {
                 clearInterval(keepAliveInterval);
@@ -155,11 +143,11 @@ var TranscriptionService = (function() {
                   Utils.Logger.info('TranscriptionService', 'Final transcript: ' + transcript);
                   window.global_transcript = (window.global_transcript || '') + transcript + ' ';
                 } else {
-                  Utils.Logger.debug('TranscriptionService', 'Interim transcript: ' + transcript);
+                  // Utils.Logger.debug('TranscriptionService', 'Interim transcript: ' + transcript);
                 }
               }
             } else if (data.type === 'Metadata') {
-              Utils.Logger.debug('TranscriptionService', 'DeepGram Metadata: ' + JSON.stringify(data));
+              // Utils.Logger.debug('TranscriptionService', 'DeepGram Metadata: ' + JSON.stringify(data));
             }
           } catch (error) {
             Utils.Logger.error('TranscriptionService', 'Error parsing DeepGram response', error);

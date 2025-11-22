@@ -95,6 +95,11 @@ var GlobalRegistry = (function() {
       var oldValue = state[key];
       state[key] = value;
 
+      // 🔍 SAFARI DEBUG: Log detailed state information
+      if (key === 'isConversationActive' || key === 'isRecording') {
+        Utils.Logger.info('GlobalRegistry', '🔍 SAFARI DEBUG - State Update: ' + key + ' = ' + value);
+      }
+
       // Update global variables for compatibility
       this.syncGlobalVars();
 

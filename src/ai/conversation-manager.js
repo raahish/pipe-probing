@@ -95,7 +95,7 @@ var ConversationManager = (function() {
 
     // Mark segment end and create segment data
     markSegmentEnd: function() {
-      Utils.Logger.info('ConversationManager', '📝 MARKING SEGMENT END - Starting transcript extraction');
+      Utils.Logger.info('ConversationManager', '📝 Marking segment end');
       
       var now = performance.now();
       var segmentEnd = (now - this.conversationStartTime) / 1000;
@@ -104,13 +104,7 @@ var ConversationManager = (function() {
       var fullTranscript = window.global_transcript || '';
       var segmentTranscript = fullTranscript.substring(this.accumulatedTranscript.length).trim();
       
-      Utils.Logger.info('ConversationManager', '🔍 TRANSCRIPT EXTRACTION DEBUG:');
-      Utils.Logger.info('ConversationManager', '  📄 Full global transcript: "' + fullTranscript + '"');
-      Utils.Logger.info('ConversationManager', '  📏 Full transcript length: ' + fullTranscript.length);
-      Utils.Logger.info('ConversationManager', '  📚 Previously accumulated: "' + this.accumulatedTranscript + '"');
-      Utils.Logger.info('ConversationManager', '  📏 Accumulated length: ' + this.accumulatedTranscript.length);
-      Utils.Logger.info('ConversationManager', '  ✂️  Extracted segment: "' + segmentTranscript + '"');
-      Utils.Logger.info('ConversationManager', '  📏 Segment length: ' + segmentTranscript.length);
+      Utils.Logger.info('ConversationManager', 'Segment transcript: "' + segmentTranscript + '"');
 
       var segment = {
         segmentId: this.segments.length + 1,
@@ -131,7 +125,7 @@ var ConversationManager = (function() {
       // CRITICAL: Update accumulated transcript AFTER extracting segment transcript
       this.accumulatedTranscript = fullTranscript;
 
-      Utils.Logger.info('ConversationManager', 'Segment ' + segment.segmentId + ' recorded:', segment);
+      Utils.Logger.info('ConversationManager', 'Segment ' + segment.segmentId + ' recorded - duration: ' + segment.duration.toFixed(1) + 's');
       return segment;
     },
 
@@ -181,9 +175,7 @@ var ConversationManager = (function() {
 
     // End conversation
     endConversation: function() {
-      Utils.Logger.info('ConversationManager', 'DECISION POINT: Ending conversation');
-      Utils.Logger.debug('ConversationManager', 'Current segments: ' + this.segments.length);
-      Utils.Logger.debug('ConversationManager', 'Current probe count: ' + this.currentProbeCount + '/' + this.maxProbes);
+      Utils.Logger.info('ConversationManager', 'Ending conversation - segments: ' + this.segments.length + ', probes: ' + this.currentProbeCount + '/' + this.maxProbes);
 
       // CRITICAL: Stop transcription for final time
       var transcriptionService = GlobalRegistry.get('transcriptionService');

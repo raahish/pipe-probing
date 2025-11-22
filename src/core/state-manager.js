@@ -60,17 +60,6 @@ var StateManager = (function() {
 
       Utils.Logger.info('StateManager', 'State transition: ' + oldState + ' -> ' + newState);
 
-      // 🔍 SAFARI DEBUG: Log detailed state information
-      if (newState === STATES.CONVERSATION_ACTIVE || newState === STATES.RECORDING) {
-        Utils.Logger.info('StateManager', '🔍 SAFARI DEBUG - State Transition Details:');
-        Utils.Logger.info('StateManager', '  📊 Old state: ' + oldState);
-        Utils.Logger.info('StateManager', '  📊 New state: ' + newState);
-        Utils.Logger.info('StateManager', '  📊 Is conversation active: ' + (newState === STATES.CONVERSATION_ACTIVE));
-        Utils.Logger.info('StateManager', '  📊 Is recording: ' + (newState === STATES.RECORDING));
-        Utils.Logger.info('StateManager', '  📊 Should actually stop: ' + (newState === STATES.COMPLETE));
-        Utils.Logger.info('StateManager', '  📊 Timestamp: ' + new Date().toISOString());
-      }
-
       // Update global registry
       GlobalRegistry.updateState(this.getStateFlags());
 

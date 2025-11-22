@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-11-22T23:07:02.211Z
+// Generated: 2025-11-22T23:26:00.507Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -270,7 +270,7 @@ var Utils = (function() {
 })();
 
 
-// === global-registry.js (260 lines) ===
+// === global-registry.js (265 lines) ===
 // Global Registry - Centralized state and module management
 // No template literals used - only string concatenation
 
@@ -367,6 +367,11 @@ var GlobalRegistry = (function() {
     setState: function(key, value) {
       var oldValue = state[key];
       state[key] = value;
+
+      // 🔍 SAFARI DEBUG: Log detailed state information
+      if (key === 'isConversationActive' || key === 'isRecording') {
+        Utils.Logger.info('GlobalRegistry', '🔍 SAFARI DEBUG - State Update: ' + key + ' = ' + value);
+      }
 
       // Update global variables for compatibility
       this.syncGlobalVars();
@@ -532,7 +537,7 @@ var GlobalRegistry = (function() {
 })();
 
 
-// === state-manager.js (190 lines) ===
+// === state-manager.js (179 lines) ===
 // State Manager - Single source of truth for application state
 // No template literals used - only string concatenation
 
@@ -594,17 +599,6 @@ var StateManager = (function() {
       }
 
       Utils.Logger.info('StateManager', 'State transition: ' + oldState + ' -> ' + newState);
-
-      // 🔍 SAFARI DEBUG: Log detailed state information
-      if (newState === STATES.CONVERSATION_ACTIVE || newState === STATES.RECORDING) {
-        Utils.Logger.info('StateManager', '🔍 SAFARI DEBUG - State Transition Details:');
-        Utils.Logger.info('StateManager', '  📊 Old state: ' + oldState);
-        Utils.Logger.info('StateManager', '  📊 New state: ' + newState);
-        Utils.Logger.info('StateManager', '  📊 Is conversation active: ' + (newState === STATES.CONVERSATION_ACTIVE));
-        Utils.Logger.info('StateManager', '  📊 Is recording: ' + (newState === STATES.RECORDING));
-        Utils.Logger.info('StateManager', '  📊 Should actually stop: ' + (newState === STATES.COMPLETE));
-        Utils.Logger.info('StateManager', '  📊 Timestamp: ' + new Date().toISOString());
-      }
 
       // Update global registry
       GlobalRegistry.updateState(this.getStateFlags());
@@ -724,7 +718,7 @@ var StateManager = (function() {
 })();
 
 
-// === event-handler.js (269 lines) ===
+// === event-handler.js (237 lines) ===
 // Event Handler - Unified click event management and interception
 // No template literals used - only string concatenation
 
@@ -770,45 +764,19 @@ var EventHandler = (function() {
         Utils.Logger.debug('EventHandler', 'Conversation active: ' + StateManager.isConversationActive());
 
         // 🔍 SAFARI DEBUG: Comprehensive event analysis
-        Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Event Details:');
-        Utils.Logger.info('EventHandler', '  📱 Event type: ' + e.type);
-        Utils.Logger.info('EventHandler', '  📱 Event phase: ' + e.eventPhase + ' (1=capture, 2=target, 3=bubble)');
-        Utils.Logger.info('EventHandler', '  📱 Timestamp: ' + e.timeStamp);
-        Utils.Logger.info('EventHandler', '  📱 IsTrusted: ' + e.isTrusted);
-        Utils.Logger.info('EventHandler', '  📱 User agent: ' + navigator.userAgent.substring(0, 100));
+        // Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Event Details:');
+        // Utils.Logger.info('EventHandler', '  📱 Event type: ' + e.type);
         
         // Check if this is a touch-generated event
-        var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        Utils.Logger.info('EventHandler', '  📱 Touch device detected: ' + isTouchDevice);
-        Utils.Logger.info('EventHandler', '  📱 Max touch points: ' + (navigator.maxTouchPoints || 'unknown'));
+        // var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         
         // Target element analysis
         var targetButton = EventHandler.findAddPipeButton(e.target);
-        if (targetButton) {
-          var computedStyle = window.getComputedStyle(targetButton);
-          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Button CSS State:');
-          Utils.Logger.info('EventHandler', '  🎨 Display: ' + computedStyle.display);
-          Utils.Logger.info('EventHandler', '  🎨 Pointer events: ' + computedStyle.pointerEvents);
-          Utils.Logger.info('EventHandler', '  🎨 Z-index: ' + computedStyle.zIndex);
-          Utils.Logger.info('EventHandler', '  🎨 Position: ' + computedStyle.position);
-          Utils.Logger.info('EventHandler', '  🎨 Visibility: ' + computedStyle.visibility);
-          Utils.Logger.info('EventHandler', '  🎨 Opacity: ' + computedStyle.opacity);
-          Utils.Logger.info('EventHandler', '  🎨 Transform: ' + computedStyle.transform);
-          
-          // Button properties
-          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Button Properties:');
-          Utils.Logger.info('EventHandler', '  🔘 ID: ' + targetButton.id);
-          Utils.Logger.info('EventHandler', '  🔘 Title: "' + targetButton.title + '"');
-          Utils.Logger.info('EventHandler', '  🔘 Disabled: ' + targetButton.disabled);
-          Utils.Logger.info('EventHandler', '  🔘 Class list: ' + targetButton.className);
-          Utils.Logger.info('EventHandler', '  🔘 Tab index: ' + targetButton.tabIndex);
-          
-          // Check for overlapping elements
-          var rect = targetButton.getBoundingClientRect();
-          var elementAtPoint = document.elementFromPoint(rect.left + rect.width/2, rect.top + rect.height/2);
-          Utils.Logger.info('EventHandler', '  🎯 Element at center point: ' + (elementAtPoint ? elementAtPoint.id || elementAtPoint.tagName : 'null'));
-          Utils.Logger.info('EventHandler', '  🎯 Is same element: ' + (elementAtPoint === targetButton));
-        }
+        // if (targetButton) {
+        //   var computedStyle = window.getComputedStyle(targetButton);
+        //   Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Button CSS State:');
+        //   Utils.Logger.info('EventHandler', '  🎨 Display: ' + computedStyle.display);
+        // }
 
         // CRITICAL: Always intercept AddPipe buttons during conversations
         if (StateManager.isConversationActive()) {
@@ -855,27 +823,21 @@ var EventHandler = (function() {
       document.addEventListener('click', capturePhaseHandler, true);
       
       // 🔍 SAFARI DEBUG: Also listen for touch events to test Safari touch handling
-      document.addEventListener('touchstart', function(e) {
-        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
-        if (isAddPipeButton) {
-          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - TouchStart detected on AddPipe button');
-          Utils.Logger.info('EventHandler', '  📱 Touch event target: ' + (e.target.id || e.target.tagName));
-          Utils.Logger.info('EventHandler', '  📱 Touches length: ' + e.touches.length);
-          Utils.Logger.info('EventHandler', '  📱 Changed touches: ' + e.changedTouches.length);
-        }
-      }, true);
+      // document.addEventListener('touchstart', function(e) {
+      //   var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+      //   if (isAddPipeButton) {
+      //     Utils.Logger.debug('EventHandler', '🔍 SAFARI DEBUG - TouchStart detected on AddPipe button');
+      //   }
+      // }, true);
       
-      document.addEventListener('touchend', function(e) {
-        var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
-        if (isAddPipeButton) {
-          Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - TouchEnd detected on AddPipe button');
-          Utils.Logger.info('EventHandler', '  📱 Touch event target: ' + (e.target.id || e.target.tagName));
-          Utils.Logger.info('EventHandler', '  📱 Changed touches: ' + e.changedTouches.length);
-        }
-      }, true);
+      // document.addEventListener('touchend', function(e) {
+      //   var isAddPipeButton = EventHandler.isAddPipeButton(e.target);
+      //   if (isAddPipeButton) {
+      //     Utils.Logger.debug('EventHandler', '🔍 SAFARI DEBUG - TouchEnd detected on AddPipe button');
+      //   }
+      // }, true);
 
       Utils.Logger.info('EventHandler', 'DOM capture phase handler attached - ready to intercept AddPipe');
-      Utils.Logger.info('EventHandler', '🔍 SAFARI DEBUG - Touch event listeners also attached for debugging');
     },
 
     // Robust AddPipe button detection with multiple strategies
@@ -1687,7 +1649,7 @@ var TimerManager = (function() {
       // Update global registry
       GlobalRegistry.setState('currentTime', currentTime);
 
-      Utils.Logger.debug('TimerManager', 'Timer updated: ' + timeString);
+      // Utils.Logger.debug('TimerManager', 'Timer updated: ' + timeString);
     },
 
     // Reset timer
@@ -2001,7 +1963,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (510 lines) ===
+// === pipe-integration.js (470 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -2073,26 +2035,7 @@ var PipeIntegration = (function() {
 
       // Handler for when recording actually starts
       recorderObject.onRecordingStarted = function(recorderId) {
-        Utils.Logger.info('PipeIntegration', '🔴 ADDPIPE RECORDING STARTED');
-        Utils.Logger.info('PipeIntegration', '📹 Recording Details:');
-        Utils.Logger.info('PipeIntegration', '  • Recorder ID: ' + recorderId);
-        Utils.Logger.info('PipeIntegration', '  • Start Time: ' + new Date().toISOString());
-        Utils.Logger.info('PipeIntegration', '  • This is the CONTINUOUS recording that will capture the entire conversation');
-        
-        // 🔍 SAFARI DEBUG: Log AddPipe internal state
-        Utils.Logger.info('PipeIntegration', '🔍 SAFARI DEBUG - AddPipe State on Recording Start:');
-        Utils.Logger.info('PipeIntegration', '  🎬 Recorder state: ' + (recorderObject.getState ? recorderObject.getState() : 'getState not available'));
-        Utils.Logger.info('PipeIntegration', '  🎬 Recorder object exists: ' + !!recorderObject);
-        
-        // Check button state after AddPipe starts
-        var config = GlobalRegistry.getConfig();
-        var buttonElement = document.getElementById('pipeRec-' + config.questionName);
-        if (buttonElement) {
-          Utils.Logger.info('PipeIntegration', '  🔘 Button title after start: "' + buttonElement.title + '"');
-          Utils.Logger.info('PipeIntegration', '  🔘 Button disabled after start: ' + buttonElement.disabled);
-          var buttonStyle = window.getComputedStyle(buttonElement);
-          Utils.Logger.info('PipeIntegration', '  🔘 Button pointer-events after start: ' + buttonStyle.pointerEvents);
-        }
+        Utils.Logger.info('PipeIntegration', '🔴 ADDPIPE RECORDING STARTED - continuous recording for entire conversation');
         
         StateManager.setRecording();
         
@@ -2141,12 +2084,7 @@ var PipeIntegration = (function() {
         }
 
         // No active conversation - allow real stop
-        Utils.Logger.info('PipeIntegration', '⏹️ ADDPIPE RECORDING STOPPED');
-        Utils.Logger.info('PipeIntegration', '📹 Final Recording Details:');
-        Utils.Logger.info('PipeIntegration', '  • Recorder ID: ' + recorderId);
-        Utils.Logger.info('PipeIntegration', '  • Stop Time: ' + new Date().toISOString());
-        Utils.Logger.info('PipeIntegration', '  • This was the CONTINUOUS recording for the entire conversation');
-        Utils.Logger.info('PipeIntegration', '  • Recording will now be processed and uploaded to S3');
+        Utils.Logger.info('PipeIntegration', '⏹️ ADDPIPE RECORDING STOPPED - processing and uploading');
 
         // Clear recording timer
         var timerManager = GlobalRegistry.get('timerManager');
@@ -2252,26 +2190,13 @@ var PipeIntegration = (function() {
         audioOnly,
         location
       ) {
-        Utils.Logger.info('PipeIntegration', '💾 ADDPIPE RECORDING SAVED SUCCESSFULLY!');
-        Utils.Logger.info('PipeIntegration', '🎯 Final Video Details:');
-        Utils.Logger.info('PipeIntegration', '  • Stream Name: ' + streamName);
-        Utils.Logger.info('PipeIntegration', '  • Duration: ' + streamDuration + ' seconds');
-        Utils.Logger.info('PipeIntegration', '  • Camera: ' + cameraName);
-        Utils.Logger.info('PipeIntegration', '  • Microphone: ' + micName);
-        Utils.Logger.info('PipeIntegration', '  • Audio Codec: ' + audioCodec);
-        Utils.Logger.info('PipeIntegration', '  • Video Codec: ' + videoCodec);
-        Utils.Logger.info('PipeIntegration', '  • File Type: ' + fileType);
-        Utils.Logger.info('PipeIntegration', '  • Video ID: ' + videoId);
-        Utils.Logger.info('PipeIntegration', '  • Audio Only: ' + audioOnly);
-        Utils.Logger.info('PipeIntegration', '  • Location: ' + location);
+        Utils.Logger.info('PipeIntegration', '💾 ADDPIPE RECORDING SAVED - Stream: ' + streamName + ', Duration: ' + streamDuration + 's');
 
         // Build video URL
         var S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/com.knit.pipe-recorder-videos/';
         var videoUrl = S3_BASE_URL + streamName + '.mp4';
         
-        Utils.Logger.info('PipeIntegration', '🔗 FINAL VIDEO URL: ' + videoUrl);
-        var config = GlobalRegistry.getConfig();
-        Utils.Logger.info('PipeIntegration', '📋 This URL will be saved to Qualtrics embedded data as ' + config.videoURL);
+        Utils.Logger.info('PipeIntegration', '🔗 Video URL: ' + videoUrl);
 
         // Handle conversation metadata
         var conversationManager = GlobalRegistry.get('conversationManager');
@@ -2393,13 +2318,10 @@ var PipeIntegration = (function() {
       }
 
       try {
-        Utils.Logger.info('PipeIntegration', '🛑 TRIGGERING FINAL ADDPIPE STOP (using official stopVideo API)');
-        Utils.Logger.info('PipeIntegration', '  • This will stop the continuous recording');
-        Utils.Logger.info('PipeIntegration', '  • Video will be processed and uploaded to S3');
-        Utils.Logger.info('PipeIntegration', '  • onSaveOk will be called when upload completes');
+        Utils.Logger.info('PipeIntegration', '🛑 TRIGGERING FINAL ADDPIPE STOP');
         
         recorderObject.stopVideo();
-        Utils.Logger.info('PipeIntegration', '✅ Final AddPipe stopVideo triggered successfully');
+        Utils.Logger.info('PipeIntegration', '✅ Final AddPipe stop triggered');
         return true;
       } catch (error) {
         Utils.Logger.error('PipeIntegration', '❌ Failed to trigger final AddPipe stopVideo', error);
@@ -2513,7 +2435,7 @@ var PipeIntegration = (function() {
 })();
 
 
-// === transcription.js (270 lines) ===
+// === transcription.js (258 lines) ===
 // Transcription Service - DeepGram WebSocket integration
 // No template literals used - only string concatenation
 
@@ -2550,16 +2472,8 @@ var TranscriptionService = (function() {
     startNewSegment: function() {
       Utils.Logger.info('TranscriptionService', 'Starting fresh transcription for new segment');
       
-      // DEBUG: Check global transcript before stopping
-      var transcriptBefore = window.global_transcript || '';
-      Utils.Logger.info('TranscriptionService', '🔍 BEFORE STOP - global_transcript: "' + transcriptBefore + '" (length: ' + transcriptBefore.length + ')');
-
       // CRITICAL: Ensure clean state by stopping any existing transcription
       this.stop();
-      
-      // DEBUG: Check global transcript after stopping
-      var transcriptAfter = window.global_transcript || '';
-      Utils.Logger.info('TranscriptionService', '🔍 AFTER STOP - global_transcript: "' + transcriptAfter + '" (length: ' + transcriptAfter.length + ')');
       
       Utils.Logger.info('TranscriptionService', 'Previous transcription cleaned up');
 
@@ -2587,10 +2501,6 @@ var TranscriptionService = (function() {
       }
 
       Utils.Logger.info('TranscriptionService', 'Creating fresh MediaRecorder and WebSocket for segment');
-      
-      // DEBUG: Check global transcript before creating WebSocket
-      var transcriptBeforeWS = window.global_transcript || '';
-      Utils.Logger.info('TranscriptionService', '🔍 BEFORE WEBSOCKET - global_transcript: "' + transcriptBeforeWS + '" (length: ' + transcriptBeforeWS.length + ')');
 
       // Create MediaRecorder for audio transcription
       var audioStream = new MediaStream(stream.getAudioTracks());
@@ -2601,7 +2511,7 @@ var TranscriptionService = (function() {
       // Set up MediaRecorder event handlers
       mediaRecorder.addEventListener('dataavailable', function(event) {
         if (event.data.size > 0 && websocket && websocket.readyState === WebSocket.OPEN) {
-          Utils.Logger.debug('TranscriptionService', 'Sending audio chunk to DeepGram: ' + event.data.size + ' bytes');
+          // Utils.Logger.debug('TranscriptionService', 'Sending audio chunk to DeepGram: ' + event.data.size + ' bytes');
           websocket.send(event.data);
         }
       });
@@ -2626,7 +2536,7 @@ var TranscriptionService = (function() {
           keepAliveInterval = setInterval(function() {
             if (websocket && websocket.readyState === WebSocket.OPEN) {
               websocket.send(JSON.stringify({ type: 'KeepAlive' }));
-              Utils.Logger.debug('TranscriptionService', 'Sent KeepAlive to DeepGram');
+              // Utils.Logger.debug('TranscriptionService', 'Sent KeepAlive to DeepGram');
             } else {
               if (keepAliveInterval) {
                 clearInterval(keepAliveInterval);
@@ -2671,11 +2581,11 @@ var TranscriptionService = (function() {
                   Utils.Logger.info('TranscriptionService', 'Final transcript: ' + transcript);
                   window.global_transcript = (window.global_transcript || '') + transcript + ' ';
                 } else {
-                  Utils.Logger.debug('TranscriptionService', 'Interim transcript: ' + transcript);
+                  // Utils.Logger.debug('TranscriptionService', 'Interim transcript: ' + transcript);
                 }
               }
             } else if (data.type === 'Metadata') {
-              Utils.Logger.debug('TranscriptionService', 'DeepGram Metadata: ' + JSON.stringify(data));
+              // Utils.Logger.debug('TranscriptionService', 'DeepGram Metadata: ' + JSON.stringify(data));
             }
           } catch (error) {
             Utils.Logger.error('TranscriptionService', 'Error parsing DeepGram response', error);
@@ -2895,12 +2805,12 @@ var Validation = (function() {
       // Update Qualtrics embedded data
       if (typeof window.updateEmbeddedData === 'function') {
         window.updateEmbeddedData(videoUrl);
-        Utils.Logger.info('Validation', 'Video URL saved via global bridge function');
+        Utils.Logger.info('Validation', '✅ Video URL saved to Qualtrics embedded data via bridge function');
       } else if (typeof Qualtrics !== 'undefined') {
         // Fallback if bridge function is missing
         var config = GlobalRegistry.getConfig();
         Qualtrics.SurveyEngine.setEmbeddedData(config.videoURL, videoUrl);
-        Utils.Logger.info('Validation', 'Video URL saved to Qualtrics embedded data: ' + config.videoURL);
+        Utils.Logger.info('Validation', '✅ Video URL saved to Qualtrics embedded data: ' + config.videoURL);
       }
 
       // Check if this was a conversation
@@ -3009,7 +2919,7 @@ var Validation = (function() {
 })();
 
 
-// === conversation-manager.js (509 lines) ===
+// === conversation-manager.js (501 lines) ===
 // Conversation Manager - AI-driven interview flow management
 // No template literals used - only string concatenation
 
@@ -3107,7 +3017,7 @@ var ConversationManager = (function() {
 
     // Mark segment end and create segment data
     markSegmentEnd: function() {
-      Utils.Logger.info('ConversationManager', '📝 MARKING SEGMENT END - Starting transcript extraction');
+      Utils.Logger.info('ConversationManager', '📝 Marking segment end');
       
       var now = performance.now();
       var segmentEnd = (now - this.conversationStartTime) / 1000;
@@ -3116,13 +3026,7 @@ var ConversationManager = (function() {
       var fullTranscript = window.global_transcript || '';
       var segmentTranscript = fullTranscript.substring(this.accumulatedTranscript.length).trim();
       
-      Utils.Logger.info('ConversationManager', '🔍 TRANSCRIPT EXTRACTION DEBUG:');
-      Utils.Logger.info('ConversationManager', '  📄 Full global transcript: "' + fullTranscript + '"');
-      Utils.Logger.info('ConversationManager', '  📏 Full transcript length: ' + fullTranscript.length);
-      Utils.Logger.info('ConversationManager', '  📚 Previously accumulated: "' + this.accumulatedTranscript + '"');
-      Utils.Logger.info('ConversationManager', '  📏 Accumulated length: ' + this.accumulatedTranscript.length);
-      Utils.Logger.info('ConversationManager', '  ✂️  Extracted segment: "' + segmentTranscript + '"');
-      Utils.Logger.info('ConversationManager', '  📏 Segment length: ' + segmentTranscript.length);
+      Utils.Logger.info('ConversationManager', 'Segment transcript: "' + segmentTranscript + '"');
 
       var segment = {
         segmentId: this.segments.length + 1,
@@ -3143,7 +3047,7 @@ var ConversationManager = (function() {
       // CRITICAL: Update accumulated transcript AFTER extracting segment transcript
       this.accumulatedTranscript = fullTranscript;
 
-      Utils.Logger.info('ConversationManager', 'Segment ' + segment.segmentId + ' recorded:', segment);
+      Utils.Logger.info('ConversationManager', 'Segment ' + segment.segmentId + ' recorded - duration: ' + segment.duration.toFixed(1) + 's');
       return segment;
     },
 
@@ -3193,9 +3097,7 @@ var ConversationManager = (function() {
 
     // End conversation
     endConversation: function() {
-      Utils.Logger.info('ConversationManager', 'DECISION POINT: Ending conversation');
-      Utils.Logger.debug('ConversationManager', 'Current segments: ' + this.segments.length);
-      Utils.Logger.debug('ConversationManager', 'Current probe count: ' + this.currentProbeCount + '/' + this.maxProbes);
+      Utils.Logger.info('ConversationManager', 'Ending conversation - segments: ' + this.segments.length + ', probes: ' + this.currentProbeCount + '/' + this.maxProbes);
 
       // CRITICAL: Stop transcription for final time
       var transcriptionService = GlobalRegistry.get('transcriptionService');
@@ -3547,7 +3449,7 @@ var AIService = (function() {
       var self = this;
       var lastError = null;
 
-      Utils.Logger.info('AIService', 'Getting follow-up question from AI');
+      Utils.Logger.info('AIService', '🤖 Getting follow-up question from AI');
 
       // Retry logic for API calls
       return new Promise(function(resolve, reject) {
@@ -3555,7 +3457,7 @@ var AIService = (function() {
 
         function tryRequest() {
           attempt++;
-          Utils.Logger.info('AIService', 'Attempt ' + attempt + '/' + self.maxRetries);
+          Utils.Logger.info('AIService', '🤖 API Call Attempt ' + attempt + '/' + self.maxRetries);
 
           try {
             var systemPrompt = self.buildSystemPrompt(conversationManager.config, conversationManager.currentProbeCount);
@@ -3591,20 +3493,20 @@ var AIService = (function() {
               // Parse the response
               var aiResponse = self.parseAIResponse(aiResponseText);
 
-              Utils.Logger.info('AIService', 'AI response received:', aiResponse);
+              Utils.Logger.info('AIService', '🤖 AI Response: hasMore=' + aiResponse.hasMoreQuestions + ', question=' + (aiResponse.question || 'none'));
               resolve(aiResponse);
             })
             .catch(function(error) {
-              Utils.Logger.error('AIService', 'API request failed (attempt ' + attempt + ')', error);
+              Utils.Logger.error('AIService', '🤖 API request failed (attempt ' + attempt + '): ' + error.message);
               lastError = error;
 
               // If not the last attempt, wait before retrying
               if (attempt < self.maxRetries) {
-                Utils.Logger.info('AIService', 'Retrying in ' + self.retryDelay + 'ms...');
+                Utils.Logger.info('AIService', '🤖 Retrying in ' + self.retryDelay + 'ms...');
                 setTimeout(tryRequest, self.retryDelay);
               } else {
                 // All attempts failed
-                Utils.Logger.error('AIService', 'All AI service attempts failed', lastError);
+                Utils.Logger.error('AIService', '🤖 All AI service attempts failed: ' + lastError.message);
                 resolve({
                   hasMoreQuestions: false,
                   error: lastError.message,

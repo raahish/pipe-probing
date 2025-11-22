@@ -23,6 +23,7 @@
   line-height: 1.6;
   max-width: 32rem;
   margin: 0 auto;
+  text-align: center;
 }
 
 @media (max-width: 640px) {
@@ -1127,9 +1128,9 @@ cursor: pointer;
 #dynamic-question-description {
   font-size: 1rem;
   color: hsl(var(--muted-foreground));
-  margin-bottom: 1.5rem;
   line-height: 1.5;
   transition: all 0.3s ease;
+  text-align: center;
 }
 
 /* Conversation Question Container */

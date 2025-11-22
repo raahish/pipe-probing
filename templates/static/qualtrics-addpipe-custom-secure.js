@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-11-22T23:26:00.507Z
+// Generated: 2025-11-22T23:34:03.331Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -3708,7 +3708,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (409 lines) ===
+// === main.js (414 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -3749,6 +3749,11 @@ var VideoRecorderApp = (function() {
           // Step 1: Initialize global registry
           GlobalRegistry.initialize();
           Utils.Logger.info('VideoRecorderApp', 'Global registry initialized');
+
+          // Step 1.5: Reset global transcript for fresh question context
+          // CRITICAL: Prevents context pollution across multiple questions in survey
+          window.global_transcript = '';
+          Utils.Logger.info('VideoRecorderApp', 'Global transcript reset for new question');
 
           // Step 2: Initialize core modules
           VideoRecorderApp._initializeCoreModules();

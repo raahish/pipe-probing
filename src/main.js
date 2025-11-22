@@ -39,6 +39,11 @@ var VideoRecorderApp = (function() {
           GlobalRegistry.initialize();
           Utils.Logger.info('VideoRecorderApp', 'Global registry initialized');
 
+          // Step 1.5: Reset global transcript for fresh question context
+          // CRITICAL: Prevents context pollution across multiple questions in survey
+          window.global_transcript = '';
+          Utils.Logger.info('VideoRecorderApp', 'Global transcript reset for new question');
+
           // Step 2: Initialize core modules
           VideoRecorderApp._initializeCoreModules();
           Utils.Logger.info('VideoRecorderApp', 'Core modules initialized');

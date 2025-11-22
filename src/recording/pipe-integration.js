@@ -304,8 +304,11 @@ var PipeIntegration = (function() {
 
         // Continue with validation
         var transcript_array = (window.global_transcript || '').split(' ');
-        if (typeof validateVideo === 'function') {
-          validateVideo(recorderObject, transcript_array, location, streamName);
+        var validation = GlobalRegistry.get('validation');
+        if (validation && validation.validateVideo) {
+          validation.validateVideo(recorderObject, transcript_array, location, streamName);
+        } else {
+          Utils.Logger.error('PipeIntegration', 'Validation module not found');
         }
       };
 

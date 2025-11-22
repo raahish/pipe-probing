@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-11-22T23:00:02.079Z
+// Generated: 2025-11-22T23:07:02.211Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -2001,7 +2001,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (507 lines) ===
+// === pipe-integration.js (510 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -2308,8 +2308,11 @@ var PipeIntegration = (function() {
 
         // Continue with validation
         var transcript_array = (window.global_transcript || '').split(' ');
-        if (typeof validateVideo === 'function') {
-          validateVideo(recorderObject, transcript_array, location, streamName);
+        var validation = GlobalRegistry.get('validation');
+        if (validation && validation.validateVideo) {
+          validation.validateVideo(recorderObject, transcript_array, location, streamName);
+        } else {
+          Utils.Logger.error('PipeIntegration', 'Validation module not found');
         }
       };
 

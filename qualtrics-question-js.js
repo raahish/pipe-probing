@@ -121,9 +121,10 @@ function nextQuestion() {
     }
 }
 
-function updateEmbeddedData(data){
+window.updateEmbeddedData = function(data){
     Qualtrics.SurveyEngine.setEmbeddedData(window.videoURL, data);
-}
+    console.log('Video URL saved via bridge function to: ' + window.videoURL);
+};
 
 // Initialize mimetype immediately
 getMobileOperatingSystem();

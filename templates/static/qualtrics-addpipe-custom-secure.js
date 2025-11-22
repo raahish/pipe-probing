@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-11-22T22:33:19.717Z
+// Generated: 2025-11-22T23:00:02.079Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -2782,7 +2782,7 @@ var TranscriptionService = (function() {
 })();
 
 
-// === validation.js (218 lines) ===
+// === validation.js (222 lines) ===
 // Validation - Video/audio validation and error handling
 // No template literals used - only string concatenation
 
@@ -2890,7 +2890,11 @@ var Validation = (function() {
       var videoUrl = S3_BASE_URL + streamName + '.mp4';
 
       // Update Qualtrics embedded data
-      if (typeof Qualtrics !== 'undefined') {
+      if (typeof window.updateEmbeddedData === 'function') {
+        window.updateEmbeddedData(videoUrl);
+        Utils.Logger.info('Validation', 'Video URL saved via global bridge function');
+      } else if (typeof Qualtrics !== 'undefined') {
+        // Fallback if bridge function is missing
         var config = GlobalRegistry.getConfig();
         Qualtrics.SurveyEngine.setEmbeddedData(config.videoURL, videoUrl);
         Utils.Logger.info('Validation', 'Video URL saved to Qualtrics embedded data: ' + config.videoURL);

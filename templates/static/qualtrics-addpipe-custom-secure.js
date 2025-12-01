@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-12-01T16:19:52.764Z
+// Generated: 2025-12-01T17:01:46.722Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -3727,7 +3727,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (414 lines) ===
+// === main.js (420 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -4042,6 +4042,12 @@ var VideoRecorderApp = (function() {
       // Set up permissions modal on page load
       jQuery(function() {
         Utils.Logger.info('VideoRecorderApp', 'Setting up initial modal flow');
+
+        // CRITICAL: Close any lingering modals from previous question
+        // This prevents VQ1's success modal from appearing on VQ2's page
+        // when VQ1's delayed onSaveOk callback fires after navigation
+        jQuery.modal.close();
+        jQuery('#modal-buttons').hide();
 
         jQuery('#SkinContent #Buttons').hide();
         jQuery('#NextButton-custom').hide();

@@ -313,6 +313,12 @@ var VideoRecorderApp = (function() {
       jQuery(function() {
         Utils.Logger.info('VideoRecorderApp', 'Setting up initial modal flow');
 
+        // CRITICAL: Close any lingering modals from previous question
+        // This prevents VQ1's success modal from appearing on VQ2's page
+        // when VQ1's delayed onSaveOk callback fires after navigation
+        jQuery.modal.close();
+        jQuery('#modal-buttons').hide();
+
         jQuery('#SkinContent #Buttons').hide();
         jQuery('#NextButton-custom').hide();
 

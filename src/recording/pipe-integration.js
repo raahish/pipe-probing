@@ -20,6 +20,25 @@ var PipeIntegration = (function() {
       return new Promise(function(resolve, reject) {
         Utils.Logger.info('PipeIntegration', 'Initializing Pipe SDK for: ' + qName);
 
+        // CRITICAL: Synchronous cleanup of previous instance to prevent zombie events
+        // This prevents VQ1 events (like delayed success) from affecting VQ2 UI
+        if (recorderObject) {
+          Utils.Logger.info('PipeIntegration', 'Silencing previous recorder instance before initialization');
+          try {
+            // Nullify all event handlers so the old recorder can't trigger anything
+            if (recorderObject.onSaveOk) recorderObject.onSaveOk = null;
+            if (recorderObject.onVideoUploadSuccess) recorderObject.onVideoUploadSuccess = null;
+            if (recorderObject.onRecordingStarted) recorderObject.onRecordingStarted = null;
+            if (recorderObject.onReadyToRecord) recorderObject.onReadyToRecord = null;
+            
+            // We don't destroy() or remove() to avoid race conditions with DOM removal
+            // We just silence it.
+          } catch (e) {
+            Utils.Logger.warn('PipeIntegration', 'Error silencing previous recorder', e);
+          }
+          recorderObject = null;
+        }
+
         questionName = qName;
         pipeParams = params;
 

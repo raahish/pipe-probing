@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-11-22T23:34:03.331Z
+// Generated: 2025-12-01T16:19:52.764Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -1963,7 +1963,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (470 lines) ===
+// === pipe-integration.js (489 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -1985,6 +1985,25 @@ var PipeIntegration = (function() {
     initialize: function(qName, params) {
       return new Promise(function(resolve, reject) {
         Utils.Logger.info('PipeIntegration', 'Initializing Pipe SDK for: ' + qName);
+
+        // CRITICAL: Synchronous cleanup of previous instance to prevent zombie events
+        // This prevents VQ1 events (like delayed success) from affecting VQ2 UI
+        if (recorderObject) {
+          Utils.Logger.info('PipeIntegration', 'Silencing previous recorder instance before initialization');
+          try {
+            // Nullify all event handlers so the old recorder can't trigger anything
+            if (recorderObject.onSaveOk) recorderObject.onSaveOk = null;
+            if (recorderObject.onVideoUploadSuccess) recorderObject.onVideoUploadSuccess = null;
+            if (recorderObject.onRecordingStarted) recorderObject.onRecordingStarted = null;
+            if (recorderObject.onReadyToRecord) recorderObject.onReadyToRecord = null;
+            
+            // We don't destroy() or remove() to avoid race conditions with DOM removal
+            // We just silence it.
+          } catch (e) {
+            Utils.Logger.warn('PipeIntegration', 'Error silencing previous recorder', e);
+          }
+          recorderObject = null;
+        }
 
         questionName = qName;
         pipeParams = params;

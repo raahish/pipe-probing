@@ -334,7 +334,13 @@ var VideoRecorderApp = (function() {
 
         // DEBUG: Set up MutationObserver to catch EXACTLY what changes the button
         var nextBtnElement = document.getElementById('NextButton-custom');
+        var originalElementRef = nextBtnElement; // Store reference to detect element replacement
+        
         if (nextBtnElement && typeof MutationObserver !== 'undefined') {
+          // Log the initial state
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG - Initial button inline style: "' + nextBtnElement.style.cssText + '"');
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG - Initial button computed display: "' + window.getComputedStyle(nextBtnElement).display + '"');
+          
           var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
               if (mutation.type === 'attributes') {
@@ -373,11 +379,26 @@ var VideoRecorderApp = (function() {
 
         // DEBUG: Set up a delayed check to see if something shows the button later
         setTimeout(function() {
-          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 500ms: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+          var currentBtn = document.getElementById('NextButton-custom');
+          var isSameElement = (currentBtn === originalElementRef);
+          var inlineStyle = currentBtn ? currentBtn.style.cssText : 'N/A';
+          var computedDisplay = currentBtn ? window.getComputedStyle(currentBtn).display : 'N/A';
+          
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 500ms:');
+          Utils.Logger.info('VideoRecorderApp', '🔍   jQuery visible: ' + jQuery('#NextButton-custom').is(':visible'));
+          Utils.Logger.info('VideoRecorderApp', '🔍   jQuery display: ' + jQuery('#NextButton-custom').css('display'));
+          Utils.Logger.info('VideoRecorderApp', '🔍   Inline style: "' + inlineStyle + '"');
+          Utils.Logger.info('VideoRecorderApp', '🔍   Computed display: "' + computedDisplay + '"');
+          Utils.Logger.info('VideoRecorderApp', '🔍   Same element as before? ' + isSameElement);
+          Utils.Logger.info('VideoRecorderApp', '🔍   Element in DOM? ' + (currentBtn !== null));
         }, 500);
 
         setTimeout(function() {
-          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 2000ms: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+          var currentBtn = document.getElementById('NextButton-custom');
+          var isSameElement = (currentBtn === originalElementRef);
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 2000ms:');
+          Utils.Logger.info('VideoRecorderApp', '🔍   jQuery visible: ' + jQuery('#NextButton-custom').is(':visible'));
+          Utils.Logger.info('VideoRecorderApp', '🔍   Same element as before? ' + isSameElement);
         }, 2000);
       });
 

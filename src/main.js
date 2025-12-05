@@ -313,6 +313,12 @@ var VideoRecorderApp = (function() {
       jQuery(function() {
         Utils.Logger.info('VideoRecorderApp', 'Setting up initial modal flow');
 
+        // DEBUG: Check Next button state BEFORE any actions
+        var nextBtn = jQuery('#NextButton-custom');
+        var config = GlobalRegistry.getConfig();
+        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - Question: ' + config.questionName);
+        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - Before hide: exists=' + nextBtn.length + ', visible=' + nextBtn.is(':visible') + ', display=' + nextBtn.css('display'));
+
         // CRITICAL: Close any lingering modals from previous question
         // This prevents VQ1's success modal from appearing on VQ2's page
         // when VQ1's delayed onSaveOk callback fires after navigation
@@ -322,10 +328,22 @@ var VideoRecorderApp = (function() {
         jQuery('#SkinContent #Buttons').hide();
         jQuery('#NextButton-custom').hide();
 
+        // DEBUG: Check Next button state AFTER hide
+        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After hide: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+
         var modalManager = GlobalRegistry.get('modalManager');
         if (modalManager) {
           modalManager.showPermissions();
         }
+
+        // DEBUG: Set up a delayed check to see if something shows the button later
+        setTimeout(function() {
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 500ms: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+        }, 500);
+
+        setTimeout(function() {
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 2000ms: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+        }, 2000);
       });
 
       Utils.Logger.info('VideoRecorderApp', 'Modal flow configured');

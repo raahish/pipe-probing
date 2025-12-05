@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-12-01T17:01:46.722Z
+// Generated: 2025-12-05T01:11:05.751Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -957,7 +957,7 @@ var EventHandler = (function() {
 })();
 
 
-// === element-controller.js (586 lines) ===
+// === element-controller.js (590 lines) ===
 // Element Controller - DOM element management and UI state control
 // No template literals used - only string concatenation
 
@@ -1195,6 +1195,9 @@ var ElementController = (function() {
     setConversationCompleteState: function() {
       Utils.Logger.info('ElementController', 'Setting conversation complete state');
 
+      // DEBUG: Log question context
+      Utils.Logger.info('ElementController', '🔴 DEBUG: setConversationCompleteState called for question: ' + this.questionName);
+
       // Ensure we have fresh element references
       var menu = this.elements.menu;
       if (!menu || menu.length === 0) {
@@ -1213,6 +1216,7 @@ var ElementController = (function() {
       this.hideElement('nativePlayButton');
       
       // Show the Next Question button
+      Utils.Logger.info('ElementController', '🔴 DEBUG: About to show NextButton-custom for question: ' + this.questionName);
       Utils.DOM.select('#NextButton-custom').show();
       Utils.Logger.info('ElementController', 'Next Question button shown for conversation completion');
     },
@@ -1963,7 +1967,7 @@ var ModalManager = (function() {
 })();
 
 
-// === pipe-integration.js (489 lines) ===
+// === pipe-integration.js (495 lines) ===
 // Pipe Integration - AddPipe SDK wrapper and integration
 // No template literals used - only string concatenation
 
@@ -2271,6 +2275,9 @@ var PipeIntegration = (function() {
       ) {
         Utils.Logger.info('PipeIntegration', 'Video upload success');
 
+        // DEBUG: Log question context when this fires
+        Utils.Logger.info('PipeIntegration', '🔴 DEBUG: onVideoUploadSuccess called for question: ' + questionName + ', recorderId: ' + recorderId);
+
         // Clean up conversation if active
         var conversationManager = GlobalRegistry.get('conversationManager');
         if (conversationManager) {
@@ -2279,6 +2286,9 @@ var PipeIntegration = (function() {
 
         var transcript_array = (window.global_transcript || '').split(' ');
         Utils.DOM.select('#' + recorderId).attr('style', 'height:120px !important');
+        
+        // DEBUG: Log before showing
+        Utils.Logger.info('PipeIntegration', '🔴 DEBUG: About to show NextButton-custom from onVideoUploadSuccess for question: ' + questionName);
         Utils.DOM.select('#NextButton-custom').show();
       };
 
@@ -2714,7 +2724,7 @@ var TranscriptionService = (function() {
 })();
 
 
-// === validation.js (222 lines) ===
+// === validation.js (226 lines) ===
 // Validation - Video/audio validation and error handling
 // No template literals used - only string concatenation
 
@@ -2838,6 +2848,8 @@ var Validation = (function() {
         Utils.Logger.info('Validation', 'Conversation detected - Next button will be handled by ElementController');
       } else {
         // For regular recordings, show Next button immediately
+        // DEBUG: Log question context
+        Utils.Logger.info('Validation', '🔴 DEBUG: About to show NextButton-custom for regular recording, question: ' + config.questionName);
         Utils.DOM.select('#NextButton-custom').show();
         Utils.Logger.info('Validation', 'Regular recording - showing Next button immediately');
       }
@@ -2905,6 +2917,8 @@ var Validation = (function() {
       if (config.validationDetails.hasOwnProperty('required') && config.validationDetails.required) {
         Utils.DOM.select('#NextButton-custom').hide();
       } else {
+        // DEBUG: Log when showing via skipValidation
+        Utils.Logger.info('Validation', '🔴 DEBUG: About to show NextButton-custom via skipValidation for question: ' + config.questionName);
         Utils.DOM.select('#NextButton-custom').show();
       }
     },
@@ -3727,7 +3741,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (420 lines) ===
+// === main.js (438 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -4043,6 +4057,12 @@ var VideoRecorderApp = (function() {
       jQuery(function() {
         Utils.Logger.info('VideoRecorderApp', 'Setting up initial modal flow');
 
+        // DEBUG: Check Next button state BEFORE any actions
+        var nextBtn = jQuery('#NextButton-custom');
+        var config = GlobalRegistry.getConfig();
+        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - Question: ' + config.questionName);
+        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - Before hide: exists=' + nextBtn.length + ', visible=' + nextBtn.is(':visible') + ', display=' + nextBtn.css('display'));
+
         // CRITICAL: Close any lingering modals from previous question
         // This prevents VQ1's success modal from appearing on VQ2's page
         // when VQ1's delayed onSaveOk callback fires after navigation
@@ -4052,10 +4072,22 @@ var VideoRecorderApp = (function() {
         jQuery('#SkinContent #Buttons').hide();
         jQuery('#NextButton-custom').hide();
 
+        // DEBUG: Check Next button state AFTER hide
+        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After hide: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+
         var modalManager = GlobalRegistry.get('modalManager');
         if (modalManager) {
           modalManager.showPermissions();
         }
+
+        // DEBUG: Set up a delayed check to see if something shows the button later
+        setTimeout(function() {
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 500ms: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+        }, 500);
+
+        setTimeout(function() {
+          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 2000ms: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
+        }, 2000);
       });
 
       Utils.Logger.info('VideoRecorderApp', 'Modal flow configured');

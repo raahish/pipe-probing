@@ -235,6 +235,9 @@ var ElementController = (function() {
     setConversationCompleteState: function() {
       Utils.Logger.info('ElementController', 'Setting conversation complete state');
 
+      // DEBUG: Log question context
+      Utils.Logger.info('ElementController', '🔴 DEBUG: setConversationCompleteState called for question: ' + this.questionName);
+
       // Ensure we have fresh element references
       var menu = this.elements.menu;
       if (!menu || menu.length === 0) {
@@ -253,6 +256,7 @@ var ElementController = (function() {
       this.hideElement('nativePlayButton');
       
       // Show the Next Question button
+      Utils.Logger.info('ElementController', '🔴 DEBUG: About to show NextButton-custom for question: ' + this.questionName);
       Utils.DOM.select('#NextButton-custom').show();
       Utils.Logger.info('ElementController', 'Next Question button shown for conversation completion');
     },

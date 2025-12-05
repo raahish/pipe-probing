@@ -121,6 +121,8 @@ var Validation = (function() {
         Utils.Logger.info('Validation', 'Conversation detected - Next button will be handled by ElementController');
       } else {
         // For regular recordings, show Next button immediately
+        // DEBUG: Log question context
+        Utils.Logger.info('Validation', '🔴 DEBUG: About to show NextButton-custom for regular recording, question: ' + config.questionName);
         Utils.DOM.select('#NextButton-custom').show();
         Utils.Logger.info('Validation', 'Regular recording - showing Next button immediately');
       }
@@ -188,6 +190,8 @@ var Validation = (function() {
       if (config.validationDetails.hasOwnProperty('required') && config.validationDetails.required) {
         Utils.DOM.select('#NextButton-custom').hide();
       } else {
+        // DEBUG: Log when showing via skipValidation
+        Utils.Logger.info('Validation', '🔴 DEBUG: About to show NextButton-custom via skipValidation for question: ' + config.questionName);
         Utils.DOM.select('#NextButton-custom').show();
       }
     },

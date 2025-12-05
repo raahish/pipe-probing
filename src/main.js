@@ -332,6 +332,40 @@ var VideoRecorderApp = (function() {
         // DEBUG: Check Next button state AFTER hide
         Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After hide: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
 
+        // DEBUG: Set up MutationObserver to catch EXACTLY what changes the button
+        var nextBtnElement = document.getElementById('NextButton-custom');
+        if (nextBtnElement && typeof MutationObserver !== 'undefined') {
+          var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+              if (mutation.type === 'attributes') {
+                var currentDisplay = nextBtnElement.style.display;
+                var isVisible = currentDisplay !== 'none' && currentDisplay !== '';
+                Utils.Logger.info('VideoRecorderApp', '🚨 MUTATION DETECTED on NextButton-custom!');
+                Utils.Logger.info('VideoRecorderApp', '🚨 Attribute changed: ' + mutation.attributeName);
+                Utils.Logger.info('VideoRecorderApp', '🚨 New display value: "' + currentDisplay + '"');
+                Utils.Logger.info('VideoRecorderApp', '🚨 Button now visible: ' + isVisible);
+                // Log stack trace to find the culprit
+                try {
+                  throw new Error('Stack trace for button mutation');
+                } catch (e) {
+                  Utils.Logger.info('VideoRecorderApp', '🚨 Stack trace: ' + e.stack);
+                }
+              }
+            });
+          });
+          observer.observe(nextBtnElement, { 
+            attributes: true, 
+            attributeFilter: ['style', 'class'] 
+          });
+          Utils.Logger.info('VideoRecorderApp', '🔍 MutationObserver attached to NextButton-custom');
+          
+          // Auto-disconnect after 10 seconds to avoid memory leaks
+          setTimeout(function() {
+            observer.disconnect();
+            Utils.Logger.info('VideoRecorderApp', '🔍 MutationObserver disconnected after 10s');
+          }, 10000);
+        }
+
         var modalManager = GlobalRegistry.get('modalManager');
         if (modalManager) {
           modalManager.showPermissions();

@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-12-05T02:33:35.739Z
+// Generated: 2025-12-05T02:44:31.579Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -2454,7 +2454,7 @@ var PipeIntegration = (function() {
 })();
 
 
-// === transcription.js (258 lines) ===
+// === transcription.js (270 lines) ===
 // Transcription Service - DeepGram WebSocket integration
 // No template literals used - only string concatenation
 
@@ -2565,9 +2565,11 @@ var TranscriptionService = (function() {
           }, 8000); // Send every 8 seconds
 
           // Start MediaRecorder when WebSocket is ready
-          var timeslice = 1000;
+          // Using 300ms timeslice for faster audio delivery to DeepGram
+          // This reduces the delay between user speech and transcript availability
+          var timeslice = 300;
           mediaRecorder.start(timeslice);
-          Utils.Logger.info('TranscriptionService', 'MediaRecorder started for segment');
+          Utils.Logger.info('TranscriptionService', 'MediaRecorder started for segment (timeslice: ' + timeslice + 'ms)');
         };
       }
     },
@@ -2635,7 +2637,17 @@ var TranscriptionService = (function() {
       }
     },
 
-    // Stop transcription
+    // Stop only the MediaRecorder (keep WebSocket open to receive final transcripts)
+    stopRecording: function() {
+      Utils.Logger.info('TranscriptionService', 'Stopping MediaRecorder only (keeping WebSocket open for final transcripts)');
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        Utils.Logger.info('TranscriptionService', 'MediaRecorder stopped');
+      }
+    },
+
+    // Stop transcription completely (MediaRecorder + WebSocket)
     stop: function() {
       Utils.Logger.info('TranscriptionService', 'Stopping transcription service');
 
@@ -2938,7 +2950,7 @@ var Validation = (function() {
 })();
 
 
-// === conversation-manager.js (501 lines) ===
+// === conversation-manager.js (513 lines) ===
 // Conversation Manager - AI-driven interview flow management
 // No template literals used - only string concatenation
 
@@ -3175,34 +3187,46 @@ var ConversationManager = (function() {
         return;
       }
 
-      // CRITICAL: Stop transcription for this segment
+      // Step 1: Stop MediaRecorder only (keep WebSocket open for final transcripts)
       var transcriptionService = GlobalRegistry.get('transcriptionService');
       if (transcriptionService) {
-        transcriptionService.stop();
-        Utils.Logger.info('ConversationManager', 'Transcription stopped for AI processing');
+        transcriptionService.stopRecording();
+        Utils.Logger.info('ConversationManager', 'MediaRecorder stopped, waiting for final transcripts');
       }
 
-      // Mark segment end
-      var segment = this.markSegmentEnd();
-
-      // Update UI to processing state
+      // Update UI to processing state immediately (so user sees feedback)
       var elementController = GlobalRegistry.get('elementController');
       if (elementController) {
         elementController.showProcessingState();
       }
 
-      // Mark AI processing start
-      this.markAIProcessingStart();
+      // Step 2: Wait 400ms for final transcripts from DeepGram, then continue
+      var self = this;
+      setTimeout(function() {
+        Utils.Logger.info('ConversationManager', 'Transcript wait complete, proceeding with AI processing');
 
-      // Check if we should continue
-      if (!this.shouldContinueProbing()) {
-        Utils.Logger.info('ConversationManager', 'Max probes reached, ending conversation');
-        this.endConversation();
-        return;
-      }
+        // Now close WebSocket completely
+        if (transcriptionService) {
+          transcriptionService.stop();
+          Utils.Logger.info('ConversationManager', 'Transcription stopped for AI processing');
+        }
 
-      // Get AI response
-      this.processWithAI();
+        // Mark segment end (now we have complete transcript)
+        var segment = self.markSegmentEnd();
+
+        // Mark AI processing start
+        self.markAIProcessingStart();
+
+        // Check if we should continue
+        if (!self.shouldContinueProbing()) {
+          Utils.Logger.info('ConversationManager', 'Max probes reached, ending conversation');
+          self.endConversation();
+          return;
+        }
+
+        // Get AI response
+        self.processWithAI();
+      }, 400);
     },
 
     // Process response with AI

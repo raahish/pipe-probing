@@ -234,34 +234,46 @@ var ConversationManager = (function() {
         return;
       }
 
-      // CRITICAL: Stop transcription for this segment
+      // Step 1: Stop MediaRecorder only (keep WebSocket open for final transcripts)
       var transcriptionService = GlobalRegistry.get('transcriptionService');
       if (transcriptionService) {
-        transcriptionService.stop();
-        Utils.Logger.info('ConversationManager', 'Transcription stopped for AI processing');
+        transcriptionService.stopRecording();
+        Utils.Logger.info('ConversationManager', 'MediaRecorder stopped, waiting for final transcripts');
       }
 
-      // Mark segment end
-      var segment = this.markSegmentEnd();
-
-      // Update UI to processing state
+      // Update UI to processing state immediately (so user sees feedback)
       var elementController = GlobalRegistry.get('elementController');
       if (elementController) {
         elementController.showProcessingState();
       }
 
-      // Mark AI processing start
-      this.markAIProcessingStart();
+      // Step 2: Wait 400ms for final transcripts from DeepGram, then continue
+      var self = this;
+      setTimeout(function() {
+        Utils.Logger.info('ConversationManager', 'Transcript wait complete, proceeding with AI processing');
 
-      // Check if we should continue
-      if (!this.shouldContinueProbing()) {
-        Utils.Logger.info('ConversationManager', 'Max probes reached, ending conversation');
-        this.endConversation();
-        return;
-      }
+        // Now close WebSocket completely
+        if (transcriptionService) {
+          transcriptionService.stop();
+          Utils.Logger.info('ConversationManager', 'Transcription stopped for AI processing');
+        }
 
-      // Get AI response
-      this.processWithAI();
+        // Mark segment end (now we have complete transcript)
+        var segment = self.markSegmentEnd();
+
+        // Mark AI processing start
+        self.markAIProcessingStart();
+
+        // Check if we should continue
+        if (!self.shouldContinueProbing()) {
+          Utils.Logger.info('ConversationManager', 'Max probes reached, ending conversation');
+          self.endConversation();
+          return;
+        }
+
+        // Get AI response
+        self.processWithAI();
+      }, 400);
     },
 
     // Process response with AI

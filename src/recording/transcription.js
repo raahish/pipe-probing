@@ -108,9 +108,11 @@ var TranscriptionService = (function() {
           }, 8000); // Send every 8 seconds
 
           // Start MediaRecorder when WebSocket is ready
-          var timeslice = 1000;
+          // Using 300ms timeslice for faster audio delivery to DeepGram
+          // This reduces the delay between user speech and transcript availability
+          var timeslice = 300;
           mediaRecorder.start(timeslice);
-          Utils.Logger.info('TranscriptionService', 'MediaRecorder started for segment');
+          Utils.Logger.info('TranscriptionService', 'MediaRecorder started for segment (timeslice: ' + timeslice + 'ms)');
         };
       }
     },
@@ -178,7 +180,17 @@ var TranscriptionService = (function() {
       }
     },
 
-    // Stop transcription
+    // Stop only the MediaRecorder (keep WebSocket open to receive final transcripts)
+    stopRecording: function() {
+      Utils.Logger.info('TranscriptionService', 'Stopping MediaRecorder only (keeping WebSocket open for final transcripts)');
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        Utils.Logger.info('TranscriptionService', 'MediaRecorder stopped');
+      }
+    },
+
+    // Stop transcription completely (MediaRecorder + WebSocket)
     stop: function() {
       Utils.Logger.info('TranscriptionService', 'Stopping transcription service');
 

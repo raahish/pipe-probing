@@ -172,6 +172,7 @@ var Validation = (function() {
         clickClose: true,
         showClose: true,
         onClose: function() {
+          Utils.Logger.info('Validation', '🔴 DEBUG: Validation success modal onClose callback fired');
           Utils.DOM.select('#modal-buttons').hide();
           if (elementController) {
             elementController.setReadyToRecordWithVideoState();

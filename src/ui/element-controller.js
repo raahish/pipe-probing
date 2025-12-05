@@ -139,6 +139,7 @@ var ElementController = (function() {
     },
 
     setReadyToRecordWithVideoState: function() {
+      Utils.Logger.info('ElementController', '🔴 DEBUG: setReadyToRecordWithVideoState called for question: ' + this.questionName);
       Utils.Logger.info('ElementController', 'Setting ready-to-record-with-video state');
 
       this.setReadyToRecordState();
@@ -503,6 +504,7 @@ var ElementController = (function() {
         clickClose: true,
         showClose: true,
         onClose: function() {
+          Utils.Logger.info('ElementController', '🔴 DEBUG: showSuccessModal onClose callback fired');
           Utils.DOM.select('#modal-buttons').hide();
           ElementController.setReadyToRecordWithVideoState();
         }

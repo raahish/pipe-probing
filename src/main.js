@@ -297,6 +297,7 @@ var VideoRecorderApp = (function() {
       };
 
       window.backToCamera = function() {
+        Utils.Logger.info('VideoRecorderApp', '🔴 DEBUG: backToCamera called, will call setReadyToRecordWithVideoState');
         Utils.Logger.info('VideoRecorderApp', 'Back to camera requested');
         var elementController = GlobalRegistry.get('elementController');
         if (elementController) {

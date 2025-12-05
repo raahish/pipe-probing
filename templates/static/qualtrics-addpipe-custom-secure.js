@@ -1,6 +1,6 @@
 // ===============================================
 // QUALTRICS MODULAR VIDEO RECORDER BUNDLE
-// Generated: 2025-12-05T01:11:05.751Z
+// Generated: 2025-12-05T02:11:53.809Z
 // Total modules: 13
 // DO NOT EDIT - Generated from src/ directory
 // ===============================================
@@ -957,7 +957,7 @@ var EventHandler = (function() {
 })();
 
 
-// === element-controller.js (590 lines) ===
+// === element-controller.js (592 lines) ===
 // Element Controller - DOM element management and UI state control
 // No template literals used - only string concatenation
 
@@ -1099,6 +1099,7 @@ var ElementController = (function() {
     },
 
     setReadyToRecordWithVideoState: function() {
+      Utils.Logger.info('ElementController', '🔴 DEBUG: setReadyToRecordWithVideoState called for question: ' + this.questionName);
       Utils.Logger.info('ElementController', 'Setting ready-to-record-with-video state');
 
       this.setReadyToRecordState();
@@ -1463,6 +1464,7 @@ var ElementController = (function() {
         clickClose: true,
         showClose: true,
         onClose: function() {
+          Utils.Logger.info('ElementController', '🔴 DEBUG: showSuccessModal onClose callback fired');
           Utils.DOM.select('#modal-buttons').hide();
           ElementController.setReadyToRecordWithVideoState();
         }
@@ -1734,7 +1736,7 @@ var TimerManager = (function() {
 })();
 
 
-// === modal-manager.js (231 lines) ===
+// === modal-manager.js (233 lines) ===
 // Modal Manager - Modal dialog management and flow control
 // No template literals used - only string concatenation
 
@@ -1819,6 +1821,7 @@ var ModalManager = (function() {
         clickClose: true,
         showClose: true,
         onClose: function() {
+          Utils.Logger.info('ModalManager', '🔴 DEBUG: showError modal onClose callback fired');
           Utils.DOM.select('#modal-buttons').hide();
           var elementController = GlobalRegistry.get('elementController');
           if (elementController) {
@@ -1927,6 +1930,7 @@ var ModalManager = (function() {
       jQuery.modal.close();
 
       // Use element controller to set proper state
+      Utils.Logger.info('ModalManager', '🔴 DEBUG: resetToRecordingReady calling setReadyToRecordWithVideoState');
       var elementController = GlobalRegistry.get('elementController');
       if (elementController) {
         elementController.setReadyToRecordWithVideoState();
@@ -2724,7 +2728,7 @@ var TranscriptionService = (function() {
 })();
 
 
-// === validation.js (226 lines) ===
+// === validation.js (227 lines) ===
 // Validation - Video/audio validation and error handling
 // No template literals used - only string concatenation
 
@@ -2899,6 +2903,7 @@ var Validation = (function() {
         clickClose: true,
         showClose: true,
         onClose: function() {
+          Utils.Logger.info('Validation', '🔴 DEBUG: Validation success modal onClose callback fired');
           Utils.DOM.select('#modal-buttons').hide();
           if (elementController) {
             elementController.setReadyToRecordWithVideoState();
@@ -3741,7 +3746,7 @@ var AIService = (function() {
 })();
 
 
-// === main.js (438 lines) ===
+// === main.js (439 lines) ===
 // Main Application Orchestrator - Coordinates all modules
 // No template literals used - only string concatenation
 
@@ -4041,6 +4046,7 @@ var VideoRecorderApp = (function() {
       };
 
       window.backToCamera = function() {
+        Utils.Logger.info('VideoRecorderApp', '🔴 DEBUG: backToCamera called, will call setReadyToRecordWithVideoState');
         Utils.Logger.info('VideoRecorderApp', 'Back to camera requested');
         var elementController = GlobalRegistry.get('elementController');
         if (elementController) {

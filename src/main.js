@@ -297,7 +297,6 @@ var VideoRecorderApp = (function() {
       };
 
       window.backToCamera = function() {
-        Utils.Logger.info('VideoRecorderApp', '🔴 DEBUG: backToCamera called, will call setReadyToRecordWithVideoState');
         Utils.Logger.info('VideoRecorderApp', 'Back to camera requested');
         var elementController = GlobalRegistry.get('elementController');
         if (elementController) {
@@ -314,92 +313,17 @@ var VideoRecorderApp = (function() {
       jQuery(function() {
         Utils.Logger.info('VideoRecorderApp', 'Setting up initial modal flow');
 
-        // DEBUG: Check Next button state BEFORE any actions
-        var nextBtn = jQuery('#NextButton-custom');
-        var config = GlobalRegistry.getConfig();
-        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - Question: ' + config.questionName);
-        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - Before hide: exists=' + nextBtn.length + ', visible=' + nextBtn.is(':visible') + ', display=' + nextBtn.css('display'));
-
-        // CRITICAL: Close any lingering modals from previous question
-        // This prevents VQ1's success modal from appearing on VQ2's page
-        // when VQ1's delayed onSaveOk callback fires after navigation
+        // Close any lingering modals from previous question
         jQuery.modal.close();
         jQuery('#modal-buttons').hide();
 
         jQuery('#SkinContent #Buttons').hide();
         jQuery('#NextButton-custom').hide();
 
-        // DEBUG: Check Next button state AFTER hide
-        Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After hide: visible=' + jQuery('#NextButton-custom').is(':visible') + ', display=' + jQuery('#NextButton-custom').css('display'));
-
-        // DEBUG: Set up MutationObserver to catch EXACTLY what changes the button
-        var nextBtnElement = document.getElementById('NextButton-custom');
-        var originalElementRef = nextBtnElement; // Store reference to detect element replacement
-        
-        if (nextBtnElement && typeof MutationObserver !== 'undefined') {
-          // Log the initial state
-          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG - Initial button inline style: "' + nextBtnElement.style.cssText + '"');
-          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG - Initial button computed display: "' + window.getComputedStyle(nextBtnElement).display + '"');
-          
-          var observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-              if (mutation.type === 'attributes') {
-                var currentDisplay = nextBtnElement.style.display;
-                var isVisible = currentDisplay !== 'none' && currentDisplay !== '';
-                Utils.Logger.info('VideoRecorderApp', '🚨 MUTATION DETECTED on NextButton-custom!');
-                Utils.Logger.info('VideoRecorderApp', '🚨 Attribute changed: ' + mutation.attributeName);
-                Utils.Logger.info('VideoRecorderApp', '🚨 New display value: "' + currentDisplay + '"');
-                Utils.Logger.info('VideoRecorderApp', '🚨 Button now visible: ' + isVisible);
-                // Log stack trace to find the culprit
-                try {
-                  throw new Error('Stack trace for button mutation');
-                } catch (e) {
-                  Utils.Logger.info('VideoRecorderApp', '🚨 Stack trace: ' + e.stack);
-                }
-              }
-            });
-          });
-          observer.observe(nextBtnElement, { 
-            attributes: true, 
-            attributeFilter: ['style', 'class'] 
-          });
-          Utils.Logger.info('VideoRecorderApp', '🔍 MutationObserver attached to NextButton-custom');
-          
-          // Auto-disconnect after 10 seconds to avoid memory leaks
-          setTimeout(function() {
-            observer.disconnect();
-            Utils.Logger.info('VideoRecorderApp', '🔍 MutationObserver disconnected after 10s');
-          }, 10000);
-        }
-
         var modalManager = GlobalRegistry.get('modalManager');
         if (modalManager) {
           modalManager.showPermissions();
         }
-
-        // DEBUG: Set up a delayed check to see if something shows the button later
-        setTimeout(function() {
-          var currentBtn = document.getElementById('NextButton-custom');
-          var isSameElement = (currentBtn === originalElementRef);
-          var inlineStyle = currentBtn ? currentBtn.style.cssText : 'N/A';
-          var computedDisplay = currentBtn ? window.getComputedStyle(currentBtn).display : 'N/A';
-          
-          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 500ms:');
-          Utils.Logger.info('VideoRecorderApp', '🔍   jQuery visible: ' + jQuery('#NextButton-custom').is(':visible'));
-          Utils.Logger.info('VideoRecorderApp', '🔍   jQuery display: ' + jQuery('#NextButton-custom').css('display'));
-          Utils.Logger.info('VideoRecorderApp', '🔍   Inline style: "' + inlineStyle + '"');
-          Utils.Logger.info('VideoRecorderApp', '🔍   Computed display: "' + computedDisplay + '"');
-          Utils.Logger.info('VideoRecorderApp', '🔍   Same element as before? ' + isSameElement);
-          Utils.Logger.info('VideoRecorderApp', '🔍   Element in DOM? ' + (currentBtn !== null));
-        }, 500);
-
-        setTimeout(function() {
-          var currentBtn = document.getElementById('NextButton-custom');
-          var isSameElement = (currentBtn === originalElementRef);
-          Utils.Logger.info('VideoRecorderApp', '🔍 DEBUG NEXT BUTTON - After 2000ms:');
-          Utils.Logger.info('VideoRecorderApp', '🔍   jQuery visible: ' + jQuery('#NextButton-custom').is(':visible'));
-          Utils.Logger.info('VideoRecorderApp', '🔍   Same element as before? ' + isSameElement);
-        }, 2000);
       });
 
       Utils.Logger.info('VideoRecorderApp', 'Modal flow configured');

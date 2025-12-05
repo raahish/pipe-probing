@@ -305,9 +305,6 @@ var PipeIntegration = (function() {
       ) {
         Utils.Logger.info('PipeIntegration', 'Video upload success');
 
-        // DEBUG: Log question context when this fires
-        Utils.Logger.info('PipeIntegration', '🔴 DEBUG: onVideoUploadSuccess called for question: ' + questionName + ', recorderId: ' + recorderId);
-
         // Clean up conversation if active
         var conversationManager = GlobalRegistry.get('conversationManager');
         if (conversationManager) {
@@ -316,9 +313,6 @@ var PipeIntegration = (function() {
 
         var transcript_array = (window.global_transcript || '').split(' ');
         Utils.DOM.select('#' + recorderId).attr('style', 'height:120px !important');
-        
-        // DEBUG: Log before showing
-        Utils.Logger.info('PipeIntegration', '🔴 DEBUG: About to show NextButton-custom from onVideoUploadSuccess for question: ' + questionName);
         Utils.DOM.select('#NextButton-custom').show();
       };
 

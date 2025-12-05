@@ -82,7 +82,6 @@ var ModalManager = (function() {
         clickClose: true,
         showClose: true,
         onClose: function() {
-          Utils.Logger.info('ModalManager', '🔴 DEBUG: showError modal onClose callback fired');
           Utils.DOM.select('#modal-buttons').hide();
           var elementController = GlobalRegistry.get('elementController');
           if (elementController) {
@@ -191,7 +190,6 @@ var ModalManager = (function() {
       jQuery.modal.close();
 
       // Use element controller to set proper state
-      Utils.Logger.info('ModalManager', '🔴 DEBUG: resetToRecordingReady calling setReadyToRecordWithVideoState');
       var elementController = GlobalRegistry.get('elementController');
       if (elementController) {
         elementController.setReadyToRecordWithVideoState();
